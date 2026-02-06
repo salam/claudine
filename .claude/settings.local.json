@@ -12,7 +12,10 @@
       "Bash(npm run:*)",
       "Bash(npx svelte-check:*)",
       "Bash(npx tsc:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "WebFetch(domain:platform.openai.com)",
+      "Bash(md5:*)",
+      "Bash(code --list-extensions:*)"
     ]
   }
 }

@@ -74,6 +74,7 @@ export interface Conversation {
   isInterrupted: boolean;
   hasQuestion: boolean;
   icon?: string;
+  isDraft?: boolean;
   originalTitle?: string;
   originalDescription?: string;
   createdAt: Date | string;
@@ -84,6 +85,7 @@ export interface ClaudineSettings {
   imageGenerationApi: 'openai' | 'stability' | 'none';
   claudeCodePath: string;
   enableSummarization: boolean;
+  hasApiKey: boolean;
 }
 
 export type ExtensionMessage =
@@ -92,4 +94,5 @@ export type ExtensionMessage =
   | { type: 'conversationUpdated'; conversation: Conversation }
   | { type: 'focusedConversation'; conversationId: string | null }
   | { type: 'searchResults'; query: string; ids: string[] }
+  | { type: 'draftsLoaded'; drafts: Array<{ id: string; title: string }> }
   | { type: 'error'; message: string };

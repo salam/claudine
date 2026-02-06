@@ -6,7 +6,7 @@
   import {
     settings, addError, setConversations, upsertConversation,
     focusedConversationId, searchQuery, searchMode, compactView,
-    extensionSearchMatchIds
+    extensionSearchMatchIds, loadDraftsFromExtension
   } from './stores/conversations';
 
   let searchOpen = false;
@@ -56,6 +56,9 @@
         break;
       case 'searchResults':
         extensionSearchMatchIds.set(new Set(message.ids));
+        break;
+      case 'draftsLoaded':
+        loadDraftsFromExtension(message.drafts);
         break;
       case 'error':
         addError(message.message);
@@ -177,7 +180,7 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     background-color: var(--vscode-editor-background, #1e1e1e);
     color: var(--vscode-editor-foreground, #cccccc);
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.5;
   }
   .layout { display: flex; height: 100vh; }
@@ -201,11 +204,11 @@
     border-bottom: 1px solid var(--vscode-panel-border, #404040);
     width: 100%;
   }
-  .brand-icon { font-size: 14px; opacity: 0.8; line-height: 1; }
+  .brand-icon { font-size: 13px; opacity: 0.8; line-height: 1; }
   .brand-text {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 600;
     letter-spacing: 1px;
     text-transform: uppercase;
@@ -258,13 +261,13 @@
     border-radius: 3px;
     padding: 3px 8px;
     color: var(--vscode-input-foreground, #cccccc);
-    font-size: 12px;
+    font-size: 11px;
     outline: none;
     font-family: inherit;
   }
   .search-bar input:focus { border-color: var(--vscode-focusBorder, #007acc); }
   .mode-toggle {
-    font-size: 10px;
+    font-size: 9px;
     padding: 2px 6px;
     border-radius: 3px;
     border: 1px solid var(--vscode-panel-border, #404040);
@@ -306,15 +309,15 @@
     min-width: 200px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.4);
   }
-  .about-icon { font-size: 32px; margin-bottom: 8px; }
-  .about-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+  .about-icon { font-size: 28px; margin-bottom: 8px; }
+  .about-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
   .about-links { margin-bottom: 8px; }
   .about-links a, .about-credit a {
     color: var(--vscode-textLink-foreground, #3794ff);
     text-decoration: none;
   }
   .about-links a:hover, .about-credit a:hover { text-decoration: underline; }
-  .about-credit { font-size: 12px; color: var(--vscode-descriptionForeground, #8c8c8c); margin-bottom: 16px; }
+  .about-credit { font-size: 11px; color: var(--vscode-descriptionForeground, #8c8c8c); margin-bottom: 16px; }
   .about-close {
     padding: 4px 16px;
     border-radius: 4px;
@@ -322,7 +325,7 @@
     background: transparent;
     color: var(--vscode-foreground, #cccccc);
     cursor: pointer;
-    font-size: 12px;
+    font-size: 11px;
   }
   .about-close:hover { background: var(--vscode-toolbar-hoverBackground, #383838); }
 </style>

@@ -17,6 +17,11 @@ export class ClaudeCodeWatcher {
   private _excludedWorkspacePath: string | undefined;
   private _iconPending = new Set<string>();
 
+  /** Clear the pending-icon set so regeneration can pick up all conversations. */
+  public clearPendingIcons() {
+    this._iconPending.clear();
+  }
+
   constructor(private readonly _stateManager: StateManager, context?: vscode.ExtensionContext, imageGenerator?: ImageGenerator) {
     this._parser = new ConversationParser();
     this._summaryService = new SummaryService();

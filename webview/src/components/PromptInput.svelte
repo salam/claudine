@@ -84,7 +84,7 @@
     border: none;
     outline: none;
     color: var(--vscode-input-foreground, #cccccc);
-    font-size: 11px;
+    font-size: 10px;
     font-family: inherit;
     min-width: 0;
   }

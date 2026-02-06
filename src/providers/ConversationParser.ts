@@ -268,8 +268,10 @@ export class ConversationParser {
       return 'in-progress';
     }
 
-    // Last message from assistant with tool uses = might be in progress
+    // Last message from assistant with tool uses
     if (lastMessage.role === 'assistant' && lastMessage.toolUses.length > 0) {
+      // Recently active → likely waiting for permission approval
+      if (this.isRecentlyActive(messages)) return 'needs-input';
       return 'in-progress';
     }
 
@@ -340,21 +342,28 @@ export class ConversationParser {
     if (lastMsg.role === 'user' && /interrupted by user|request interrupted|\[interrupted\]/i.test(lastMsg.textContent)) {
       return true;
     }
-    // Last message is assistant with tool_use but no user response → session was
-    // interrupted/abandoned (user pressed Escape or closed the terminal).
+    // Last message is assistant with tool_use but no user response.
+    // If recently active → waiting for permission (not interrupted).
+    // If stale → session was interrupted/abandoned.
     if (lastMsg.role === 'assistant' && lastMsg.toolUses.length > 0 && !lastMsg.hasQuestion) {
-      return true;
+      return !this.isRecentlyActive(messages);
     }
     return false;
   }
 
-  /** Check if the last assistant message asks an explicit question. */
+  /** Check if the last assistant message asks an explicit question or awaits permission. */
   private hasRecentQuestion(messages: ParsedMessage[]): boolean {
     // If the conversation was interrupted after the question, it's not a pending question
     if (this.hasRecentInterruption(messages)) return false;
     const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
     if (!lastAssistant) return false;
-    return lastAssistant.hasQuestion;
+    if (lastAssistant.hasQuestion) return true;
+    // Pending tool_use on a recently active conversation → waiting for permission
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg.role === 'assistant' && lastMsg.toolUses.length > 0 && this.isRecentlyActive(messages)) {
+      return true;
+    }
+    return false;
   }
 
   private isRecentlyActive(messages: ParsedMessage[]): boolean {

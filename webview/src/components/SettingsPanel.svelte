@@ -57,7 +57,7 @@
             type="password"
             bind:value={apiKeyValue}
             on:keydown={handleKeyKeydown}
-            placeholder={$settings.imageGenerationApi === 'openai' ? 'sk-...' : 'sk-...'}
+            placeholder={$settings.hasApiKey ? '••••••••  (key saved)' : 'sk-...'}
           />
           <button class="save-btn" class:saved on:click={saveApiKey}>
             {saved ? 'Saved' : 'Save'}
@@ -73,7 +73,7 @@
       </div>
     {/if}
 
-    <button class="regen-btn" on:click={regenerateIcons}>Regenerate Icons</button>
+    <button class="regen-btn" on:click={regenerateIcons}>Regenerate Thumbnails</button>
   </div>
 {/if}
 
@@ -87,7 +87,7 @@
     gap: 8px;
   }
   .settings-header {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -99,7 +99,7 @@
     gap: 3px;
   }
   .field-label {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--vscode-descriptionForeground, #8c8c8c);
   }
   .field select,
@@ -109,7 +109,7 @@
     border-radius: 3px;
     padding: 4px 8px;
     color: var(--vscode-input-foreground, #cccccc);
-    font-size: 12px;
+    font-size: 11px;
     font-family: inherit;
     outline: none;
   }
@@ -128,7 +128,7 @@
     border: 1px solid var(--vscode-panel-border, #404040);
     background: var(--vscode-button-secondaryBackground, #3a3d41);
     color: var(--vscode-button-secondaryForeground, #cccccc);
-    font-size: 11px;
+    font-size: 10px;
     cursor: pointer;
     white-space: nowrap;
   }
@@ -139,7 +139,7 @@
     border-color: transparent;
   }
   .field-hint {
-    font-size: 10px;
+    font-size: 9px;
     color: var(--vscode-descriptionForeground, #8c8c8c);
     opacity: 0.8;
   }
@@ -149,7 +149,7 @@
     border: 1px solid var(--vscode-panel-border, #404040);
     background: var(--vscode-button-secondaryBackground, #3a3d41);
     color: var(--vscode-button-secondaryForeground, #cccccc);
-    font-size: 11px;
+    font-size: 10px;
     cursor: pointer;
     align-self: flex-start;
   }

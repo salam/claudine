@@ -68,6 +68,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       case 'ready':
         this.refresh();
         this.updateSettings();
+        this.loadDrafts();
         break;
 
       case 'sendPrompt':
@@ -83,6 +84,9 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
         break;
 
       case 'moveConversation':
+        if (message.newStatus === 'done' || message.newStatus === 'cancelled') {
+          this.interruptConversation(message.conversationId);
+        }
         this._stateManager.moveConversation(message.conversationId, message.newStatus);
         break;
 
@@ -118,15 +122,25 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       }
 
       case 'regenerateIcons':
-        this._stateManager.clearAllIcons();
-        this._claudeCodeWatcher.refresh();
+        this._stateManager.clearAllIcons().then(() => {
+          this._claudeCodeWatcher.clearPendingIcons();
+          this._claudeCodeWatcher.refresh();
+        });
+        break;
+
+      case 'quickIdea':
+        this.startNewConversation(message.prompt);
+        break;
+
+      case 'saveDrafts':
+        this._stateManager.saveDrafts(message.drafts);
         break;
     }
   }
 
   /**
    * Open the Claude Code conversation in the visual editor panel.
-   * Uses the claude-vscode.editor.open command with the session ID.
+   * If an existing Claude Code editor tab is already open, focus it instead.
    */
   private async openConversation(conversationId: string) {
     const conversation = this._stateManager.getConversation(conversationId);
@@ -136,6 +150,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     }
 
     try {
+      if (await this.focusExistingClaudeTab()) return;
       await vscode.commands.executeCommand('claude-vscode.editor.open', conversationId);
       this.focusEditorWithRetries();
     } catch {
@@ -153,12 +168,93 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     }
 
     try {
+      // Always open with prompt — the command handles routing to the right session
       await vscode.commands.executeCommand('claude-vscode.editor.open', conversationId, prompt);
       this.focusEditorWithRetries();
     } catch {
       vscode.window.showWarningMessage(
         'Could not send prompt to Claude Code. Is the Claude Code extension installed?'
       );
+    }
+  }
+
+  /**
+   * Start a new Claude Code conversation with the given prompt.
+   * Opens the visual editor and sends the prompt as the first message.
+   */
+  private async startNewConversation(prompt: string) {
+    try {
+      // Open a new Claude Code editor (no session ID = new conversation)
+      await vscode.commands.executeCommand('claude-vscode.editor.open', undefined, prompt);
+      this.focusEditorWithRetries();
+    } catch {
+      vscode.window.showWarningMessage(
+        'Could not start a new Claude Code conversation. Is the Claude Code extension installed?'
+      );
+    }
+  }
+
+  /**
+   * Search all open editor tabs for an existing Claude Code visual editor.
+   * If found, activate it and return true. Otherwise return false.
+   */
+  private async focusExistingClaudeTab(): Promise<boolean> {
+    for (const group of vscode.window.tabGroups.all) {
+      for (let i = 0; i < group.tabs.length; i++) {
+        const input = group.tabs[i].input;
+        if (
+          input instanceof vscode.TabInputWebview &&
+          /claude/i.test(input.viewType) &&
+          !/claudine/i.test(input.viewType)
+        ) {
+          // Focus the editor group containing the tab
+          const focusCmds = [
+            'workbench.action.focusFirstEditorGroup',
+            'workbench.action.focusSecondEditorGroup',
+            'workbench.action.focusThirdEditorGroup',
+          ];
+          const groupIdx = (group.viewColumn ?? 1) - 1;
+          if (groupIdx >= 0 && groupIdx < focusCmds.length) {
+            await vscode.commands.executeCommand(focusCmds[groupIdx]);
+          }
+          // Activate the tab by 0-based index
+          await vscode.commands.executeCommand('workbench.action.openEditorAtIndex', i);
+          this.focusEditorWithRetries();
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Interrupt a running Claude Code agent.
+   * Tries two approaches:
+   * 1. Terminal sessions: send Ctrl+C (SIGINT) to Claude Code terminals
+   * 2. Visual editor: focus the webview tab and simulate Escape
+   */
+  private async interruptConversation(conversationId: string) {
+    const conversation = this._stateManager.getConversation(conversationId);
+    if (!conversation) return;
+
+    // Only interrupt if the conversation was actively running
+    if (conversation.status !== 'in-progress' && conversation.status !== 'needs-input') return;
+
+    // 1. Terminal sessions: send Ctrl+C
+    let sentToTerminal = false;
+    for (const terminal of vscode.window.terminals) {
+      const name = terminal.name;
+      if (/claude/i.test(name) && !/claudine/i.test(name)) {
+        terminal.sendText('\x03', false);
+        sentToTerminal = true;
+      }
+    }
+
+    // 2. Visual editor: focus the Claude tab so the user can press Escape.
+    //    There is no VSCode API to send keystrokes to a webview from outside,
+    //    so we bring it to focus — the user can then hit Escape to abort.
+    if (!sentToTerminal) {
+      await this.focusExistingClaudeTab();
     }
   }
 
@@ -230,12 +326,19 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     this.sendMessage({ type: 'updateConversations', conversations });
   }
 
+  private async loadDrafts() {
+    const drafts = await this._stateManager.loadDrafts();
+    this.sendMessage({ type: 'draftsLoaded', drafts });
+  }
+
   public updateSettings() {
     const config = vscode.workspace.getConfiguration('claudine');
+    const apiKey = config.get<string>('imageGenerationApiKey', '');
     const settings: ClaudineSettings = {
       imageGenerationApi: config.get('imageGenerationApi', 'none'),
       claudeCodePath: config.get('claudeCodePath', '~/.claude'),
-      enableSummarization: config.get('enableSummarization', false)
+      enableSummarization: config.get('enableSummarization', false),
+      hasApiKey: !!apiKey
     };
     this.sendMessage({ type: 'updateSettings', settings });
   }

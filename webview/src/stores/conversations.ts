@@ -1,4 +1,5 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
+import { vscode } from '../lib/vscode';
 import type { Conversation, ConversationStatus, ClaudineSettings } from '../lib/vscode';
 
 // Main conversations store
@@ -8,7 +9,8 @@ export const conversations = writable<Conversation[]>([]);
 export const settings = writable<ClaudineSettings>({
   imageGenerationApi: 'none',
   claudeCodePath: '~/.claude',
-  enableSummarization: false
+  enableSummarization: false,
+  hasApiKey: false
 });
 
 // Error messages store
@@ -29,6 +31,63 @@ export function toggleCardCollapsed(id: string) {
     return next;
   });
 }
+
+// Draft ideas (webview-only, not backed by JSONL files)
+export const drafts = writable<Conversation[]>([]);
+
+let draftCounter = 0;
+
+function syncDraftsToExtension() {
+  const current = get(drafts);
+  vscode.postMessage({
+    type: 'saveDrafts',
+    drafts: current.map(d => ({ id: d.id, title: d.title }))
+  });
+}
+
+function makeDraftConversation(id: string, title: string): Conversation {
+  return {
+    id, title,
+    description: '',
+    category: 'task',
+    status: 'todo',
+    lastMessage: '',
+    agents: [],
+    hasError: false,
+    isInterrupted: false,
+    hasQuestion: false,
+    isDraft: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function addDraft(title: string) {
+  const draft = makeDraftConversation(`draft-${Date.now()}-${++draftCounter}`, title);
+  drafts.update(d => [...d, draft]);
+  syncDraftsToExtension();
+}
+
+export function removeDraft(id: string) {
+  drafts.update(d => d.filter(draft => draft.id !== id));
+  syncDraftsToExtension();
+}
+
+export function loadDraftsFromExtension(items: Array<{ id: string; title: string }>) {
+  drafts.set(items.map(item => makeDraftConversation(item.id, item.title)));
+}
+
+// ID of the earliest conversation in the workspace (by createdAt)
+export const firstConversationId = derived(conversations, ($conversations) => {
+  if ($conversations.length === 0) return null;
+  let earliest = $conversations[0];
+  for (const c of $conversations) {
+    if (new Date(c.createdAt) < new Date(earliest.createdAt)) {
+      earliest = c;
+    }
+  }
+  return earliest.id;
+});
 
 // IDs returned by extension-side JSONL full-text search
 export const extensionSearchMatchIds = writable<Set<string> | null>(null);

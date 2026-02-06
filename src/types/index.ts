@@ -50,6 +50,7 @@ export type ExtensionToWebviewMessage =
   | { type: 'conversationUpdated'; conversation: Conversation }
   | { type: 'focusedConversation'; conversationId: string | null }
   | { type: 'searchResults'; query: string; ids: string[] }
+  | { type: 'draftsLoaded'; drafts: Array<{ id: string; title: string }> }
   | { type: 'error'; message: string };
 
 export type WebviewToExtensionMessage =
@@ -62,12 +63,15 @@ export type WebviewToExtensionMessage =
   | { type: 'updateSetting'; key: string; value: unknown }
   | { type: 'regenerateIcons' }
   | { type: 'search'; query: string }
+  | { type: 'quickIdea'; prompt: string }
+  | { type: 'saveDrafts'; drafts: Array<{ id: string; title: string }> }
   | { type: 'ready' };
 
 export interface ClaudineSettings {
   imageGenerationApi: 'openai' | 'stability' | 'none';
   claudeCodePath: string;
   enableSummarization: boolean;
+  hasApiKey: boolean;
 }
 
 // Claude Code data structures (based on actual file format)

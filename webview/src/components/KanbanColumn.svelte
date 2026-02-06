@@ -70,7 +70,7 @@
   }
 
   h2 {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--vscode-foreground, #cccccc);
     flex: 1;
@@ -83,7 +83,7 @@
     color: #ffffff;
     padding: 2px 8px;
     border-radius: 10px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     animation: count-pulse 2s ease-in-out infinite;
   }
@@ -98,7 +98,7 @@
     color: var(--vscode-badge-foreground, #ffffff);
     padding: 2px 8px;
     border-radius: 10px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 500;
   }
 

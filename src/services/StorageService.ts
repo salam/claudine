@@ -136,6 +136,36 @@ export class StorageService {
     return iconPath.fsPath;
   }
 
+  public async saveDrafts(drafts: Array<{ id: string; title: string }>): Promise<void> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) return;
+
+    const claudinePath = vscode.Uri.joinPath(workspaceFolder.uri, '.claudine');
+    const draftsPath = vscode.Uri.joinPath(claudinePath, 'drafts.json');
+
+    try {
+      await vscode.workspace.fs.createDirectory(claudinePath);
+    } catch {
+      // Directory might already exist
+    }
+
+    await vscode.workspace.fs.writeFile(draftsPath, Buffer.from(JSON.stringify(drafts, null, 2)));
+  }
+
+  public async loadDrafts(): Promise<Array<{ id: string; title: string }>> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) return [];
+
+    const draftsPath = vscode.Uri.joinPath(workspaceFolder.uri, '.claudine', 'drafts.json');
+
+    try {
+      const content = await vscode.workspace.fs.readFile(draftsPath);
+      return JSON.parse(content.toString());
+    } catch {
+      return [];
+    }
+  }
+
   public getWorkspaceIconPath(conversationId: string): string | undefined {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) return undefined;

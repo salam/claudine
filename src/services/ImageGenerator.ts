@@ -54,13 +54,15 @@ export class ImageGenerator {
 
   private createImagePrompt(title: string, description: string): string {
     // Create prompt for best possible thumbnail
-    const context = `${title} ${description}`.slice(0, 200);
+    const context = `${title}. ${description}`.slice(0, 1000);
 
-    return `Imagine you have to do a thumbnail for a task in a task list that is described like: ${context}.
-Suitable for a software development task icon. 
-Understandable, expressive, distinguishable and unique.
-Create the thumbnail.
-64x64 pixels.`;
+    return `Imagine you have to do a poster thumbnail for a task in a task list that is described like: ${context}.
+
+- show only one illustration and don't split-screen it into four, two. Only one.
+- Suitable for a software development task icon. 
+- Use completely different styles: photorealistic, comics from different decades or hugely different color palettes.
+- Understandable, expressive, distinguishable and unique. Different ideas.
+- 128x128 pixels.`;
   }
 
   private async generateWithOpenAI(
@@ -75,11 +77,13 @@ Create the thumbnail.
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: 'dall-e-3',
+          model: 'gpt-image-1',
           prompt: prompt,
           n: 1,
           size: '1024x1024',
-          response_format: 'b64_json'
+          quality: 'low',
+          output_format: 'webp',
+          output_compression: 80
         })
       });
 
@@ -92,7 +96,7 @@ Create the thumbnail.
       };
 
       if (data.data && data.data[0]?.b64_json) {
-        return `data:image/png;base64,${data.data[0].b64_json}`;
+        return `data:image/webp;base64,${data.data[0].b64_json}`;
       }
 
       return undefined;

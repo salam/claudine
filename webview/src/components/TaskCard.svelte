@@ -4,12 +4,15 @@
   import AgentAvatar from './AgentAvatar.svelte';
   import PromptInput from './PromptInput.svelte';
 
-  import { afterUpdate } from 'svelte';
+  import { afterUpdate, onDestroy, createEventDispatcher } from 'svelte';
+
+  const dispatch = createEventDispatcher<{ sendDraft: string; deleteDraft: string }>();
 
   export let conversation: Conversation;
   export let compact: boolean = false;
   export let focused: boolean = false;
   export let searchQuery: string = '';
+  export let isFirst: boolean = false;
 
   $: categoryDetails = getCategoryDetails(conversation.category);
   $: needsInteraction = conversation.status === 'needs-input';
@@ -32,6 +35,52 @@
   let prevFocused = false;
   let descriptionExpanded = false;
   let latestExpanded = false;
+
+  // Activity timer — counts while agents are actively working, pauses when awaiting user input
+  $: isActive = conversation.agents.some(a => a.isActive)
+    && !conversation.hasQuestion
+    && !conversation.isInterrupted
+    && conversation.status !== 'needs-input';
+  let timerInterval: ReturnType<typeof setInterval> | undefined;
+  let elapsedSeconds = 0;
+  let timerStartTime = 0;
+  let frozenElapsed: number | undefined;
+  let wasActive = false;
+
+  $: handleActiveChange(isActive);
+
+  function handleActiveChange(active: boolean) {
+    if (active === wasActive) return;
+    if (active) {
+      timerStartTime = Date.now();
+      frozenElapsed = undefined;
+      elapsedSeconds = 0;
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        elapsedSeconds = Math.floor((Date.now() - timerStartTime) / 1000);
+      }, 1000);
+    } else {
+      clearInterval(timerInterval);
+      timerInterval = undefined;
+      frozenElapsed = elapsedSeconds;
+    }
+    wasActive = active;
+  }
+
+  function formatElapsed(seconds: number): string {
+    if (seconds < 60) return `${seconds}\u2033`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (secs === 0) return `${mins}\u2032`;
+    return `${mins}\u2032\u2009${secs}\u2033`;
+  }
+
+  $: showTimer = isActive || frozenElapsed !== undefined;
+  $: timerDisplay = isActive ? formatElapsed(elapsedSeconds) : (frozenElapsed !== undefined ? formatElapsed(frozenElapsed) : '');
+
+  onDestroy(() => {
+    clearInterval(timerInterval);
+  });
 
   afterUpdate(() => {
     if (focused && !prevFocused && cardEl) {
@@ -84,7 +133,22 @@
   }
 </script>
 
-{#if compact}
+{#if conversation.isDraft}
+  <!-- Draft view: just the prompt text + send button -->
+  <div class="task-card draft">
+    <div class="drag-handle" title="Drag to move">
+      <svg viewBox="0 0 6 10" fill="currentColor"><circle cx="1.5" cy="1.5" r="1"/><circle cx="4.5" cy="1.5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="4.5" cy="5" r="1"/><circle cx="1.5" cy="8.5" r="1"/><circle cx="4.5" cy="8.5" r="1"/></svg>
+    </div>
+    <span class="draft-prompt">{conversation.title}</span>
+    <button class="draft-delete" on:click={() => dispatch('deleteDraft', conversation.id)} title="Delete idea">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+    </button>
+    <button class="draft-send" on:click={() => dispatch('sendDraft', conversation.id)} title="Start conversation">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 15l-.7-.7L11.6 10H2V9h9.6L7.3 4.7 8 4l6 6-6 5z" transform="rotate(-90 8 9.5)"/></svg>
+    </button>
+  </div>
+
+{:else if compact}
   <!-- Compact view: single row -->
   <div
     bind:this={cardEl}
@@ -108,14 +172,19 @@
         <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 3.5C4.136 3.5 1.04 6.074.13 7.625a.75.75 0 0 0 0 .75C1.04 9.926 4.136 12.5 8 12.5s6.96-2.574 7.87-4.125a.75.75 0 0 0 0-.75C14.96 6.074 11.864 3.5 8 3.5zM8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/><circle cx="8" cy="8" r="1.5"/></svg>
       </span>
     {/if}
-    {#if conversation.icon}
-      <div class="compact-thumb-wrap thumb-hover-trigger">
-        <img class="compact-thumb" src={conversation.icon} alt="" />
-        <div class="thumb-hover-popup"><img src={conversation.icon} alt="Task icon" /></div>
-      </div>
-    {:else}
-      <span class="compact-badge" style="background:{categoryDetails.color}">{categoryDetails.icon}</span>
-    {/if}
+    <div class="compact-icon-col">
+      {#if conversation.icon}
+        <div class="compact-thumb-wrap thumb-hover-trigger">
+          <img class="compact-thumb" src={conversation.icon} alt="" />
+          <div class="thumb-hover-popup"><img src={conversation.icon} alt="Task icon" /></div>
+        </div>
+      {:else}
+        <span class="compact-badge" style="background:{categoryDetails.color}">{categoryDetails.icon}</span>
+      {/if}
+      {#if showTimer}
+        <span class="activity-timer-inline" class:paused={!isActive}>{timerDisplay}</span>
+      {/if}
+    </div>
     <button class="compact-title-btn" on:click={handleOpenConversation} title={titleTooltip}>{@html highlight(cleanTitle(displayTitle))}</button>
     {#if conversation.agents.some(a => a.isActive)}
       <div class="compact-agents">
@@ -123,6 +192,9 @@
           <AgentAvatar {agent} size="small" />
         {/each}
       </div>
+    {/if}
+    {#if isFirst}
+      <span class="first-badge">Genesis</span>
     {/if}
     <button class="collapse-toggle" on:click={handleToggleCollapse} title="Expand card">
       <svg viewBox="0 0 16 16" fill="currentColor"><path d="M5.7 13.7L5 13l4.6-4.6L5 3.7l.7-.7 5.3 5.3-5.3 5.4z"/></svg>
@@ -172,6 +244,12 @@
       <button class="title-btn" on:click={handleOpenConversation} title={titleTooltip}>
         {@html highlight(cleanTitle(displayTitle))}
       </button>
+      {#if isFirst}
+        <span class="first-badge">Genesis</span>
+      {/if}
+      {#if showTimer}
+        <span class="activity-timer" class:paused={!isActive}>{timerDisplay}</span>
+      {/if}
       <button class="collapse-toggle" on:click={handleToggleCollapse} title="Collapse card">
         <svg viewBox="0 0 16 16" fill="currentColor"><path d="M10.3 2.3L11 3 6.4 7.6 11 12.3l-.7.7L5 7.7l5.3-5.4z"/></svg>
       </button>
@@ -239,6 +317,46 @@
 {/if}
 
 <style>
+  /* ---- Draft card ---- */
+  .task-card.draft {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 8px; margin-bottom: 4px; border-radius: 6px;
+    border-left: 2px dashed var(--vscode-disabledForeground, #6b6b6b);
+    background: var(--vscode-editor-background, #1e1e1e);
+    border-top: 1px dashed var(--vscode-panel-border, #404040);
+    border-right: 1px dashed var(--vscode-panel-border, #404040);
+    border-bottom: 1px dashed var(--vscode-panel-border, #404040);
+    opacity: 0.85;
+  }
+  .task-card.draft:hover { opacity: 1; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+  .draft-prompt {
+    flex: 1; min-width: 0;
+    font-size: 10px; font-style: italic;
+    color: var(--vscode-foreground, #cccccc);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .draft-delete {
+    flex-shrink: 0; width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: 1px solid var(--vscode-panel-border, #404040);
+    color: var(--vscode-disabledForeground, #6b6b6b);
+    border-radius: 4px; cursor: pointer;
+    transition: all 0.15s; opacity: 0;
+  }
+  .task-card.draft:hover .draft-delete { opacity: 1; }
+  .draft-delete:hover { color: #ef4444; border-color: #ef4444; }
+  .draft-delete svg { width: 11px; height: 11px; }
+  .draft-send {
+    flex-shrink: 0; width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--vscode-button-background, #0e639c);
+    color: var(--vscode-button-foreground, #ffffff);
+    border: none; border-radius: 4px; cursor: pointer;
+    transition: background-color 0.15s;
+  }
+  .draft-send:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
+  .draft-send svg { width: 11px; height: 11px; }
+
   /* ---- Full card ---- */
   .task-card {
     position: relative;
@@ -260,19 +378,19 @@
     position: absolute; top: -6px; right: -6px; width: 18px; height: 18px;
     background: #ef4444; color: white; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: bold; z-index: 1;
+    font-size: 10px; font-weight: bold; z-index: 1;
   }
   .interrupted-badge {
     position: absolute; top: -6px; right: -6px; width: 18px; height: 18px;
     background: #6b7280; color: white; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: bold; z-index: 1;
+    font-size: 10px; font-weight: bold; z-index: 1;
   }
   .question-badge {
     position: absolute; top: -6px; right: -6px; width: 18px; height: 18px;
     background: #f59e0b; color: white; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: bold; z-index: 1;
+    font-size: 10px; font-weight: bold; z-index: 1;
   }
   .task-card.has-question { border-color: #f59e0b; background: rgba(245,158,11,0.05); }
 
@@ -297,16 +415,16 @@
     display: flex; align-items: center; justify-content: center;
     background: var(--category-color); border-radius: 4px; opacity: 0.9;
   }
-  .category-icon { font-size: 13px; filter: grayscale(0.2); }
+  .category-icon { font-size: 12px; filter: grayscale(0.2); }
   .title-btn {
-    font-size: 12px; font-weight: 600; color: var(--vscode-foreground, #cccccc); line-height: 1.3;
+    font-size: 11px; font-weight: 600; color: var(--vscode-foreground, #cccccc); line-height: 1.3;
     flex: 1; word-break: break-word; text-align: left;
     background: none; border: none; cursor: pointer; padding: 0; font-family: inherit;
   }
   .title-btn:hover { color: var(--vscode-textLink-foreground, #3794ff); }
 
   .description {
-    font-size: 11px; color: var(--vscode-descriptionForeground, #8c8c8c);
+    font-size: 10px; color: var(--vscode-descriptionForeground, #8c8c8c);
     margin-bottom: 6px; line-height: 1.4; cursor: pointer;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
@@ -314,7 +432,7 @@
 
   .last-message {
     background: var(--vscode-textBlockQuote-background, #2a2a2a);
-    border-radius: 4px; padding: 5px 7px; margin-bottom: 6px; font-size: 11px;
+    border-radius: 4px; padding: 5px 7px; margin-bottom: 6px; font-size: 10px;
     display: flex; flex-direction: row; align-items: baseline; gap: 4px; cursor: pointer;
   }
   .last-message .message-text {
@@ -323,26 +441,26 @@
     flex: 1; min-width: 0;
   }
   .last-message.expanded .message-text { white-space: pre-wrap; overflow: visible; }
-  .message-label { color: var(--vscode-descriptionForeground, #8c8c8c); font-size: 11px; font-weight: 600; flex-shrink: 0; }
+  .message-label { color: var(--vscode-descriptionForeground, #8c8c8c); font-size: 10px; font-weight: 600; flex-shrink: 0; }
 
   /* Git branch + agents on same row (#10) */
   .meta-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; min-height: 24px; }
   .git-branch {
     display: inline-flex; align-items: center; gap: 3px;
-    font-size: 11px; color: var(--vscode-textLink-foreground, #3794ff);
+    font-size: 10px; color: var(--vscode-textLink-foreground, #3794ff);
     background: none; border: none; cursor: pointer; padding: 0;
     font-family: inherit; white-space: nowrap;
   }
   .git-branch:hover { text-decoration: underline; }
   .git-icon { width: 12px; height: 12px; opacity: 0.8; }
-  .branch-name { font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace; font-size: 10px; }
+  .branch-name { font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace; font-size: 9px; }
   .agents-row { display: flex; margin-left: auto; }
 
   .action-btn {
     display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
     padding: 6px 10px; background: var(--vscode-button-background, #0e639c);
     color: var(--vscode-button-foreground, #ffffff); border: none; border-radius: 4px;
-    font-size: 11px; font-weight: 500; cursor: pointer; transition: background-color 0.15s; margin-bottom: 6px;
+    font-size: 10px; font-weight: 500; cursor: pointer; transition: background-color 0.15s; margin-bottom: 6px;
   }
   .action-btn:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
   .action-btn svg { width: 13px; height: 13px; }
@@ -369,6 +487,11 @@
 
   .compact-thumb-wrap { flex-shrink: 0; position: relative; }
 
+  .compact-icon-col {
+    display: flex; flex-direction: column; align-items: center;
+    flex-shrink: 0; gap: 1px;
+  }
+
   /* ---- Compact card ---- */
   .task-card.compact {
     display: flex; align-items: center; gap: 6px;
@@ -378,10 +501,10 @@
   .compact-thumb { width: 20px; height: 20px; border-radius: 3px; object-fit: cover; flex-shrink: 0; }
   .compact-badge {
     width: 20px; height: 20px; border-radius: 3px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; font-size: 11px;
+    display: flex; align-items: center; justify-content: center; font-size: 10px;
   }
   .compact-title-btn {
-    flex: 1; font-size: 11px; font-weight: 500; min-width: 0;
+    flex: 1; font-size: 10px; font-weight: 500; min-width: 0;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     color: var(--vscode-foreground, #cccccc); text-align: left;
     background: none; border: none; cursor: pointer; padding: 0; font-family: inherit;
@@ -391,22 +514,50 @@
 
   .error-badge-inline {
     width: 14px; height: 14px; background: #ef4444; color: white;
-    border-radius: 50%; font-size: 9px; font-weight: bold;
+    border-radius: 50%; font-size: 8px; font-weight: bold;
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
   .interrupted-badge-inline {
     width: 14px; height: 14px; background: #6b7280; color: white;
-    border-radius: 50%; font-size: 9px; font-weight: bold;
+    border-radius: 50%; font-size: 8px; font-weight: bold;
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
   .question-badge-inline {
     width: 14px; height: 14px; background: #f59e0b; color: white;
-    border-radius: 50%; font-size: 9px; font-weight: bold;
+    border-radius: 50%; font-size: 8px; font-weight: bold;
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
 
   .eye-icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--vscode-focusBorder, #007acc); opacity: 0.8; }
   .eye-icon svg { width: 14px; height: 14px; }
+
+  /* Activity timer */
+  .activity-timer {
+    flex-shrink: 0; font-size: 9px; white-space: nowrap;
+    font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
+    color: #22c55e; opacity: 0.9;
+  }
+  .activity-timer.paused { color: var(--vscode-disabledForeground, #6b6b6b); opacity: 0.6; }
+  .activity-timer-inline {
+    flex-shrink: 0; font-size: 8px; white-space: nowrap;
+    font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
+    color: #22c55e; opacity: 0.9;
+  }
+  .activity-timer-inline.paused { color: var(--vscode-disabledForeground, #6b6b6b); opacity: 0.6; }
+
+  /* ---- First conversation badge ---- */
+  .first-badge {
+    flex-shrink: 0;
+    font-size: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--vscode-descriptionForeground, #8c8c8c);
+    background: var(--vscode-badge-background, #4d4d4d);
+    padding: 1px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
 
   /* ---- Collapse toggle ---- */
   .collapse-toggle {

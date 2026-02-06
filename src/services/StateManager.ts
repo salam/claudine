@@ -114,16 +114,24 @@ export class StateManager {
     }
   }
 
-  public clearAllIcons() {
+  public async clearAllIcons() {
     for (const conv of this._conversations.values()) {
       conv.icon = undefined;
     }
     this.notifyChange();
-    this.saveState();
+    await this.saveState();
   }
 
   public getConversationsByStatus(status: ConversationStatus): Conversation[] {
     return this.getConversations().filter(c => c.status === status);
+  }
+
+  public async saveDrafts(drafts: Array<{ id: string; title: string }>): Promise<void> {
+    await this._storageService.saveDrafts(drafts);
+  }
+
+  public async loadDrafts(): Promise<Array<{ id: string; title: string }>> {
+    return this._storageService.loadDrafts();
   }
 
   private notifyChange() {
