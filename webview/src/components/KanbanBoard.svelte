@@ -14,6 +14,18 @@
   export let showArchive: boolean = false;
   export let vertical: boolean = false;
 
+  // Auto-detect narrow containers (e.g. user dragged view to sidebar)
+  let autoVertical = false;
+  $: isVertical = vertical || autoVertical;
+
+  function watchWidth(node: HTMLElement) {
+    const observer = new ResizeObserver(entries => {
+      autoVertical = entries[0].contentRect.width < 500;
+    });
+    observer.observe(node);
+    return { destroy: () => observer.disconnect() };
+  }
+
   const flipDurationMs = 200;
 
   // Quick idea input
@@ -134,7 +146,7 @@
     </div>
   </div>
 {:else}
-<div class="kanban-board" class:vertical>
+<div class="kanban-board" class:vertical={isVertical} use:watchWidth>
   {#each $columns as column (column.id)}
     <div class="column-wrapper" class:narrow={narrowColumns[column.id]}>
       <KanbanColumn title={column.title} color={column.color} count={boardItems[column.id].filter(c => !c.isDraft).length} activeCount={boardItems[column.id].filter(c => c.agents.some(a => a.isActive)).length} narrow={narrowColumns[column.id] || false} onToggleNarrow={column.id === 'done' ? () => toggleColumnNarrow(column.id) : null}>

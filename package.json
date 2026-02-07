@@ -146,7 +146,7 @@
         {
           "id": "claudine-sidebar",
           "title": "Claudine",
-          "icon": "resources/icons/claudine.png"
+          "icon": "resources/icons/claudine-activitybar.svg"
         }
       ]
     },
