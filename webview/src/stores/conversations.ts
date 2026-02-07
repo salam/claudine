@@ -73,6 +73,11 @@ export function removeDraft(id: string) {
   syncDraftsToExtension();
 }
 
+export function updateDraft(id: string, title: string) {
+  drafts.update(d => d.map(draft => draft.id === id ? { ...draft, title } : draft));
+  syncDraftsToExtension();
+}
+
 export function loadDraftsFromExtension(items: Array<{ id: string; title: string }>) {
   drafts.set(items.map(item => makeDraftConversation(item.id, item.title)));
 }
@@ -119,7 +124,8 @@ function groupByStatus(convs: Conversation[]): Record<ConversationStatus, Conver
     'in-progress': [],
     'in-review': [],
     'done': [],
-    'cancelled': []
+    'cancelled': [],
+    'archived': []
   };
   for (const conv of convs) {
     grouped[conv.status].push(conv);
@@ -193,6 +199,14 @@ export const columns: Array<{
   }
 ];
 
+// Archive column (rendered separately, togglable)
+export const archiveColumn = {
+  id: 'archived' as ConversationStatus,
+  title: 'Archived',
+  color: '#4b5563',
+  description: 'Auto-archived after 4 hours in Done or Cancelled'
+};
+
 // Helper function to get category details
 export function getCategoryDetails(category: Conversation['category']): {
   icon: string;
@@ -217,6 +231,24 @@ export function addError(message: string) {
   setTimeout(() => {
     errors.update(e => e.filter(err => err !== message));
   }, 5000);
+}
+
+export function expandAllCards() {
+  const convs = get(conversations);
+  // XOR: add auto-compact IDs so they flip to expanded
+  collapsedCardIds.set(new Set(
+    convs.filter(c => c.status === 'done' || c.status === 'cancelled' || c.status === 'archived')
+      .map(c => c.id)
+  ));
+}
+
+export function collapseAllCards() {
+  const convs = get(conversations);
+  // XOR: add non-auto-compact IDs so they flip to collapsed
+  collapsedCardIds.set(new Set(
+    convs.filter(c => c.status !== 'done' && c.status !== 'cancelled' && c.status !== 'archived')
+      .map(c => c.id)
+  ));
 }
 
 export function updateConversationStatus(id: string, newStatus: ConversationStatus) {

@@ -15,7 +15,9 @@
       "Bash(grep:*)",
       "WebFetch(domain:platform.openai.com)",
       "Bash(md5:*)",
-      "Bash(code --list-extensions:*)"
+      "Bash(code --list-extensions:*)",
+      "WebFetch(domain:lucide.dev)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

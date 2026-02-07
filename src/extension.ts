@@ -11,7 +11,7 @@ let stateManager: StateManager;
 let storageService: StorageService;
 let imageGenerator: ImageGenerator;
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
   console.log('Claudine extension is now active');
 
   // Initialize services
@@ -19,6 +19,10 @@ export function activate(context: vscode.ExtensionContext) {
   stateManager = new StateManager(storageService);
   imageGenerator = new ImageGenerator(storageService);
   claudeCodeWatcher = new ClaudeCodeWatcher(stateManager, context, imageGenerator);
+
+  // Wait for saved state to load before scanning — prevents stale cross-project
+  // conversations from being re-injected after setConversations() cleans up.
+  await stateManager.ready;
 
   // Initialize the Kanban view provider
   kanbanProvider = new KanbanViewProvider(
@@ -54,8 +58,23 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand('claudine.closeEmptyClaudeTabs', () => {
+      kanbanProvider.closeEmptyClaudeTabs();
+    })
+  );
+
   // Start watching for Claude Code changes
   claudeCodeWatcher.startWatching();
+
+  // Close restored-but-empty Claude tabs after conversations load.
+  // After a workspace restart VSCode restores Claude editor tabs as empty shells.
+  const sweepDisposable = stateManager.onConversationsChanged(() => {
+    sweepDisposable.dispose(); // only run once
+    // Short delay so tabs have time to fully initialize
+    setTimeout(() => kanbanProvider.closeEmptyClaudeTabs(), 2000);
+  });
+  context.subscriptions.push(sweepDisposable);
 
   // Listen for configuration changes
   context.subscriptions.push(

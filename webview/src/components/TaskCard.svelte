@@ -6,16 +6,17 @@
 
   import { afterUpdate, onDestroy, createEventDispatcher } from 'svelte';
 
-  const dispatch = createEventDispatcher<{ sendDraft: string; deleteDraft: string }>();
+  const dispatch = createEventDispatcher<{ sendDraft: string; deleteDraft: string; updateDraft: { id: string; title: string } }>();
 
   export let conversation: Conversation;
   export let compact: boolean = false;
+  export let narrow: boolean = false;
   export let focused: boolean = false;
   export let searchQuery: string = '';
   export let isFirst: boolean = false;
 
   $: categoryDetails = getCategoryDetails(conversation.category);
-  $: needsInteraction = conversation.status === 'needs-input';
+  $: needsInteraction = conversation.status === 'needs-input' && !conversation.isInterrupted;
 
   // When summarization is ON, show summarized text (tooltip = original).
   // When OFF, show original text (tooltip = summary).
@@ -139,13 +140,53 @@
     <div class="drag-handle" title="Drag to move">
       <svg viewBox="0 0 6 10" fill="currentColor"><circle cx="1.5" cy="1.5" r="1"/><circle cx="4.5" cy="1.5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="4.5" cy="5" r="1"/><circle cx="1.5" cy="8.5" r="1"/><circle cx="4.5" cy="8.5" r="1"/></svg>
     </div>
-    <span class="draft-prompt">{conversation.title}</span>
+    <input
+      class="draft-prompt-input"
+      type="text"
+      value={conversation.title}
+      on:input={(e) => dispatch('updateDraft', { id: conversation.id, title: e.currentTarget.value })}
+      on:keydown={(e) => { if (e.key === 'Enter') dispatch('sendDraft', conversation.id); }}
+      placeholder="Describe your idea..."
+    />
     <button class="draft-delete" on:click={() => dispatch('deleteDraft', conversation.id)} title="Delete idea">
       <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
     </button>
     <button class="draft-send" on:click={() => dispatch('sendDraft', conversation.id)} title="Start conversation">
       <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 15l-.7-.7L11.6 10H2V9h9.6L7.3 4.7 8 4l6 6-6 5z" transform="rotate(-90 8 9.5)"/></svg>
     </button>
+  </div>
+
+{:else if narrow}
+  <!-- Narrow column view: icon + badges only -->
+  <div
+    bind:this={cardEl}
+    class="task-card narrow-card"
+    class:has-error={conversation.hasError}
+    class:focused
+    style="--category-color: {categoryDetails.color}"
+    title={cleanTitle(displayTitle)}
+  >
+    <div class="drag-handle narrow-drag" title="Drag to move">
+      <svg viewBox="0 0 6 10" fill="currentColor"><circle cx="1.5" cy="1.5" r="1"/><circle cx="4.5" cy="1.5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="4.5" cy="5" r="1"/><circle cx="1.5" cy="8.5" r="1"/><circle cx="4.5" cy="8.5" r="1"/></svg>
+    </div>
+    {#if conversation.icon}
+      <img class="narrow-icon" src={conversation.icon} alt="" />
+    {:else}
+      <span class="narrow-cat" style="background:{categoryDetails.color}">{categoryDetails.icon}</span>
+    {/if}
+    {#if conversation.hasError}
+      <span class="narrow-status-badge narrow-badge-error" title={conversation.errorMessage || 'Error'}>!</span>
+    {:else if conversation.isInterrupted}
+      <span class="narrow-status-badge narrow-badge-interrupted" title="Interrupted">ꝇ</span>
+    {:else if conversation.hasQuestion}
+      <span class="narrow-status-badge narrow-badge-question" title="Question">?</span>
+    {/if}
+    {#if focused}
+      <span class="narrow-focused-eyes" title="Currently viewed">👀</span>
+    {/if}
+    {#if conversation.agents.some(a => a.isActive)}
+      <span class="narrow-dot narrow-dot-active"></span>
+    {/if}
   </div>
 
 {:else if compact}
@@ -168,9 +209,7 @@
       <span class="question-badge-inline" title="Waiting for input">?</span>
     {/if}
     {#if focused}
-      <span class="eye-icon" title="Currently viewed">
-        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 3.5C4.136 3.5 1.04 6.074.13 7.625a.75.75 0 0 0 0 .75C1.04 9.926 4.136 12.5 8 12.5s6.96-2.574 7.87-4.125a.75.75 0 0 0 0-.75C14.96 6.074 11.864 3.5 8 3.5zM8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/><circle cx="8" cy="8" r="1.5"/></svg>
-      </span>
+      <span class="eye-icon" title="Currently viewed">👀</span>
     {/if}
     <div class="compact-icon-col">
       {#if conversation.icon}
@@ -194,7 +233,7 @@
       </div>
     {/if}
     {#if isFirst}
-      <span class="first-badge">Genesis</span>
+      <span class="first-badge" title="This is were it all started for this project">Genesis</span>
     {/if}
     <button class="collapse-toggle" on:click={handleToggleCollapse} title="Expand card">
       <svg viewBox="0 0 16 16" fill="currentColor"><path d="M5.7 13.7L5 13l4.6-4.6L5 3.7l.7-.7 5.3 5.3-5.3 5.4z"/></svg>
@@ -221,9 +260,7 @@
     {/if}
 
     {#if focused}
-      <div class="focused-indicator" title="Currently viewing this conversation">
-        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 3.5C4.136 3.5 1.04 6.074.13 7.625a.75.75 0 0 0 0 .75C1.04 9.926 4.136 12.5 8 12.5s6.96-2.574 7.87-4.125a.75.75 0 0 0 0-.75C14.96 6.074 11.864 3.5 8 3.5zM8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/><circle cx="8" cy="8" r="1.5"/></svg>
-      </div>
+      <div class="focused-indicator" class:has-badge={conversation.hasError || conversation.isInterrupted || conversation.hasQuestion} title="Currently viewing this conversation">👀</div>
     {/if}
 
     <!-- Header (click title to open conversation) -->
@@ -245,7 +282,7 @@
         {@html highlight(cleanTitle(displayTitle))}
       </button>
       {#if isFirst}
-        <span class="first-badge">Genesis</span>
+        <span class="first-badge" title="This is were it all started for this project">Genesis</span>
       {/if}
       {#if showTimer}
         <span class="activity-timer" class:paused={!isActive}>{timerDisplay}</span>
@@ -329,12 +366,17 @@
     opacity: 0.85;
   }
   .task-card.draft:hover { opacity: 1; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
-  .draft-prompt {
+  .draft-prompt-input {
     flex: 1; min-width: 0;
-    font-size: 10px; font-style: italic;
-    color: var(--vscode-foreground, #cccccc);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 10px;
+    color: var(--vscode-input-foreground, #cccccc);
+    background: transparent;
+    border: none; border-bottom: 1px dashed var(--vscode-panel-border, #404040);
+    outline: none; padding: 2px 0;
+    font-family: inherit;
   }
+  .draft-prompt-input:focus { border-bottom-color: var(--vscode-focusBorder, #007acc); }
+  .draft-prompt-input::placeholder { color: var(--vscode-input-placeholderForeground, #888); font-style: italic; }
   .draft-delete {
     flex-shrink: 0; width: 22px; height: 22px;
     display: flex; align-items: center; justify-content: center;
@@ -395,10 +437,12 @@
   .task-card.has-question { border-color: #f59e0b; background: rgba(245,158,11,0.05); }
 
   .focused-indicator {
-    position: absolute; top: 6px; right: 6px; width: 16px; height: 16px;
-    color: var(--vscode-focusBorder, #007acc); opacity: 0.8;
+    position: absolute; top: -8px; right: -6px;
+    font-size: 13px; line-height: 1; z-index: 2;
   }
-  .focused-indicator svg { width: 16px; height: 16px; }
+  .focused-indicator.has-badge {
+    right: 14px;
+  }
 
   .drag-handle {
     flex-shrink: 0; width: 8px; cursor: grab;
@@ -528,8 +572,7 @@
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
 
-  .eye-icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--vscode-focusBorder, #007acc); opacity: 0.8; }
-  .eye-icon svg { width: 14px; height: 14px; }
+  .eye-icon { flex-shrink: 0; font-size: 11px; line-height: 1; }
 
   /* Activity timer */
   .activity-timer {
@@ -571,5 +614,70 @@
   .task-card:hover .collapse-toggle { opacity: 0.6; }
   .collapse-toggle:hover { opacity: 1 !important; color: var(--vscode-foreground, #cccccc); }
 
+  /* ---- Narrow card (column-collapsed view) ---- */
+  .task-card.narrow-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 4px;
+    margin-bottom: 3px;
+    border-radius: 5px;
+    border-left-width: 2px;
+    min-height: 34px;
+  }
+  .task-card.narrow-card .narrow-drag {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    opacity: 0;
+    z-index: 1;
+    cursor: grab;
+  }
+  .task-card.narrow-card .narrow-drag:active { cursor: grabbing; }
+  .narrow-icon {
+    width: 24px; height: 24px;
+    border-radius: 4px;
+    object-fit: cover;
+  }
+  .narrow-cat {
+    width: 24px; height: 24px;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+  }
+  .narrow-status-badge {
+    position: absolute;
+    top: -3px; right: -3px;
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    font-size: 7px; font-weight: bold;
+    display: flex; align-items: center; justify-content: center;
+    color: white; z-index: 2;
+  }
+  .narrow-badge-error { background: #ef4444; }
+  .narrow-badge-interrupted { background: #6b7280; }
+  .narrow-badge-question { background: #f59e0b; }
+  .narrow-dot {
+    position: absolute;
+    bottom: 2px;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+  }
+  .narrow-focused-eyes {
+    position: absolute;
+    bottom: -2px; right: -4px;
+    font-size: 10px; line-height: 1;
+    z-index: 3;
+  }
+  .narrow-dot-active {
+    left: 6px;
+    background: #10b981;
+    animation: count-pulse 2s ease-in-out infinite;
+  }
+  @keyframes count-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
 
 </style>

@@ -51,7 +51,7 @@ export const vscode = new VSCodeAPIWrapper();
 
 // Message types (matching the extension types)
 export type ConversationCategory = 'user-story' | 'bug' | 'feature' | 'improvement' | 'task';
-export type ConversationStatus = 'todo' | 'needs-input' | 'in-progress' | 'in-review' | 'done' | 'cancelled';
+export type ConversationStatus = 'todo' | 'needs-input' | 'in-progress' | 'in-review' | 'done' | 'cancelled' | 'archived';
 
 export interface Agent {
   id: string;
@@ -66,6 +66,7 @@ export interface Conversation {
   description: string;
   category: ConversationCategory;
   status: ConversationStatus;
+  previousStatus?: ConversationStatus;
   lastMessage: string;
   agents: Agent[];
   gitBranch?: string;

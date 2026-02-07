@@ -3,17 +3,32 @@
   export let color: string;
   export let count: number;
   export let activeCount: number = 0;
+  export let narrow: boolean = false;
+  export let onToggleNarrow: (() => void) | null = null;
 </script>
 
-<div class="column" class:has-active={activeCount > 0}>
-  <div class="column-header">
-    <span class="color-indicator" style="background-color: {color}"></span>
-    <h2>{title}</h2>
-    {#if activeCount > 0}
-      <span class="active-count">{activeCount}</span>
-    {/if}
-    <span class="count">{count}</span>
-  </div>
+<div class="column" class:has-active={activeCount > 0} class:narrow>
+  {#if narrow}
+    <button class="column-header narrow-header" on:click={() => onToggleNarrow?.()} title="Click to expand {title}">
+      <span class="color-indicator narrow-indicator-dot" style="background-color: {color}"></span>
+      <span class="narrow-title">{title}</span>
+      <span class="count">{count}</span>
+    </button>
+  {:else}
+    <div class="column-header">
+      <span class="color-indicator" style="background-color: {color}"></span>
+      <h2>{title}</h2>
+      {#if activeCount > 0}
+        <span class="active-count">{activeCount}</span>
+      {/if}
+      <span class="count">{count}</span>
+      {#if onToggleNarrow}
+        <button class="collapse-column-btn" on:click={onToggleNarrow} title="Collapse column">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M10.3 2.3L11 3 6.4 7.6 11 12.3l-.7.7L5 7.7l5.3-5.4z"/></svg>
+        </button>
+      {/if}
+    </div>
+  {/if}
   <div class="column-content">
     <slot />
   </div>
@@ -124,4 +139,57 @@
   .column-content::-webkit-scrollbar-thumb:hover {
     background: var(--vscode-scrollbarSlider-hoverBackground, #5a5a5a);
   }
+
+  /* Narrow column */
+  .column.narrow .column-content { padding: 0 2px 4px; }
+
+  .narrow-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 4px;
+    background: inherit;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    width: 100%;
+    border-radius: 8px 8px 0 0;
+    transition: background 0.15s;
+  }
+  .narrow-header:hover {
+    background: var(--vscode-list-hoverBackground, #2a2d2e);
+  }
+  .narrow-indicator-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50% !important;
+  }
+  .narrow-title {
+    writing-mode: vertical-lr;
+    text-orientation: mixed;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--vscode-foreground, #cccccc);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .collapse-column-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--vscode-disabledForeground, #6b6b6b);
+    opacity: 0;
+    transition: opacity 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px; height: 16px;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .collapse-column-btn svg { width: 12px; height: 12px; }
+  .column-header:hover .collapse-column-btn { opacity: 0.6; }
+  .collapse-column-btn:hover { opacity: 1 !important; color: var(--vscode-foreground, #cccccc); }
 </style>

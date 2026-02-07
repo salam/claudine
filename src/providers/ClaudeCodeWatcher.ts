@@ -368,8 +368,12 @@ export class ClaudeCodeWatcher {
             const existing = conversations.find(c => c.id === saved.id);
             if (existing) {
               // Preserve manual status overrides
-              if (saved.status === 'done' || saved.status === 'cancelled') {
+              if (saved.status === 'done' || saved.status === 'cancelled' || saved.status === 'archived') {
                 existing.status = saved.status;
+              }
+              // Preserve previousStatus for active→inactive transitions
+              if (saved.previousStatus) {
+                existing.previousStatus = saved.previousStatus;
               }
               // Preserve generated icon
               if (saved.icon) {

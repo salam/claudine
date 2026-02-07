@@ -3,11 +3,13 @@
   import KanbanColumn from './KanbanColumn.svelte';
   import TaskCard from './TaskCard.svelte';
   import {
-    conversationsByStatus, columns, updateConversationStatus,
+    conversationsByStatus, columns, archiveColumn, updateConversationStatus,
     searchMatchIds, searchMode, searchQuery, compactView, collapsedCardIds, focusedConversationId,
-    firstConversationId, drafts, addDraft, removeDraft
+    firstConversationId, drafts, addDraft, removeDraft, updateDraft
   } from '../stores/conversations';
   import { vscode, type Conversation, type ConversationStatus } from '../lib/vscode';
+
+  export let showArchive: boolean = false;
 
   const flipDurationMs = 200;
 
@@ -40,7 +42,7 @@
   // but NOT written back to the store during drag (avoids store.set()
   // triggering re-renders of all dndzone actions mid-drag).
   let boardItems: Record<ConversationStatus, Conversation[]> = {
-    'todo': [], 'needs-input': [], 'in-progress': [], 'in-review': [], 'done': [], 'cancelled': []
+    'todo': [], 'needs-input': [], 'in-progress': [], 'in-review': [], 'done': [], 'cancelled': [], 'archived': []
   };
 
   // Reactive sync: merge extension conversations + drafts into board items.
@@ -80,18 +82,28 @@
     return mode === 'fade' && !matchIds.has(id);
   }
 
-  function isCompact(id: string, global: boolean, collapsed: Set<string>, matchIds: Set<string> | null): boolean {
-    const base = global || collapsed.has(id);
+  function isCompact(id: string, status: ConversationStatus, global: boolean, collapsed: Set<string>, matchIds: Set<string> | null): boolean {
+    const autoCompact = status === 'done' || status === 'cancelled' || status === 'archived';
+    const toggled = collapsed.has(id);
+    // XOR: toggled flips the default — expands auto-compact cards, collapses active cards
+    const base = global || (autoCompact ? !toggled : toggled);
     // Search matches force-expand so hits are visible
     if (base && matchIds?.has(id)) return false;
     return base;
+  }
+
+  // Narrow (collapsed) columns — done starts narrow
+  let narrowColumns: Record<string, boolean> = { done: true };
+
+  function toggleColumnNarrow(columnId: ConversationStatus) {
+    narrowColumns = { ...narrowColumns, [columnId]: !narrowColumns[columnId] };
   }
 </script>
 
 <div class="kanban-board">
   {#each columns as column (column.id)}
-    <div class="column-wrapper">
-      <KanbanColumn title={column.title} color={column.color} count={boardItems[column.id].filter(c => !c.isDraft).length} activeCount={boardItems[column.id].filter(c => c.agents.some(a => a.isActive)).length}>
+    <div class="column-wrapper" class:narrow={narrowColumns[column.id]}>
+      <KanbanColumn title={column.title} color={column.color} count={boardItems[column.id].filter(c => !c.isDraft).length} activeCount={boardItems[column.id].filter(c => c.agents.some(a => a.isActive)).length} narrow={narrowColumns[column.id] || false} onToggleNarrow={column.id === 'done' ? () => toggleColumnNarrow(column.id) : null}>
         {#if column.id === 'todo'}
           <div class="quick-idea">
             <input
@@ -108,38 +120,37 @@
         {/if}
         <div
           class="drop-zone"
-          use:dndzone={{ items: boardItems[column.id], flipDurationMs, dragHandleSelector: '.drag-handle', dropTargetStyle: { outline: `2px dashed ${column.color}`, outlineOffset: '2px' } }}
+          class:empty-zone={boardItems[column.id].length === 0}
+          use:dndzone={{ items: boardItems[column.id], flipDurationMs, dragHandleSelector: '.drag-handle', useCursorForDetection: true, dropTargetStyle: { outline: `2px dashed ${column.color}`, outlineOffset: '2px' } }}
           on:consider={(e) => handleDndConsider(column.id, e)}
           on:finalize={(e) => handleDndFinalize(column.id, e)}
         >
           {#each boardItems[column.id] as conversation (conversation.id)}
             {#if isVisible(conversation.id, $searchMatchIds, $searchMode)}
               <div class:faded={isFaded(conversation.id, $searchMatchIds, $searchMode)}>
-                <TaskCard {conversation} compact={isCompact(conversation.id, $compactView, $collapsedCardIds, $searchMatchIds)} searchQuery={$searchQuery} focused={$focusedConversationId === conversation.id} isFirst={conversation.id === $firstConversationId} on:sendDraft={(e) => sendDraft(e.detail)} on:deleteDraft={(e) => removeDraft(e.detail)} />
+                <TaskCard {conversation} compact={isCompact(conversation.id, conversation.status, $compactView, $collapsedCardIds, $searchMatchIds)} narrow={narrowColumns[column.id] || false} searchQuery={$searchQuery} focused={$focusedConversationId === conversation.id} isFirst={conversation.id === $firstConversationId} on:sendDraft={(e) => sendDraft(e.detail)} on:deleteDraft={(e) => removeDraft(e.detail)} on:updateDraft={(e) => updateDraft(e.detail.id, e.detail.title)} />
               </div>
             {/if}
           {/each}
-          {#if boardItems[column.id].filter(c => !c.isDraft).length === 0 && $drafts.length === 0}
-            <div class="empty-state">No conversations</div>
-          {/if}
         </div>
 
         {#if column.id === 'done'}
           <div class="cancelled-section">
             <div class="cancelled-header">
-              <span class="cancelled-icon">⊘</span> Cancelled
+              <span class="cancelled-icon">⊘</span> <span class="cancelled-label">Cancelled</span>
               <span class="count">{boardItems['cancelled'].length}</span>
             </div>
             <div
               class="drop-zone cancelled"
-              use:dndzone={{ items: boardItems['cancelled'], flipDurationMs, dragHandleSelector: '.drag-handle', dropTargetStyle: { outline: '2px dashed #6b7280', outlineOffset: '2px' } }}
+              class:empty-zone={boardItems['cancelled'].length === 0}
+              use:dndzone={{ items: boardItems['cancelled'], flipDurationMs, dragHandleSelector: '.drag-handle', useCursorForDetection: true, dropTargetStyle: { outline: '2px dashed #6b7280', outlineOffset: '2px' } }}
               on:consider={(e) => handleDndConsider('cancelled', e)}
               on:finalize={(e) => handleDndFinalize('cancelled', e)}
             >
               {#each boardItems['cancelled'] as conversation (conversation.id)}
                 {#if isVisible(conversation.id, $searchMatchIds, $searchMode)}
                   <div class:faded={isFaded(conversation.id, $searchMatchIds, $searchMode)}>
-                    <TaskCard {conversation} compact={isCompact(conversation.id, $compactView, $collapsedCardIds, $searchMatchIds)} searchQuery={$searchQuery} focused={$focusedConversationId === conversation.id} isFirst={conversation.id === $firstConversationId} on:sendDraft={(e) => sendDraft(e.detail)} on:deleteDraft={(e) => removeDraft(e.detail)} />
+                    <TaskCard {conversation} compact={isCompact(conversation.id, conversation.status, $compactView, $collapsedCardIds, $searchMatchIds)} narrow={narrowColumns[column.id] || false} searchQuery={$searchQuery} focused={$focusedConversationId === conversation.id} isFirst={conversation.id === $firstConversationId} on:sendDraft={(e) => sendDraft(e.detail)} on:deleteDraft={(e) => removeDraft(e.detail)} on:updateDraft={(e) => updateDraft(e.detail.id, e.detail.title)} />
                   </div>
                 {/if}
               {/each}
@@ -149,19 +160,54 @@
       </KanbanColumn>
     </div>
   {/each}
+  {#if showArchive}
+    <div class="column-wrapper archive-column">
+      <KanbanColumn title={archiveColumn.title} color={archiveColumn.color} count={boardItems['archived'].length} activeCount={0}>
+        <div
+          class="drop-zone"
+          class:empty-zone={boardItems['archived'].length === 0}
+          use:dndzone={{ items: boardItems['archived'], flipDurationMs, dragHandleSelector: '.drag-handle', useCursorForDetection: true, dropTargetStyle: { outline: `2px dashed ${archiveColumn.color}`, outlineOffset: '2px' } }}
+          on:consider={(e) => handleDndConsider('archived', e)}
+          on:finalize={(e) => handleDndFinalize('archived', e)}
+        >
+          {#each boardItems['archived'] as conversation (conversation.id)}
+            {#if isVisible(conversation.id, $searchMatchIds, $searchMode)}
+              <div class:faded={isFaded(conversation.id, $searchMatchIds, $searchMode)}>
+                <TaskCard {conversation} compact={isCompact(conversation.id, conversation.status, $compactView, $collapsedCardIds, $searchMatchIds)} searchQuery={$searchQuery} focused={$focusedConversationId === conversation.id} isFirst={conversation.id === $firstConversationId} on:sendDraft={(e) => sendDraft(e.detail)} on:deleteDraft={(e) => removeDraft(e.detail)} on:updateDraft={(e) => updateDraft(e.detail.id, e.detail.title)} />
+              </div>
+            {/if}
+          {/each}
+        </div>
+      </KanbanColumn>
+    </div>
+  {/if}
 </div>
 
 <style>
   .kanban-board { display: flex; gap: 12px; padding: 12px; overflow-x: auto; flex: 1; min-height: 0; align-items: stretch; }
-  .column-wrapper { flex: 1; min-width: 260px; max-width: 350px; display: flex; flex-direction: column; }
-  .drop-zone { min-height: 80px; padding: 6px; border-radius: 6px; transition: all 0.2s ease; }
+  .column-wrapper { flex: 1; min-width: 260px; max-width: 350px; display: flex; flex-direction: column; transition: min-width 0.25s ease, max-width 0.25s ease; }
+  .column-wrapper.narrow { flex: 0 0 auto; min-width: 60px; max-width: 60px; }
+  .drop-zone { min-height: 80px; padding: 6px; border-radius: 6px; }
+  /* Empty-state via ::after so it is NOT a real DOM child (svelte-dnd-action
+     treats every direct child element as an item — a stray child when the zone
+     is empty breaks drop detection). */
+  .drop-zone.empty-zone::after { content: "No conversations"; display: flex; align-items: center; justify-content: center; height: 60px; color: var(--vscode-disabledForeground, #6b6b6b); font-size: 10px; font-style: italic; pointer-events: none; }
+  .column-wrapper.narrow .drop-zone { padding: 3px; min-height: 40px; }
+  .column-wrapper.narrow .drop-zone.empty-zone::after { display: none; }
   .drop-zone.cancelled { min-height: 40px; opacity: 0.7; }
-  .empty-state { display: flex; align-items: center; justify-content: center; height: 60px; color: var(--vscode-disabledForeground, #6b6b6b); font-size: 10px; font-style: italic; }
   .faded { opacity: 0.1; transition: opacity 0.2s ease; }
   .cancelled-section { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--vscode-panel-border, #404040); }
   .cancelled-header { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 500; color: var(--vscode-disabledForeground, #6b6b6b); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; padding-left: 8px; }
   .cancelled-icon { font-size: 13px; }
+  .cancelled-label { /* visible by default */ }
   .count { background: var(--vscode-badge-background, #4d4d4d); color: var(--vscode-badge-foreground, #ffffff); padding: 0 6px; border-radius: 10px; font-size: 9px; margin-left: auto; }
+
+  /* Narrow overrides for cancelled sub-section */
+  .column-wrapper.narrow .cancelled-section { margin-top: 6px; padding-top: 6px; }
+  .column-wrapper.narrow .cancelled-header { padding-left: 0; justify-content: center; gap: 3px; margin-bottom: 4px; }
+  .column-wrapper.narrow .cancelled-label { display: none; }
+  .column-wrapper.narrow .cancelled-icon { font-size: 10px; }
+  .column-wrapper.narrow .count { margin-left: 0; }
 
   /* Quick idea input */
   .quick-idea {
@@ -192,4 +238,8 @@
   .quick-idea-send:hover:not(:disabled) { background: var(--vscode-button-hoverBackground, #1177bb); }
   .quick-idea-send:disabled { opacity: 0.4; cursor: default; }
   .quick-idea-send svg { width: 12px; height: 12px; }
+
+  /* Archive column */
+  .archive-column { opacity: 0.75; }
+  .archive-column:hover { opacity: 1; }
 </style>

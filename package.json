@@ -25,6 +25,11 @@
         "command": "claudine.refresh",
         "title": "Refresh Conversations",
         "category": "Claudine"
+      },
+      {
+        "command": "claudine.closeEmptyClaudeTabs",
+        "title": "Close Empty Claude Tabs",
+        "category": "Claudine"
       }
     ],
     "viewsContainers": {

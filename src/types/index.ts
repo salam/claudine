@@ -1,6 +1,6 @@
 export type ConversationCategory = 'user-story' | 'bug' | 'feature' | 'improvement' | 'task';
 
-export type ConversationStatus = 'todo' | 'needs-input' | 'in-progress' | 'in-review' | 'done' | 'cancelled';
+export type ConversationStatus = 'todo' | 'needs-input' | 'in-progress' | 'in-review' | 'done' | 'cancelled' | 'archived';
 
 export interface Agent {
   id: string;
@@ -15,6 +15,8 @@ export interface Conversation {
   description: string;
   category: ConversationCategory;
   status: ConversationStatus;
+  /** Status before the conversation entered in-progress (for restoring on completion). */
+  previousStatus?: ConversationStatus;
   lastMessage: string;
   agents: Agent[];
   gitBranch?: string;
@@ -65,6 +67,7 @@ export type WebviewToExtensionMessage =
   | { type: 'search'; query: string }
   | { type: 'quickIdea'; prompt: string }
   | { type: 'saveDrafts'; drafts: Array<{ id: string; title: string }> }
+  | { type: 'closeEmptyClaudeTabs' }
   | { type: 'ready' };
 
 export interface ClaudineSettings {
