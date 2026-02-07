@@ -92,8 +92,10 @@ export interface ClaudineSettings {
 export type ExtensionMessage =
   | { type: 'updateConversations'; conversations: Conversation[] }
   | { type: 'updateSettings'; settings: ClaudineSettings }
+  | { type: 'updateLocale'; strings: Record<string, string> }
   | { type: 'conversationUpdated'; conversation: Conversation }
   | { type: 'focusedConversation'; conversationId: string | null }
   | { type: 'searchResults'; query: string; ids: string[] }
   | { type: 'draftsLoaded'; drafts: Array<{ id: string; title: string }> }
+  | { type: 'apiTestResult'; success: boolean; error?: string }
   | { type: 'error'; message: string };

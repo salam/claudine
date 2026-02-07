@@ -7,13 +7,19 @@
     settings, addError, setConversations, upsertConversation,
     focusedConversationId, searchQuery, searchMode, compactView,
     extensionSearchMatchIds, loadDraftsFromExtension,
-    expandAllCards, collapseAllCards
+    expandAllCards, collapseAllCards,
+    activeCategories, toggleCategory, clearCategoryFilter, getCategoryDetails
   } from './stores/conversations';
+  import type { ConversationCategory } from './lib/vscode';
+  import { localeStrings, t } from './stores/locale';
 
   let searchOpen = false;
+  let filterOpen = false;
   let settingsOpen = false;
   let aboutOpen = false;
   let showArchive = false;
+
+  const allCategories: ConversationCategory[] = ['bug', 'user-story', 'feature', 'improvement', 'task'];
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
   // Debounce search queries → extension for JSONL full-text search
@@ -62,6 +68,9 @@
       case 'draftsLoaded':
         loadDraftsFromExtension(message.drafts);
         break;
+      case 'updateLocale':
+        localeStrings.set(message.strings);
+        break;
       case 'error':
         addError(message.message);
         break;
@@ -75,6 +84,11 @@
   function toggleSearch() {
     searchOpen = !searchOpen;
     if (!searchOpen) $searchQuery = '';
+  }
+
+  function toggleFilter() {
+    filterOpen = !filterOpen;
+    if (!filterOpen) clearCategoryFilter();
   }
 
   function toggleCompact() {
@@ -134,6 +148,9 @@
       <button class="sidebar-btn" class:active={searchOpen} on:click={toggleSearch} title="Search conversations" aria-label="Search conversations" aria-pressed={searchOpen}>
         <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>
       </button>
+      <button class="sidebar-btn" class:active={filterOpen || $activeCategories.size > 0} on:click={toggleFilter} title="Filter by category" aria-label="Filter by category" aria-pressed={filterOpen}>
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/></svg>
+      </button>
       <button class="sidebar-btn" class:active={$compactView} on:click={toggleCompact} title="Toggle compact / full view" aria-label="Toggle compact or full view" aria-pressed={$compactView}>
         {#if $compactView}
           <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v1.5H2V3zm0 4h12v1.5H2V7zm0 4h12v1.5H2V11z"/></svg>
@@ -182,6 +199,34 @@
           {$searchMode === 'fade' ? 'Fade' : 'Hide'}
         </button>
         <button class="search-close" on:click={toggleSearch}>
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+        </button>
+      </div>
+    {/if}
+    {#if filterOpen}
+      <div class="filter-bar">
+        <svg class="filter-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/></svg>
+        <div class="filter-chips">
+          {#each allCategories as cat}
+            {@const details = getCategoryDetails(cat)}
+            <button
+              class="filter-chip"
+              class:active={$activeCategories.has(cat)}
+              style:--chip-color={details.color}
+              on:click={() => toggleCategory(cat)}
+              aria-pressed={$activeCategories.has(cat)}
+            >
+              <span class="chip-icon">{details.icon}</span>
+              <span class="chip-label">{details.label}</span>
+            </button>
+          {/each}
+        </div>
+        {#if $activeCategories.size > 0}
+          <button class="filter-clear" on:click={clearCategoryFilter} title="Clear filter">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+          </button>
+        {/if}
+        <button class="filter-close" on:click={toggleFilter}>
           <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
         </button>
       </div>
@@ -329,6 +374,57 @@
   }
   .search-close:hover { background: var(--vscode-toolbar-hoverBackground, #383838); }
   .search-close svg { width: 14px; height: 14px; }
+
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: var(--vscode-sideBar-background, #252526);
+    border-bottom: 1px solid var(--vscode-panel-border, #404040);
+  }
+  .filter-icon { width: 13px; height: 13px; flex-shrink: 0; color: var(--vscode-descriptionForeground, #8c8c8c); }
+  .filter-chips { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+  .filter-chip {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--vscode-panel-border, #404040);
+    background: transparent;
+    color: var(--vscode-descriptionForeground, #8c8c8c);
+    cursor: pointer;
+    font-size: 10px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .filter-chip:hover {
+    border-color: var(--chip-color, #8c8c8c);
+    color: var(--vscode-foreground, #cccccc);
+  }
+  .filter-chip.active {
+    background: color-mix(in srgb, var(--chip-color, #8c8c8c) 20%, transparent);
+    border-color: var(--chip-color, #8c8c8c);
+    color: var(--vscode-foreground, #cccccc);
+  }
+  .chip-icon { font-size: 11px; line-height: 1; }
+  .chip-label { font-size: 10px; }
+  .filter-clear, .filter-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    color: var(--vscode-descriptionForeground, #8c8c8c);
+    cursor: pointer;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .filter-clear:hover, .filter-close:hover { background: var(--vscode-toolbar-hoverBackground, #383838); }
+  .filter-clear svg, .filter-close svg { width: 14px; height: 14px; }
 
   .about-overlay {
     position: fixed; inset: 0; z-index: 100;

@@ -49,10 +49,12 @@ export interface BoardState {
 export type ExtensionToWebviewMessage =
   | { type: 'updateConversations'; conversations: Conversation[] }
   | { type: 'updateSettings'; settings: ClaudineSettings }
+  | { type: 'updateLocale'; strings: Record<string, string> }
   | { type: 'conversationUpdated'; conversation: Conversation }
   | { type: 'focusedConversation'; conversationId: string | null }
   | { type: 'searchResults'; query: string; ids: string[] }
   | { type: 'draftsLoaded'; drafts: Array<{ id: string; title: string }> }
+  | { type: 'apiTestResult'; success: boolean; error?: string }
   | { type: 'error'; message: string };
 
 export type WebviewToExtensionMessage =
@@ -68,6 +70,8 @@ export type WebviewToExtensionMessage =
   | { type: 'quickIdea'; prompt: string }
   | { type: 'saveDrafts'; drafts: Array<{ id: string; title: string }> }
   | { type: 'closeEmptyClaudeTabs' }
+  | { type: 'setupAgentIntegration' }
+  | { type: 'testApiConnection' }
   | { type: 'ready' };
 
 export interface ClaudineSettings {

@@ -47,6 +47,12 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     _context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken
   ) {
+    // Clean up listeners from a previous view (e.g. when switching panel ↔ sidebar)
+    for (const d of this._disposables) {
+      d.dispose();
+    }
+    this._disposables = [];
+
     this._view = webviewView;
 
     webviewView.webview.options = {
@@ -91,6 +97,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       case 'ready':
         this.refresh();
         this.updateSettings();
+        this.sendLocale();
         this.loadDrafts();
         this.detectFocusedConversation();
         break;
@@ -173,6 +180,14 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
 
       case 'closeEmptyClaudeTabs':
         this.closeEmptyClaudeTabs();
+        break;
+
+      case 'setupAgentIntegration':
+        vscode.commands.executeCommand('claudine.setupAgentIntegration');
+        break;
+
+      case 'testApiConnection':
+        this.testApiConnection();
         break;
     }
   }
@@ -421,7 +436,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     } catch {
       this._suppressFocusUntil = 0;
       vscode.window.showWarningMessage(
-        'Could not open conversation in Claude Code. Is the Claude Code extension installed?'
+        vscode.l10n.t('Could not open conversation in Claude Code. Is the Claude Code extension installed?')
       );
     }
   }
@@ -449,7 +464,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     } catch {
       this._suppressFocusUntil = 0;
       vscode.window.showWarningMessage(
-        'Could not send prompt to Claude Code. Is the Claude Code extension installed?'
+        vscode.l10n.t('Could not send prompt to Claude Code. Is the Claude Code extension installed?')
       );
     }
   }
@@ -465,7 +480,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       this.focusEditorOnce(800);
     } catch {
       vscode.window.showWarningMessage(
-        'Could not start a new Claude Code conversation. Is the Claude Code extension installed?'
+        vscode.l10n.t('Could not start a new Claude Code conversation. Is the Claude Code extension installed?')
       );
     }
   }
@@ -656,6 +671,74 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     this.sendMessage({ type: 'draftsLoaded', drafts });
   }
 
+  private sendLocale() {
+    const t = vscode.l10n.t;
+    this.sendMessage({
+      type: 'updateLocale',
+      strings: {
+        // Column headers
+        'column.todo': t('To Do'),
+        'column.needsInput': t('Needs Input'),
+        'column.inProgress': t('In Progress'),
+        'column.inReview': t('In Review'),
+        'column.done': t('Done'),
+        'column.cancelled': t('Cancelled'),
+        'column.archived': t('Archived'),
+        // Board
+        'board.emptyTitle': t('Welcome to Claudine'),
+        'board.emptyStep1': t('Open a Claude Code editor'),
+        'board.emptyStep2': t('Start a conversation — Claudine will pick it up in real time'),
+        'board.emptyStep3': t('Drag cards between columns to track progress'),
+        'board.quickIdea': t('Quick idea...'),
+        'board.addIdea': t('Add idea'),
+        // Card
+        'card.dragToMove': t('Drag to move'),
+        'card.errorOccurred': t('Error occurred'),
+        'card.toolInterrupted': t('Tool interrupted'),
+        'card.waitingForInput': t('Waiting for input'),
+        'card.currentlyViewing': t('Currently viewing this conversation'),
+        'card.latest': t('Latest:'),
+        'card.openInSourceControl': t('Open in source control'),
+        'card.respond': t('Respond'),
+        'card.expandCard': t('Expand card'),
+        'card.collapseCard': t('Collapse card'),
+        'card.taskIcon': t('Task icon'),
+        'card.deleteIdea': t('Delete idea'),
+        'card.startConversation': t('Start conversation'),
+        'card.describeIdea': t('Describe your idea...'),
+        // Search
+        'search.placeholder': t('Search conversations...'),
+        'search.fade': t('Fade'),
+        'search.hide': t('Hide'),
+        // Toolbar
+        'toolbar.search': t('Search conversations'),
+        'toolbar.compactView': t('Toggle compact / full view'),
+        'toolbar.expandCollapse': t('Expand / Collapse all'),
+        'toolbar.refresh': t('Refresh conversations'),
+        'toolbar.closeTabs': t('Close empty & duplicate Claude tabs'),
+        'toolbar.settings': t('Settings'),
+        'toolbar.about': t('About Claudine'),
+        // Settings
+        'settings.title': t('Settings'),
+        'settings.imageGeneration': t('Image Generation'),
+        'settings.none': t('None'),
+        'settings.openai': t('OpenAI (DALL-E 3)'),
+        'settings.stability': t('Stability AI'),
+        'settings.apiKey': t('API Key'),
+        'settings.saved': t('Saved'),
+        'settings.regenerate': t('Regenerate Thumbnails'),
+        // Filter
+        'filter.title': t('Filter by category'),
+        'filter.clear': t('Clear filter'),
+        // Prompt input
+        'prompt.placeholder': t('Send a message...'),
+        'prompt.send': t('Send message'),
+        // Close
+        'close': t('Close'),
+      },
+    });
+  }
+
   public async updateSettings() {
     const config = vscode.workspace.getConfiguration('claudine');
     const apiKey = await this._secrets?.get('imageGenerationApiKey') ?? '';
@@ -666,6 +749,35 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       hasApiKey: !!apiKey
     };
     this.sendMessage({ type: 'updateSettings', settings });
+  }
+
+  private async testApiConnection() {
+    const config = vscode.workspace.getConfiguration('claudine');
+    const api = config.get<string>('imageGenerationApi', 'none');
+    const apiKey = await this._secrets?.get('imageGenerationApiKey') ?? '';
+
+    if (!apiKey) {
+      this.sendMessage({ type: 'apiTestResult', success: false, error: 'No API key configured' });
+      return;
+    }
+
+    try {
+      if (api === 'openai') {
+        const res = await fetch('https://api.openai.com/v1/models', {
+          headers: { 'Authorization': `Bearer ${apiKey}` },
+        });
+        this.sendMessage({ type: 'apiTestResult', success: res.ok, error: res.ok ? undefined : `HTTP ${res.status}` });
+      } else if (api === 'stability') {
+        const res = await fetch('https://api.stability.ai/v1/user/account', {
+          headers: { 'Authorization': `Bearer ${apiKey}` },
+        });
+        this.sendMessage({ type: 'apiTestResult', success: res.ok, error: res.ok ? undefined : `HTTP ${res.status}` });
+      } else {
+        this.sendMessage({ type: 'apiTestResult', success: false, error: 'No API selected' });
+      }
+    } catch (err) {
+      this.sendMessage({ type: 'apiTestResult', success: false, error: String(err) });
+    }
   }
 
   private sendMessage(message: ExtensionToWebviewMessage) {

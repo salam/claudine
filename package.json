@@ -45,72 +45,87 @@
     "commands": [
       {
         "command": "claudine.openKanban",
-        "title": "Open Kanban Board",
+        "title": "%command.openKanban%",
         "category": "Claudine"
       },
       {
         "command": "claudine.refresh",
-        "title": "Refresh Conversations",
+        "title": "%command.refresh%",
         "category": "Claudine"
       },
       {
         "command": "claudine.closeEmptyClaudeTabs",
-        "title": "Close Empty Claude Tabs",
+        "title": "%command.closeEmptyClaudeTabs%",
         "category": "Claudine"
       },
       {
         "command": "claudine.openConversation",
-        "title": "Open Conversation...",
+        "title": "%command.openConversation%",
         "category": "Claudine"
       },
       {
         "command": "claudine.searchConversations",
-        "title": "Search Conversations...",
+        "title": "%command.searchConversations%",
         "category": "Claudine"
       },
       {
         "command": "claudine.newConversation",
-        "title": "Start New Conversation...",
+        "title": "%command.newConversation%",
         "category": "Claudine"
       },
       {
         "command": "claudine.moveConversation",
-        "title": "Move Conversation to Status...",
+        "title": "%command.moveConversation%",
         "category": "Claudine"
       },
       {
         "command": "claudine.showNeedsInput",
-        "title": "Show Conversations Needing Input",
+        "title": "%command.showNeedsInput%",
         "category": "Claudine"
       },
       {
         "command": "claudine.showInProgress",
-        "title": "Show In-Progress Conversations",
+        "title": "%command.showInProgress%",
         "category": "Claudine"
       },
       {
         "command": "claudine.archiveDone",
-        "title": "Archive Completed Conversations",
+        "title": "%command.archiveDone%",
         "category": "Claudine"
       },
       {
         "command": "claudine.toggleSummarization",
-        "title": "Toggle AI Summarization",
+        "title": "%command.toggleSummarization%",
         "category": "Claudine"
       },
       {
         "command": "claudine.regenerateIcons",
-        "title": "Regenerate All Icons",
+        "title": "%command.regenerateIcons%",
         "category": "Claudine"
       },
       {
         "command": "claudine.openSettings",
-        "title": "Open Settings",
+        "title": "%command.openSettings%",
         "category": "Claudine"
       },
       {
         "command": "claudine.focusClaude",
-        "title": "Focus Active Claude Tab",
+        "title": "%command.focusClaude%",
+        "category": "Claudine"
+      },
+      {
+        "command": "claudine.togglePlacement",
+        "title": "%command.togglePlacement%",
+        "category": "Claudine"
+      },
+      {
+        "command": "claudine.exportBoard",
+        "title": "%command.exportBoard%",
+        "category": "Claudine"
+      },
+      {
+        "command": "claudine.importBoard",
+        "title": "%command.importBoard%",
         "category": "Claudine"
       }
     ],
@@ -119,7 +134,14 @@
         {
           "id": "claudine-panel",
           "title": "🐘 Claudine",
-          "icon": "resources/icons/claudine.svg"
+          "icon": "resources/icons/claudine.png"
+        }
+      ],
+      "activitybar": [
+        {
+          "id": "claudine-sidebar",
+          "title": "Claudine",
+          "icon": "resources/icons/claudine.png"
         }
       ]
     },
@@ -128,7 +150,16 @@
         {
           "type": "webview",
           "id": "claudine.kanbanView",
-          "name": "🐘 Claudine"
+          "name": "🐘 Claudine",
+          "when": "config.claudine.viewLocation != 'sidebar'"
+        }
+      ],
+      "claudine-sidebar": [
+        {
+          "type": "webview",
+          "id": "claudine.kanbanViewSidebar",
+          "name": "Claudine",
+          "when": "config.claudine.viewLocation == 'sidebar'"
         }
       ]
     },
@@ -143,20 +174,65 @@
             "none"
           ],
           "default": "none",
-          "description": "API to use for generating task icons"
+          "description": "%config.imageGenerationApi.description%"
         },
         "claudine.claudeCodePath": {
           "type": "string",
           "default": "~/.claude",
-          "description": "Path to Claude Code data directory"
+          "description": "%config.claudeCodePath.description%"
         },
         "claudine.enableSummarization": {
           "type": "boolean",
           "default": false,
-          "description": "Use Claude Code CLI to generate short summaries for conversation cards"
+          "description": "%config.enableSummarization.description%"
+        },
+        "claudine.viewLocation": {
+          "type": "string",
+          "enum": [
+            "panel",
+            "sidebar"
+          ],
+          "default": "panel",
+          "description": "%config.viewLocation.description%"
         }
       }
-    }
+    },
+    "keybindings": [
+      {
+        "command": "claudine.openKanban",
+        "key": "ctrl+shift+k",
+        "mac": "cmd+shift+k"
+      },
+      {
+        "command": "claudine.refresh",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "claudine.kanbanView.visible || claudine.kanbanViewSidebar.visible"
+      },
+      {
+        "command": "claudine.searchConversations",
+        "key": "ctrl+shift+f",
+        "mac": "cmd+shift+f",
+        "when": "claudine.kanbanView.visible || claudine.kanbanViewSidebar.visible"
+      },
+      {
+        "command": "claudine.newConversation",
+        "key": "ctrl+shift+n",
+        "mac": "cmd+shift+n",
+        "when": "claudine.kanbanView.visible || claudine.kanbanViewSidebar.visible"
+      },
+      {
+        "command": "claudine.showNeedsInput",
+        "key": "ctrl+shift+i",
+        "mac": "cmd+shift+i",
+        "when": "claudine.kanbanView.visible || claudine.kanbanViewSidebar.visible"
+      },
+      {
+        "command": "claudine.focusClaude",
+        "key": "ctrl+shift+c",
+        "mac": "cmd+shift+c"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package && npm run build:webview",
@@ -166,7 +242,9 @@
     "compile:check": "tsc -p ./ --noEmit",
     "build:webview": "cd webview && npm run build",
     "dev:webview": "cd webview && npm run dev",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -175,6 +253,7 @@
     "@typescript-eslint/parser": "^6.13.0",
     "esbuild": "^0.27.3",
     "eslint": "^8.54.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.18"
   }
 }

@@ -1,10 +1,13 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { KanbanViewProvider } from './providers/KanbanViewProvider';
 import { ClaudeCodeWatcher } from './providers/ClaudeCodeWatcher';
 import { StateManager } from './services/StateManager';
 import { StorageService } from './services/StorageService';
 import { ImageGenerator } from './services/ImageGenerator';
 import { CommandProcessor } from './services/CommandProcessor';
+import { promptExport, promptImport } from './services/BoardExporter';
 import { ConversationStatus } from './types';
 
 let kanbanProvider: KanbanViewProvider;
@@ -47,23 +50,21 @@ export async function activate(context: vscode.ExtensionContext) {
     await vscode.workspace.getConfiguration('claudine').update('imageGenerationApiKey', undefined, vscode.ConfigurationTarget.Global);
   }
 
-  // Register the webview provider
+  // Register the webview provider for both panel and sidebar view IDs.
+  // Only one is visible at a time, controlled by the claudine.viewLocation setting
+  // and `when` clauses in package.json.
+  const webviewOptions = { webviewOptions: { retainContextWhenHidden: true } };
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      'claudine.kanbanView',
-      kanbanProvider,
-      {
-        webviewOptions: {
-          retainContextWhenHidden: true
-        }
-      }
-    )
+    vscode.window.registerWebviewViewProvider('claudine.kanbanView', kanbanProvider, webviewOptions),
+    vscode.window.registerWebviewViewProvider('claudine.kanbanViewSidebar', kanbanProvider, webviewOptions)
   );
 
   // Register commands
   context.subscriptions.push(
     vscode.commands.registerCommand('claudine.openKanban', () => {
-      vscode.commands.executeCommand('claudine.kanbanView.focus');
+      const location = vscode.workspace.getConfiguration('claudine').get<string>('viewLocation', 'panel');
+      const viewId = location === 'sidebar' ? 'claudine.kanbanViewSidebar' : 'claudine.kanbanView';
+      vscode.commands.executeCommand(`${viewId}.focus`);
     })
   );
 
@@ -85,7 +86,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('claudine.openConversation', async () => {
       const conversations = stateManager.getConversations();
       if (conversations.length === 0) {
-        vscode.window.showInformationMessage('No conversations found. Start a Claude Code conversation first.');
+        vscode.window.showInformationMessage(vscode.l10n.t('No conversations found. Start a Claude Code conversation first.'));
         return;
       }
       const statusIcons: Record<ConversationStatus, string> = {
@@ -104,7 +105,7 @@ export async function activate(context: vscode.ExtensionContext) {
         conversationId: c.id
       }));
       const picked = await vscode.window.showQuickPick(items, {
-        placeHolder: 'Select a conversation to open',
+        placeHolder: vscode.l10n.t('Select a conversation to open'),
         matchOnDescription: true,
         matchOnDetail: true
       });
@@ -118,13 +119,13 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('claudine.searchConversations', async () => {
       const query = await vscode.window.showInputBox({
-        placeHolder: 'Search conversation content...',
-        prompt: 'Enter text to search across all conversation JSONL files'
+        placeHolder: vscode.l10n.t('Search conversation content...'),
+        prompt: vscode.l10n.t('Enter text to search across all conversation JSONL files')
       });
       if (!query) return;
       const matchIds = claudeCodeWatcher.searchConversations(query);
       if (matchIds.length === 0) {
-        vscode.window.showInformationMessage(`No conversations found matching "${query}".`);
+        vscode.window.showInformationMessage(vscode.l10n.t('No conversations found matching "{0}".', query));
         return;
       }
       const conversations = stateManager.getConversations().filter(c => matchIds.includes(c.id));
@@ -135,7 +136,7 @@ export async function activate(context: vscode.ExtensionContext) {
         conversationId: c.id
       }));
       const picked = await vscode.window.showQuickPick(items, {
-        placeHolder: `${matchIds.length} conversation(s) matching "${query}"`,
+        placeHolder: vscode.l10n.t('{0} conversation(s) matching "{1}"', matchIds.length, query),
         matchOnDescription: true,
         matchOnDetail: true
       });
@@ -149,8 +150,8 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('claudine.newConversation', async () => {
       const prompt = await vscode.window.showInputBox({
-        placeHolder: 'What would you like Claude to work on?',
-        prompt: 'Enter a prompt to start a new Claude Code conversation'
+        placeHolder: vscode.l10n.t('What would you like Claude to work on?'),
+        prompt: vscode.l10n.t('Enter a prompt to start a new Claude Code conversation')
       });
       if (prompt) {
         kanbanProvider.startNewConversation(prompt);
@@ -163,7 +164,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('claudine.moveConversation', async () => {
       const conversations = stateManager.getConversations().filter(c => c.status !== 'archived');
       if (conversations.length === 0) {
-        vscode.window.showInformationMessage('No active conversations to move.');
+        vscode.window.showInformationMessage(vscode.l10n.t('No active conversations to move.'));
         return;
       }
       const convItems = conversations.map(c => ({
@@ -173,20 +174,20 @@ export async function activate(context: vscode.ExtensionContext) {
         conversationId: c.id
       }));
       const pickedConv = await vscode.window.showQuickPick(convItems, {
-        placeHolder: 'Select a conversation to move'
+        placeHolder: vscode.l10n.t('Select a conversation to move')
       });
       if (!pickedConv) return;
       const statusOptions: Array<{ label: string; status: ConversationStatus }> = [
-        { label: '$(circle-outline) To Do', status: 'todo' },
-        { label: '$(bell) Needs Input', status: 'needs-input' },
-        { label: '$(sync~spin) In Progress', status: 'in-progress' },
-        { label: '$(eye) In Review', status: 'in-review' },
-        { label: '$(check) Done', status: 'done' },
-        { label: '$(circle-slash) Cancelled', status: 'cancelled' },
-        { label: '$(archive) Archived', status: 'archived' }
+        { label: `$(circle-outline) ${vscode.l10n.t('To Do')}`, status: 'todo' },
+        { label: `$(bell) ${vscode.l10n.t('Needs Input')}`, status: 'needs-input' },
+        { label: `$(sync~spin) ${vscode.l10n.t('In Progress')}`, status: 'in-progress' },
+        { label: `$(eye) ${vscode.l10n.t('In Review')}`, status: 'in-review' },
+        { label: `$(check) ${vscode.l10n.t('Done')}`, status: 'done' },
+        { label: `$(circle-slash) ${vscode.l10n.t('Cancelled')}`, status: 'cancelled' },
+        { label: `$(archive) ${vscode.l10n.t('Archived')}`, status: 'archived' }
       ];
       const pickedStatus = await vscode.window.showQuickPick(statusOptions, {
-        placeHolder: `Move "${pickedConv.label}" to...`
+        placeHolder: vscode.l10n.t('Move "{0}" to...', pickedConv.label)
       });
       if (pickedStatus) {
         stateManager.moveConversation(pickedConv.conversationId, pickedStatus.status);
@@ -200,7 +201,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('claudine.showNeedsInput', async () => {
       const conversations = stateManager.getConversationsByStatus('needs-input');
       if (conversations.length === 0) {
-        vscode.window.showInformationMessage('No conversations need input right now.');
+        vscode.window.showInformationMessage(vscode.l10n.t('No conversations need input right now.'));
         return;
       }
       const items = conversations.map(c => ({
@@ -209,7 +210,7 @@ export async function activate(context: vscode.ExtensionContext) {
         conversationId: c.id
       }));
       const picked = await vscode.window.showQuickPick(items, {
-        placeHolder: `${conversations.length} conversation(s) need your input`
+        placeHolder: vscode.l10n.t('{0} conversation(s) need your input', conversations.length)
       });
       if (picked) {
         kanbanProvider.openConversation(picked.conversationId);
@@ -222,7 +223,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('claudine.showInProgress', async () => {
       const conversations = stateManager.getConversationsByStatus('in-progress');
       if (conversations.length === 0) {
-        vscode.window.showInformationMessage('No conversations are in progress.');
+        vscode.window.showInformationMessage(vscode.l10n.t('No conversations are in progress.'));
         return;
       }
       const items = conversations.map(c => ({
@@ -231,7 +232,7 @@ export async function activate(context: vscode.ExtensionContext) {
         conversationId: c.id
       }));
       const picked = await vscode.window.showQuickPick(items, {
-        placeHolder: `${conversations.length} conversation(s) in progress`
+        placeHolder: vscode.l10n.t('{0} conversation(s) in progress', conversations.length)
       });
       if (picked) {
         kanbanProvider.openConversation(picked.conversationId);
@@ -244,7 +245,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('claudine.archiveDone', () => {
       stateManager.archiveAllDone();
       kanbanProvider.refresh();
-      vscode.window.showInformationMessage('Archived all completed and cancelled conversations.');
+      vscode.window.showInformationMessage(vscode.l10n.t('Archived all completed and cancelled conversations.'));
     })
   );
 
@@ -255,7 +256,7 @@ export async function activate(context: vscode.ExtensionContext) {
       const current = cfg.get<boolean>('enableSummarization', false);
       cfg.update('enableSummarization', !current, vscode.ConfigurationTarget.Global).then(() => {
         kanbanProvider.updateSettings();
-        vscode.window.showInformationMessage(`AI Summarization ${!current ? 'enabled' : 'disabled'}.`);
+        vscode.window.showInformationMessage(vscode.l10n.t('AI Summarization {0}.', !current ? vscode.l10n.t('enabled') : vscode.l10n.t('disabled')));
         if (!current) {
           claudeCodeWatcher.refresh();
         }
@@ -269,7 +270,7 @@ export async function activate(context: vscode.ExtensionContext) {
       await stateManager.clearAllIcons();
       claudeCodeWatcher.clearPendingIcons();
       claudeCodeWatcher.refresh();
-      vscode.window.showInformationMessage('Regenerating all conversation icons...');
+      vscode.window.showInformationMessage(vscode.l10n.t('Regenerating all conversation icons...'));
     })
   );
 
@@ -280,12 +281,78 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Toggle Placement — switch between bottom panel and sidebar
+  context.subscriptions.push(
+    vscode.commands.registerCommand('claudine.togglePlacement', async () => {
+      const cfg = vscode.workspace.getConfiguration('claudine');
+      const current = cfg.get<string>('viewLocation', 'panel');
+      const next = current === 'sidebar' ? 'panel' : 'sidebar';
+      await cfg.update('viewLocation', next, vscode.ConfigurationTarget.Global);
+      // Focus the newly visible view after a brief delay for VSCode to re-evaluate when clauses
+      setTimeout(() => {
+        const viewId = next === 'sidebar' ? 'claudine.kanbanViewSidebar' : 'claudine.kanbanView';
+        vscode.commands.executeCommand(`${viewId}.focus`);
+      }, 300);
+      vscode.window.showInformationMessage(
+        vscode.l10n.t('Claudine moved to {0}.', next === 'sidebar' ? vscode.l10n.t('sidebar') : vscode.l10n.t('panel'))
+      );
+    })
+  );
+
+  // Export Board — save conversations as CSV, JSON, or Trello format
+  context.subscriptions.push(
+    vscode.commands.registerCommand('claudine.exportBoard', async () => {
+      const conversations = stateManager.getConversations();
+      if (conversations.length === 0) {
+        vscode.window.showInformationMessage(vscode.l10n.t('No conversations to export.'));
+        return;
+      }
+      await promptExport(conversations);
+    })
+  );
+
+  // Import Board — load conversations from a Claudine JSON export
+  context.subscriptions.push(
+    vscode.commands.registerCommand('claudine.importBoard', async () => {
+      const imported = await promptImport();
+      if (imported) {
+        for (const conv of imported) {
+          stateManager.updateConversation(conv);
+        }
+        kanbanProvider.refresh();
+      }
+    })
+  );
+
+  // Setup Agent Integration — scaffold CLAUDINE.AGENTS.md into workspace
+  context.subscriptions.push(
+    vscode.commands.registerCommand('claudine.setupAgentIntegration', async () => {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        vscode.window.showWarningMessage(vscode.l10n.t('Open a workspace folder first.'));
+        return;
+      }
+      const targetPath = path.join(workspaceFolder.uri.fsPath, 'CLAUDINE.AGENTS.md');
+      if (fs.existsSync(targetPath)) {
+        const doc = await vscode.workspace.openTextDocument(targetPath);
+        await vscode.window.showTextDocument(doc);
+        return;
+      }
+      const templatePath = path.join(context.extensionPath, 'resources', 'CLAUDINE.AGENTS.md');
+      const template = fs.readFileSync(templatePath, 'utf-8');
+      fs.writeFileSync(targetPath, template);
+      const doc = await vscode.workspace.openTextDocument(targetPath);
+      await vscode.window.showTextDocument(doc);
+      vscode.window.showInformationMessage(vscode.l10n.t('Created CLAUDINE.AGENTS.md — reference it from your CLAUDE.md to enable agent board control.'));
+    })
+  );
+
   // Focus Active Claude Tab
   context.subscriptions.push(
     vscode.commands.registerCommand('claudine.focusClaude', async () => {
       const focused = await kanbanProvider.focusAnyClaudeTab();
       if (!focused) {
-        vscode.window.showInformationMessage('No Claude Code tab is open. Use "Claudine: Open Conversation" to open one.');
+        vscode.window.showInformationMessage(vscode.l10n.t('No Claude Code tab is open. Use "Claudine: Open Conversation" to open one.'));
       }
     })
   );
@@ -294,15 +361,49 @@ export async function activate(context: vscode.ExtensionContext) {
   const hasSeenWelcome = context.globalState.get<boolean>('claudine.hasSeenWelcome', false);
   if (!hasSeenWelcome) {
     context.globalState.update('claudine.hasSeenWelcome', true);
+    const openAction = vscode.l10n.t('Open Claudine');
     vscode.window.showInformationMessage(
-      'Claudine is ready! Find the 🐘 Claudine tab in the bottom panel (next to Terminal).',
-      'Open Claudine'
+      vscode.l10n.t('Claudine is ready! Find the Claudine tab in the bottom panel (next to Terminal).'),
+      openAction
     ).then(selection => {
-      if (selection === 'Open Claudine') {
-        vscode.commands.executeCommand('claudine.kanbanView.focus');
+      if (selection === openAction) {
+        vscode.commands.executeCommand('claudine.openKanban');
       }
     });
   }
+
+  // Prompt to set up agent integration if board has tasks but no CLAUDINE.AGENTS.md
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (workspaceRoot && stateManager.getConversations().length > 0) {
+    const agentsFile = path.join(workspaceRoot, 'CLAUDINE.AGENTS.md');
+    if (!fs.existsSync(agentsFile)) {
+      const scaffold = vscode.l10n.t('Create CLAUDINE.AGENTS.md');
+      const later = vscode.l10n.t('Maybe later');
+      vscode.window.showInformationMessage(
+        vscode.l10n.t('Enable Claude Code agents to control the Claudine board? This creates a CLAUDINE.AGENTS.md file you can reference from CLAUDE.md.'),
+        scaffold, later
+      ).then(selection => {
+        if (selection === scaffold) {
+          vscode.commands.executeCommand('claudine.setupAgentIntegration');
+        }
+      });
+    }
+  }
+
+  // Notify when conversations need user input
+  context.subscriptions.push(
+    stateManager.onNeedsInput(conv => {
+      const openAction = vscode.l10n.t('Open');
+      vscode.window.showInformationMessage(
+        vscode.l10n.t('"{0}" needs your input', conv.title),
+        openAction
+      ).then(selection => {
+        if (selection === openAction) {
+          kanbanProvider.openConversation(conv.id);
+        }
+      });
+    })
+  );
 
   // Start watching for Claude Code changes
   claudeCodeWatcher.startWatching();
@@ -323,6 +424,20 @@ export async function activate(context: vscode.ExtensionContext) {
       commandProcessor.stopWatching();
     }
   });
+
+  // Public API for other extensions
+  // Usage: const claudine = vscode.extensions.getExtension('claudine.claudine')?.exports;
+  return {
+    getConversations: () => stateManager.getConversations(),
+    getConversation: (id: string) => stateManager.getConversation(id),
+    getConversationsByStatus: (status: ConversationStatus) => stateManager.getConversationsByStatus(status),
+    moveConversation: (id: string, status: ConversationStatus) => {
+      stateManager.moveConversation(id, status);
+      kanbanProvider.refresh();
+    },
+    onConversationsChanged: stateManager.onConversationsChanged.bind(stateManager),
+    onNeedsInput: stateManager.onNeedsInput.bind(stateManager),
+  };
 }
 
 export function deactivate() {

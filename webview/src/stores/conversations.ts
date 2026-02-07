@@ -1,6 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import { vscode } from '../lib/vscode';
-import type { Conversation, ConversationStatus, ClaudineSettings } from '../lib/vscode';
+import type { Conversation, ConversationStatus, ConversationCategory, ClaudineSettings } from '../lib/vscode';
+import { t } from './locale';
 
 // Main conversations store
 export const conversations = writable<Conversation[]>([]);
@@ -22,6 +23,22 @@ export const searchMode = writable<'fade' | 'hide'>('fade');
 export const focusedConversationId = writable<string | null>(null);
 export const compactView = writable(false);
 export const collapsedCardIds = writable<Set<string>>(new Set());
+
+// Category filter: empty set = show all, non-empty = show only selected categories
+export const activeCategories = writable<Set<ConversationCategory>>(new Set());
+
+export function toggleCategory(cat: ConversationCategory) {
+  activeCategories.update(set => {
+    const next = new Set(set);
+    if (next.has(cat)) next.delete(cat);
+    else next.add(cat);
+    return next;
+  });
+}
+
+export function clearCategoryFilter() {
+  activeCategories.set(new Set());
+}
 
 export function toggleCardCollapsed(id: string) {
   collapsedCardIds.update(set => {
@@ -160,52 +177,27 @@ export function upsertConversation(conv: Conversation) {
   conversationsByStatus.set(groupByStatus(all));
 }
 
-// Column definitions
-export const columns: Array<{
+// Column definitions (reactive — titles update when locale strings arrive)
+export interface ColumnDef {
   id: ConversationStatus;
   title: string;
   color: string;
-  description: string;
-}> = [
-  {
-    id: 'todo',
-    title: 'To Do',
-    color: '#6b7280',
-    description: 'Conversations opened but not started'
-  },
-  {
-    id: 'needs-input',
-    title: 'Needs Input',
-    color: '#f59e0b',
-    description: 'Waiting for user response or approval'
-  },
-  {
-    id: 'in-progress',
-    title: 'In Progress',
-    color: '#3b82f6',
-    description: 'Currently processing or working'
-  },
-  {
-    id: 'in-review',
-    title: 'In Review',
-    color: '#8b5cf6',
-    description: 'Task completed, ready for review'
-  },
-  {
-    id: 'done',
-    title: 'Done',
-    color: '#10b981',
-    description: 'Completed and approved'
-  }
-];
+}
+
+export const columns = derived(t, ($t) => [
+  { id: 'todo' as ConversationStatus, title: $t('column.todo', 'To Do'), color: '#6b7280' },
+  { id: 'needs-input' as ConversationStatus, title: $t('column.needsInput', 'Needs Input'), color: '#f59e0b' },
+  { id: 'in-progress' as ConversationStatus, title: $t('column.inProgress', 'In Progress'), color: '#3b82f6' },
+  { id: 'in-review' as ConversationStatus, title: $t('column.inReview', 'In Review'), color: '#8b5cf6' },
+  { id: 'done' as ConversationStatus, title: $t('column.done', 'Done'), color: '#10b981' },
+]);
 
 // Archive column (rendered separately, togglable)
-export const archiveColumn = {
+export const archiveColumn = derived(t, ($t) => ({
   id: 'archived' as ConversationStatus,
-  title: 'Archived',
+  title: $t('column.archived', 'Archived'),
   color: '#4b5563',
-  description: 'Auto-archived after 4 hours in Done or Cancelled'
-};
+}));
 
 // Helper function to get category details
 export function getCategoryDetails(category: Conversation['category']): {

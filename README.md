@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="resources/icons/claudine.svg" width="128" height="128" alt="Claudine logo">
+  <img src="resources/icons/claudine.png" width="128" height="128" alt="Claudine logo">
 </p>
 
 <h1 align="center">Claudine</h1>
@@ -181,7 +181,7 @@ claudine/
 │           └── vscode.ts         # VS Code webview API bridge
 ├── resources/
 │   └── icons/
-│       └── claudine.svg          # Extension icon
+│       └──           # Extension icon
 └── package.json
 ```
 

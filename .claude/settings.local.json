@@ -19,7 +19,10 @@
       "WebFetch(domain:lucide.dev)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(wc:*)",
-      "Bash(convert:*)"
+      "Bash(convert:*)",
+      "Bash(node -e:*)",
+      "Bash(npm test:*)",
+      "Bash(npx vitest run:*)"
     ]
   }
 }

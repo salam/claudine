@@ -1,0 +1,23 @@
+{
+  "command.openKanban": "Open Kanban Board",
+  "command.refresh": "Refresh Conversations",
+  "command.closeEmptyClaudeTabs": "Close Empty Claude Tabs",
+  "command.openConversation": "Open Conversation...",
+  "command.searchConversations": "Search Conversations...",
+  "command.newConversation": "Start New Conversation...",
+  "command.moveConversation": "Move Conversation to Status...",
+  "command.showNeedsInput": "Show Conversations Needing Input",
+  "command.showInProgress": "Show In-Progress Conversations",
+  "command.archiveDone": "Archive Completed Conversations",
+  "command.toggleSummarization": "Toggle AI Summarization",
+  "command.regenerateIcons": "Regenerate All Icons",
+  "command.openSettings": "Open Settings",
+  "command.focusClaude": "Focus Active Claude Tab",
+  "command.togglePlacement": "Toggle Panel / Sidebar Placement",
+  "command.exportBoard": "Export Board...",
+  "command.importBoard": "Import Board...",
+  "config.imageGenerationApi.description": "API to use for generating task icons",
+  "config.claudeCodePath.description": "Path to Claude Code data directory",
+  "config.enableSummarization.description": "Use Claude Code CLI to generate short summaries for conversation cards",
+  "config.viewLocation.description": "Show the Claudine board in the bottom panel or the sidebar"
+}

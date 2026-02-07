@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install extension dependencies
+        run: npm ci
+
+      - name: Install webview dependencies
+        run: cd webview && npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run compile:check
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build extension
+        run: npm run compile
+
+      - name: Build webview
+        run: npm run build:webview
+
+      - name: Package VSIX
+        run: npx @vscode/vsce package --no-dependencies
+        if: matrix.node-version == 22
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: claudine-vsix
+          path: '*.vsix'
+        if: matrix.node-version == 22

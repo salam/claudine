@@ -322,7 +322,7 @@ The webview is the primary UI surface, and it lacks fundamental accessibility su
 
 ### P1 — Should fix for quality release
 8. ~~Add `.eslintrc.json` with explicit rules~~ DONE
-9. Add unit tests for `ConversationParser` and `StateManager` — STILL NEEDED
+9. ~~Add unit tests for `ConversationParser`, `StateManager`, `CategoryClassifier`~~ DONE (73 tests, vitest)
 10. ~~Add empty-state UI~~ DONE
 11. ~~Add `CHANGELOG.md`~~ DONE
 12. ~~Add `extensionDependencies` for Claude Code~~ DONE
@@ -348,3 +348,27 @@ The webview is the primary UI surface, and it lacks fundamental accessibility su
 28. Category/status filtering UI
 29. Notification for "Needs Input" status changes
 30. Board export/import
+
+---
+
+## Appendix: Ordered Backlog
+
+| #  | Task                                                          | Status      |
+|----|---------------------------------------------------------------|-------------|
+| 1 | Add unit tests (ConversationParser, StateManager, CategoryClassifier) | Done |
+| 2 | Add i18n support via `vscode.l10n` | Done |
+| 3 | Add CI/CD pipeline | Done |
+| 4 | Add custom keybindings + panel toggle keybinding | Done |
+| 5 | Add notification for Needs Input status changes | Done |
+| 6 | Add API key validation + Test Connection button in settings | Done |
+| 7 | Option to switch between panel and sidebar placement | Done |
+| 8 | Category/status filtering UI | Done |
+| 9 | Board export/import (PDF, XML, CSV, Trello/Jira compatible) | Done |
+| 10 | Extension API for other extensions | Done |
+| 11 | Decompose KanbanViewProvider.ts into smaller modules | Pending |
+| 12 | Extract magic numbers into named constants | Pending |
+| 13 | Add CONTRIBUTING.md, SECURITY.md, issue templates | Pending |
+| 14 | Add incremental JSONL parsing | Pending |
+| 15 | Add diagnostic command | Pending |
+
+**Paused:** screenshot, virtual scrolling

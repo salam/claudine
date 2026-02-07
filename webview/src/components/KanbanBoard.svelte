@@ -6,7 +6,8 @@
     conversations,
     conversationsByStatus, columns, archiveColumn, updateConversationStatus,
     searchMatchIds, searchMode, searchQuery, compactView, collapsedCardIds, focusedConversationId,
-    firstConversationId, drafts, addDraft, removeDraft, updateDraft
+    firstConversationId, drafts, addDraft, removeDraft, updateDraft,
+    activeCategories
   } from '../stores/conversations';
   import { vscode, type Conversation, type ConversationStatus } from '../lib/vscode';
 
@@ -72,7 +73,9 @@
     }
   }
 
-  function isVisible(id: string, matchIds: Set<string> | null, mode: string): boolean {
+  function isVisible(id: string, matchIds: Set<string> | null, mode: string, category: string, catFilter: Set<string>): boolean {
+    // Category filter: if active, hide non-matching categories
+    if (catFilter.size > 0 && !catFilter.has(category)) return false;
     if (!matchIds) return true;
     if (mode === 'hide') return matchIds.has(id);
     return true;
@@ -122,10 +125,16 @@
         <span>Drag cards between columns to track progress</span>
       </div>
     </div>
+    <button class="setup-agent-btn" on:click={() => vscode.postMessage({ type: 'setupAgentIntegration' })}>
+      Set up Agent Integration
+    </button>
+    <div class="setup-agent-hint">
+      Let Claude Code agents move tasks on the board automatically
+    </div>
   </div>
 {:else}
 <div class="kanban-board">
-  {#each columns as column (column.id)}
+  {#each $columns as column (column.id)}
     <div class="column-wrapper" class:narrow={narrowColumns[column.id]}>
       <KanbanColumn title={column.title} color={column.color} count={boardItems[column.id].filter(c => !c.isDraft).length} activeCount={boardItems[column.id].filter(c => c.agents.some(a => a.isActive)).length} narrow={narrowColumns[column.id] || false} onToggleNarrow={column.id === 'done' ? () => toggleColumnNarrow(column.id) : null}>
         {#if column.id === 'todo'}
@@ -150,7 +159,7 @@
           on:finalize={(e) => handleDndFinalize(column.id, e)}
         >
           {#each boardItems[column.id] as conversation (conversation.id)}
-            {#if isVisible(conversation.id, $searchMatchIds, $searchMode)}
+            {#if isVisible(conversation.id, $searchMatchIds, $searchMode, conversation.category, $activeCategories)}
               <div class:faded={isFaded(conversation.id, $searchMatchIds, $searchMode)}>
                 <TaskCard {conversation} compact={isCompact(conversation.id, conversation.status, $compactView, $collapsedCardIds, $searchMatchIds)} narrow={narrowColumns[column.id] || false} searchQuery={$searchQuery} focused={$focusedConversationId === conversation.id} isFirst={conversation.id === $firstConversationId} on:sendDraft={(e) => sendDraft(e.detail)} on:deleteDraft={(e) => removeDraft(e.detail)} on:updateDraft={(e) => updateDraft(e.detail.id, e.detail.title)} />
               </div>
@@ -172,7 +181,7 @@
               on:finalize={(e) => handleDndFinalize('cancelled', e)}
             >
               {#each boardItems['cancelled'] as conversation (conversation.id)}
-                {#if isVisible(conversation.id, $searchMatchIds, $searchMode)}
+                {#if isVisible(conversation.id, $searchMatchIds, $searchMode, conversation.category, $activeCategories)}
                   <div class:faded={isFaded(conversation.id, $searchMatchIds, $searchMode)}>
                     <TaskCard {conversation} compact={isCompact(conversation.id, conversation.status, $compactView, $collapsedCardIds, $searchMatchIds)} narrow={narrowColumns[column.id] || false} searchQuery={$searchQuery} focused={$focusedConversationId === conversation.id} isFirst={conversation.id === $firstConversationId} on:sendDraft={(e) => sendDraft(e.detail)} on:deleteDraft={(e) => removeDraft(e.detail)} on:updateDraft={(e) => updateDraft(e.detail.id, e.detail.title)} />
                   </div>
@@ -186,16 +195,16 @@
   {/each}
   {#if showArchive}
     <div class="column-wrapper archive-column">
-      <KanbanColumn title={archiveColumn.title} color={archiveColumn.color} count={boardItems['archived'].length} activeCount={0}>
+      <KanbanColumn title={$archiveColumn.title} color={$archiveColumn.color} count={boardItems['archived'].length} activeCount={0}>
         <div
           class="drop-zone"
           class:empty-zone={boardItems['archived'].length === 0}
-          use:dndzone={{ items: boardItems['archived'], flipDurationMs, dragHandleSelector: '.drag-handle', useCursorForDetection: true, dropTargetStyle: { outline: `2px dashed ${archiveColumn.color}`, outlineOffset: '2px' } }}
+          use:dndzone={{ items: boardItems['archived'], flipDurationMs, dragHandleSelector: '.drag-handle', useCursorForDetection: true, dropTargetStyle: { outline: `2px dashed ${$archiveColumn.color}`, outlineOffset: '2px' } }}
           on:consider={(e) => handleDndConsider('archived', e)}
           on:finalize={(e) => handleDndFinalize('archived', e)}
         >
           {#each boardItems['archived'] as conversation (conversation.id)}
-            {#if isVisible(conversation.id, $searchMatchIds, $searchMode)}
+            {#if isVisible(conversation.id, $searchMatchIds, $searchMode, conversation.category, $activeCategories)}
               <div class:faded={isFaded(conversation.id, $searchMatchIds, $searchMode)}>
                 <TaskCard {conversation} compact={isCompact(conversation.id, conversation.status, $compactView, $collapsedCardIds, $searchMatchIds)} searchQuery={$searchQuery} focused={$focusedConversationId === conversation.id} isFirst={conversation.id === $firstConversationId} on:sendDraft={(e) => sendDraft(e.detail)} on:deleteDraft={(e) => removeDraft(e.detail)} on:updateDraft={(e) => updateDraft(e.detail.id, e.detail.title)} />
               </div>
@@ -324,5 +333,23 @@
     padding: 1px 4px;
     font-size: 10px;
     font-family: inherit;
+  }
+  .setup-agent-btn {
+    margin-top: 20px;
+    padding: 8px 20px;
+    background: var(--vscode-button-background, #0e639c);
+    color: var(--vscode-button-foreground, #ffffff);
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s;
+  }
+  .setup-agent-btn:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
+  .setup-agent-hint {
+    font-size: 10px;
+    margin-top: 6px;
+    color: var(--vscode-descriptionForeground, #8c8c8c);
   }
 </style>

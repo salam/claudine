@@ -5,8 +5,11 @@ import { Conversation, ConversationStatus } from '../types';
 export class StateManager {
   private _conversations: Map<string, Conversation> = new Map();
   private _onConversationsChanged: vscode.EventEmitter<Conversation[]>;
+  private _onNeedsInput: vscode.EventEmitter<Conversation>;
 
   public readonly onConversationsChanged: vscode.Event<Conversation[]>;
+  /** Fires when a conversation transitions into 'needs-input' status. */
+  public readonly onNeedsInput: vscode.Event<Conversation>;
 
   /** Resolves when saved state has been loaded from disk. Await before scanning. */
   public readonly ready: Promise<void>;
@@ -15,6 +18,8 @@ export class StateManager {
   constructor(private readonly _storageService: StorageService) {
     this._onConversationsChanged = new vscode.EventEmitter<Conversation[]>();
     this.onConversationsChanged = this._onConversationsChanged.event;
+    this._onNeedsInput = new vscode.EventEmitter<Conversation>();
+    this.onNeedsInput = this._onNeedsInput.event;
 
     this.ready = new Promise(resolve => { this._readyResolve = resolve; });
     this.loadState();
@@ -67,8 +72,12 @@ export class StateManager {
 
     // Merge with existing conversations, preserving manual overrides
     for (const conv of conversations) {
+      const prevStatus = this._conversations.get(conv.id)?.status;
       this.mergeWithExisting(conv);
       this._conversations.set(conv.id, conv);
+      if (conv.status === 'needs-input' && prevStatus && prevStatus !== 'needs-input') {
+        this._onNeedsInput.fire(conv);
+      }
     }
 
     this.archiveStaleConversations();

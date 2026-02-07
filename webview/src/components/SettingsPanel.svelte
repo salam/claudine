@@ -6,10 +6,32 @@
 
   let apiKeyValue = '';
   let saved = false;
+  let testing = false;
+  let testResult: 'success' | 'error' | null = null;
 
   function updateSetting(key: string, value: unknown) {
     vscode.postMessage({ type: 'updateSetting', key, value });
   }
+
+  function testConnection() {
+    testing = true;
+    testResult = null;
+    vscode.postMessage({ type: 'testApiConnection' });
+  }
+
+  // Listen for test result from extension
+  function handleTestResult(event: MessageEvent) {
+    const msg = event.data;
+    if (msg.type === 'apiTestResult') {
+      testing = false;
+      testResult = msg.success ? 'success' : 'error';
+      setTimeout(() => { testResult = null; }, 3000);
+    }
+  }
+
+  import { onMount, onDestroy } from 'svelte';
+  onMount(() => window.addEventListener('message', handleTestResult));
+  onDestroy(() => window.removeEventListener('message', handleTestResult));
 
   function handleApiChange(e: Event) {
     const val = (e.target as HTMLSelectElement).value;
@@ -63,13 +85,35 @@
             {saved ? 'Saved' : 'Save'}
           </button>
         </div>
-        <span class="field-hint">
-          {#if $settings.imageGenerationApi === 'openai'}
-            From platform.openai.com
-          {:else}
-            From platform.stability.ai
+        <div class="key-actions">
+          <span class="field-hint">
+            {#if $settings.imageGenerationApi === 'openai'}
+              From platform.openai.com
+            {:else}
+              From platform.stability.ai
+            {/if}
+          </span>
+          {#if $settings.hasApiKey}
+            <button
+              class="test-btn"
+              class:testing
+              class:success={testResult === 'success'}
+              class:error={testResult === 'error'}
+              on:click={testConnection}
+              disabled={testing}
+            >
+              {#if testing}
+                Testing...
+              {:else if testResult === 'success'}
+                Connected
+              {:else if testResult === 'error'}
+                Failed
+              {:else}
+                Test Connection
+              {/if}
+            </button>
           {/if}
-        </span>
+        </div>
       </div>
     {/if}
 
@@ -142,6 +186,34 @@
     font-size: 9px;
     color: var(--vscode-descriptionForeground, #8c8c8c);
     opacity: 0.8;
+  }
+  .key-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .test-btn {
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--vscode-panel-border, #404040);
+    background: var(--vscode-button-secondaryBackground, #3a3d41);
+    color: var(--vscode-button-secondaryForeground, #cccccc);
+    font-size: 9px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .test-btn:hover { background: var(--vscode-button-secondaryHoverBackground, #45494e); }
+  .test-btn:disabled { opacity: 0.6; cursor: default; }
+  .test-btn.success {
+    background: var(--vscode-testing-iconPassed, #10b981);
+    color: #fff;
+    border-color: transparent;
+  }
+  .test-btn.error {
+    background: var(--vscode-testing-iconFailed, #ef4444);
+    color: #fff;
+    border-color: transparent;
   }
   .regen-btn {
     padding: 4px 10px;
