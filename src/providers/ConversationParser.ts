@@ -200,7 +200,9 @@ export class ConversationParser {
 
   /** Strip XML-like tags and their content (ide_opened_file, system-reminder, etc.) */
   private stripMarkupTags(text: string): string {
-    return text.replace(/<[a-zA-Z_:-]+[^>]*>[\s\S]*?<\/[a-zA-Z_:-]+>/g, '').trim();
+    // Limit input length to prevent ReDoS on crafted JSONL data
+    const capped = text.length > 10000 ? text.slice(0, 10000) : text;
+    return capped.replace(/<[^>]+>[^<]*<\/[^>]+>/g, '').trim();
   }
 
   private extractDescription(messages: ParsedMessage[]): string {

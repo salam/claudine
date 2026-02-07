@@ -3,6 +3,7 @@
   import KanbanColumn from './KanbanColumn.svelte';
   import TaskCard from './TaskCard.svelte';
   import {
+    conversations,
     conversationsByStatus, columns, archiveColumn, updateConversationStatus,
     searchMatchIds, searchMode, searchQuery, compactView, collapsedCardIds, focusedConversationId,
     firstConversationId, drafts, addDraft, removeDraft, updateDraft
@@ -100,6 +101,29 @@
   }
 </script>
 
+{#if $conversations.length === 0 && $drafts.length === 0}
+  <div class="empty-board">
+    <div class="empty-icon">🐘</div>
+    <div class="empty-title">No conversations yet</div>
+    <div class="empty-description">
+      Start a Claude Code conversation in this workspace and it will appear here automatically.
+    </div>
+    <div class="empty-steps">
+      <div class="empty-step">
+        <span class="step-num">1</span>
+        <span>Open a Claude Code editor (<kbd>Cmd+Shift+P</kbd> &rarr; "Claude Code")</span>
+      </div>
+      <div class="empty-step">
+        <span class="step-num">2</span>
+        <span>Start a conversation — Claudine will pick it up in real time</span>
+      </div>
+      <div class="empty-step">
+        <span class="step-num">3</span>
+        <span>Drag cards between columns to track progress</span>
+      </div>
+    </div>
+  </div>
+{:else}
 <div class="kanban-board">
   {#each columns as column (column.id)}
     <div class="column-wrapper" class:narrow={narrowColumns[column.id]}>
@@ -182,6 +206,7 @@
     </div>
   {/if}
 </div>
+{/if}
 
 <style>
   .kanban-board { display: flex; gap: 12px; padding: 12px; overflow-x: auto; flex: 1; min-height: 0; align-items: stretch; }
@@ -242,4 +267,62 @@
   /* Archive column */
   .archive-column { opacity: 0.75; }
   .archive-column:hover { opacity: 1; }
+
+  /* Empty board state */
+  .empty-board {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 48px 24px;
+    text-align: center;
+    gap: 12px;
+    color: var(--vscode-descriptionForeground, #8c8c8c);
+  }
+  .empty-icon { font-size: 40px; opacity: 0.6; }
+  .empty-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--vscode-foreground, #cccccc);
+  }
+  .empty-description {
+    font-size: 11px;
+    max-width: 320px;
+    line-height: 1.6;
+  }
+  .empty-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+    text-align: left;
+  }
+  .empty-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+  }
+  .step-num {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--vscode-badge-background, #4d4d4d);
+    color: var(--vscode-badge-foreground, #ffffff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .empty-step kbd {
+    background: var(--vscode-keybindingLabel-background, #333);
+    border: 1px solid var(--vscode-keybindingLabel-border, #555);
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 10px;
+    font-family: inherit;
+  }
 </style>

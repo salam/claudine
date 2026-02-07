@@ -7,29 +7,29 @@
   export let onToggleNarrow: (() => void) | null = null;
 </script>
 
-<div class="column" class:has-active={activeCount > 0} class:narrow>
+<div class="column" class:has-active={activeCount > 0} class:narrow role="region" aria-label="{title} column, {count} conversations">
   {#if narrow}
-    <button class="column-header narrow-header" on:click={() => onToggleNarrow?.()} title="Click to expand {title}">
-      <span class="color-indicator narrow-indicator-dot" style="background-color: {color}"></span>
+    <button class="column-header narrow-header" on:click={() => onToggleNarrow?.()} title="Click to expand {title}" aria-label="Expand {title} column">
+      <span class="color-indicator narrow-indicator-dot" style="background-color: {color}" aria-hidden="true"></span>
       <span class="narrow-title">{title}</span>
-      <span class="count">{count}</span>
+      <span class="count" aria-label="{count} conversations">{count}</span>
     </button>
   {:else}
     <div class="column-header">
-      <span class="color-indicator" style="background-color: {color}"></span>
+      <span class="color-indicator" style="background-color: {color}" aria-hidden="true"></span>
       <h2>{title}</h2>
       {#if activeCount > 0}
-        <span class="active-count">{activeCount}</span>
+        <span class="active-count" aria-label="{activeCount} active">{activeCount}</span>
       {/if}
-      <span class="count">{count}</span>
+      <span class="count" aria-label="{count} conversations">{count}</span>
       {#if onToggleNarrow}
-        <button class="collapse-column-btn" on:click={onToggleNarrow} title="Collapse column">
-          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M10.3 2.3L11 3 6.4 7.6 11 12.3l-.7.7L5 7.7l5.3-5.4z"/></svg>
+        <button class="collapse-column-btn" on:click={onToggleNarrow} title="Collapse column" aria-label="Collapse {title} column">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M10.3 2.3L11 3 6.4 7.6 11 12.3l-.7.7L5 7.7l5.3-5.4z"/></svg>
         </button>
       {/if}
     </div>
   {/if}
-  <div class="column-content">
+  <div class="column-content" role="list" aria-label="{title} conversations">
     <slot />
   </div>
 </div>

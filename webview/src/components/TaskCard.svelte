@@ -95,16 +95,28 @@
   }
 
   function escapeHtml(text: string): string {
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
+  /**
+   * SECURITY: Returns an HTML string safe for use with {@html}.
+   * All text is escaped FIRST via escapeHtml(), then <mark> tags are injected
+   * only around the already-escaped content. The $1 capture group can never
+   * contain HTML because it matches against the escaped string.
+   * Any changes to this function MUST preserve the escape-first-then-inject order.
+   */
   function highlight(text: string): string {
     if (!searchQuery.trim() || !text) return escapeHtml(text);
     const escaped = escapeHtml(text);
     const q = searchQuery.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return escaped.replace(
       new RegExp(`(${q})`, 'gi'),
-      '<mark style="background:#e2b714;color:#1e1e1e;border-radius:2px;padding:0 2px">$1</mark>'
+      '<mark class="search-hl">$1</mark>'
     );
   }
 
@@ -354,6 +366,9 @@
 {/if}
 
 <style>
+  /* Search highlight injected via {@html} — must be :global to style dynamic content */
+  :global(.search-hl) { background: #e2b714; color: #1e1e1e; border-radius: 2px; padding: 0 2px; }
+
   /* ---- Draft card ---- */
   .task-card.draft {
     display: flex; align-items: center; gap: 6px;

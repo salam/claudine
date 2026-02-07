@@ -142,3 +142,24 @@ export interface ClaudeCodeSession {
   createdAt: string;
   updatedAt: string;
 }
+
+// Agent command interface (for external Claude Code agents)
+export type AgentCommandType = 'move' | 'update' | 'set-category';
+
+export interface AgentCommand {
+  id: string;
+  command: AgentCommandType;
+  task: string;
+  status?: ConversationStatus;
+  title?: string;
+  description?: string;
+  category?: ConversationCategory;
+  timestamp: string;
+}
+
+export interface AgentCommandResult {
+  commandId: string;
+  success: boolean;
+  error?: string;
+  timestamp: string;
+}

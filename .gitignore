@@ -6,3 +6,5 @@ out/
 webview/node_modules/
 webview/dist/
 .claudine/
+.env*
+.vscode/settings.json

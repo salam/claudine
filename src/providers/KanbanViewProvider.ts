@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as crypto from 'crypto';
 import { StateManager } from '../services/StateManager';
 import { ClaudeCodeWatcher } from './ClaudeCodeWatcher';
 import {
@@ -22,6 +23,9 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
   private _focusDetectionTimer: ReturnType<typeof setTimeout> | undefined;
   private _focusEditorTimer: ReturnType<typeof setTimeout> | undefined;
   private _suppressFocusUntil = 0; // timestamp — ignore detection events until this time
+  private _replacingStaleTab = false; // prevents re-entrant restored-tab replacement
+
+  private _secrets?: vscode.SecretStorage;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -134,10 +138,21 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       }
 
       case 'updateSetting': {
-        const config = vscode.workspace.getConfiguration('claudine');
-        config.update(message.key, message.value, vscode.ConfigurationTarget.Global).then(() => {
-          this.updateSettings();
-        });
+        const ALLOWED_SETTING_KEYS = [
+          'imageGenerationApi',
+          'enableSummarization'
+        ];
+        if (message.key === 'imageGenerationApiKey') {
+          // Store API keys in encrypted secret storage, not plaintext settings
+          this._secrets?.store('imageGenerationApiKey', String(message.value ?? '')).then(() => {
+            this.updateSettings();
+          });
+        } else if (ALLOWED_SETTING_KEYS.includes(message.key)) {
+          const config = vscode.workspace.getConfiguration('claudine');
+          config.update(message.key, message.value, vscode.ConfigurationTarget.Global).then(() => {
+            this.updateSettings();
+          });
+        }
         break;
       }
 
@@ -271,6 +286,40 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
   }
 
   /**
+   * Close an unmapped Claude tab whose label matches the given title.
+   * Used to remove stale restored-shell tabs before opening a fresh one.
+   */
+  private async closeUnmappedClaudeTabByTitle(title: string): Promise<void> {
+    const titleLower = title.toLowerCase().trim();
+    for (const group of vscode.window.tabGroups.all) {
+      for (const tab of group.tabs) {
+        if (!this.isClaudeCodeTab(tab)) continue;
+        if (this._tabToConversation.has(tab.label)) continue; // mapped = alive
+        if (tab.label.toLowerCase().trim() === titleLower) {
+          try {
+            await vscode.window.tabGroups.close(tab);
+            console.log(`Claudine: Closed stale restored tab "${tab.label}"`);
+          } catch {}
+          return;
+        }
+      }
+    }
+  }
+
+  /**
+   * Replace a restored shell tab with a functional one.
+   * Called when the user focuses an unmapped Claude tab in a fresh session.
+   */
+  private async replaceRestoredTab(staleTab: vscode.Tab, conversationId: string) {
+    try {
+      await vscode.window.tabGroups.close(staleTab);
+      console.log(`Claudine: Closed restored shell tab "${staleTab.label}"`);
+    } catch {}
+    await this.openConversation(conversationId);
+    this._replacingStaleTab = false;
+  }
+
+  /**
    * Focus a specific Claude Code tab by its label.
    * Returns true if the tab was found and focused.
    */
@@ -300,7 +349,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
    * Focus ANY open Claude Code editor tab (first found).
    * Used as a fallback when no specific tab is known.
    */
-  private async focusAnyClaudeTab(): Promise<boolean> {
+  public async focusAnyClaudeTab(): Promise<boolean> {
     for (const group of vscode.window.tabGroups.all) {
       for (let i = 0; i < group.tabs.length; i++) {
         if (this.isClaudeCodeTab(group.tabs[i])) {
@@ -328,7 +377,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
    * If a tab for this conversation already exists, focus it.
    * Otherwise, create a new one via the Claude Code extension command.
    */
-  private async openConversation(conversationId: string) {
+  public async openConversation(conversationId: string) {
     const conversation = this._stateManager.getConversation(conversationId);
     if (!conversation) {
       this.sendMessage({ type: 'error', message: `Conversation ${conversationId} not found` });
@@ -359,6 +408,9 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     }
 
     // 2. No known tab — create one via Claude Code extension
+    // First close any stale restored tab with matching title to avoid duplicates
+    await this.closeUnmappedClaudeTabByTitle(conversation.title);
+
     try {
       await vscode.commands.executeCommand('claude-vscode.editor.open', conversationId);
       this.focusEditorOnce(800);
@@ -406,7 +458,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
    * Start a new Claude Code conversation with the given prompt.
    * Opens the visual editor and sends the prompt as the first message.
    */
-  private async startNewConversation(prompt: string) {
+  public async startNewConversation(prompt: string) {
     try {
       // Open a new Claude Code editor (no session ID = new conversation)
       await vscode.commands.executeCommand('claude-vscode.editor.open', undefined, prompt);
@@ -514,7 +566,19 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     // 1. Check if a Claude Code Visual Editor webview tab is active
     const claudeTab = this.getActiveClaudeCodeTab();
     if (claudeTab) {
+      const isMapped = this._tabToConversation.has(claudeTab.label);
       focusedId = this.matchTabToConversation(claudeTab);
+
+      // Unmapped tab in a fresh session (no mappings at all) → restored shell.
+      // Silently replace it with a functional tab so the user sees real content
+      // instead of an empty conversation.
+      if (focusedId && !isMapped && this._tabToConversation.size === 0 && !this._replacingStaleTab) {
+        console.log(`Claudine: Replacing restored shell tab "${claudeTab.label}"`);
+        this._replacingStaleTab = true;
+        this.replaceRestoredTab(claudeTab, focusedId);
+        return;
+      }
+
       console.log(`Claudine: Focused Claude tab "${claudeTab.label}" → conversation ${focusedId}`);
     }
 
@@ -578,6 +642,10 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
 
   // ── Standard webview provider methods ────────────────────────────────
 
+  public setSecretStorage(secrets: vscode.SecretStorage) {
+    this._secrets = secrets;
+  }
+
   public refresh() {
     const conversations = this._stateManager.getConversations();
     this.sendMessage({ type: 'updateConversations', conversations });
@@ -588,9 +656,9 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     this.sendMessage({ type: 'draftsLoaded', drafts });
   }
 
-  public updateSettings() {
+  public async updateSettings() {
     const config = vscode.workspace.getConfiguration('claudine');
-    const apiKey = config.get<string>('imageGenerationApiKey', '');
+    const apiKey = await this._secrets?.get('imageGenerationApiKey') ?? '';
     const settings: ClaudineSettings = {
       imageGenerationApi: config.get('imageGenerationApi', 'none'),
       claudeCodePath: config.get('claudeCodePath', '~/.claude'),
@@ -630,7 +698,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} https: data:; font-src ${webview.cspSource};">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource};">
   <link rel="stylesheet" href="${styleUri}">
   <title>Claudine</title>
 </head>
@@ -643,10 +711,5 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
 }
 
 function getNonce(): string {
-  let text = '';
-  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
+  return crypto.randomBytes(16).toString('hex');
 }

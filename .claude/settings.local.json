@@ -17,7 +17,9 @@
       "Bash(md5:*)",
       "Bash(code --list-extensions:*)",
       "WebFetch(domain:lucide.dev)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(wc:*)",
+      "Bash(convert:*)"
     ]
   }
 }

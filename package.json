@@ -4,11 +4,38 @@
   "description": "Kanban board for managing Claude Code conversations",
   "version": "0.1.0",
   "publisher": "claudine",
+  "license": "MIT",
+  "icon": "resources/icons/claudine.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/salam/claudine"
+  },
+  "homepage": "https://claudine.tools",
+  "bugs": {
+    "url": "https://github.com/salam/claudine/issues"
+  },
+  "keywords": [
+    "kanban",
+    "claude",
+    "claude-code",
+    "conversations",
+    "project-management",
+    "ai",
+    "board"
+  ],
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
+    "Visualization",
     "Other"
+  ],
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
+  "extensionDependencies": [
+    "anthropic.claude-code"
   ],
   "activationEvents": [
     "onStartupFinished"
@@ -29,6 +56,61 @@
       {
         "command": "claudine.closeEmptyClaudeTabs",
         "title": "Close Empty Claude Tabs",
+        "category": "Claudine"
+      },
+      {
+        "command": "claudine.openConversation",
+        "title": "Open Conversation...",
+        "category": "Claudine"
+      },
+      {
+        "command": "claudine.searchConversations",
+        "title": "Search Conversations...",
+        "category": "Claudine"
+      },
+      {
+        "command": "claudine.newConversation",
+        "title": "Start New Conversation...",
+        "category": "Claudine"
+      },
+      {
+        "command": "claudine.moveConversation",
+        "title": "Move Conversation to Status...",
+        "category": "Claudine"
+      },
+      {
+        "command": "claudine.showNeedsInput",
+        "title": "Show Conversations Needing Input",
+        "category": "Claudine"
+      },
+      {
+        "command": "claudine.showInProgress",
+        "title": "Show In-Progress Conversations",
+        "category": "Claudine"
+      },
+      {
+        "command": "claudine.archiveDone",
+        "title": "Archive Completed Conversations",
+        "category": "Claudine"
+      },
+      {
+        "command": "claudine.toggleSummarization",
+        "title": "Toggle AI Summarization",
+        "category": "Claudine"
+      },
+      {
+        "command": "claudine.regenerateIcons",
+        "title": "Regenerate All Icons",
+        "category": "Claudine"
+      },
+      {
+        "command": "claudine.openSettings",
+        "title": "Open Settings",
+        "category": "Claudine"
+      },
+      {
+        "command": "claudine.focusClaude",
+        "title": "Focus Active Claude Tab",
         "category": "Claudine"
       }
     ],
@@ -63,11 +145,6 @@
           "default": "none",
           "description": "API to use for generating task icons"
         },
-        "claudine.imageGenerationApiKey": {
-          "type": "string",
-          "default": "",
-          "description": "API key for image generation service"
-        },
         "claudine.claudeCodePath": {
           "type": "string",
           "default": "~/.claude",
@@ -82,9 +159,11 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile && npm run build:webview",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run package && npm run build:webview",
+    "compile": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "package": "node esbuild.mjs --production",
+    "compile:check": "tsc -p ./ --noEmit",
     "build:webview": "cd webview && npm run build",
     "dev:webview": "cd webview && npm run dev",
     "lint": "eslint src --ext ts"
@@ -94,8 +173,8 @@
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
+    "esbuild": "^0.27.3",
     "eslint": "^8.54.0",
     "typescript": "^5.3.0"
-  },
-  "dependencies": {}
+  }
 }

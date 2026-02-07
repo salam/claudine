@@ -223,6 +223,21 @@ export class StateManager {
 
   private static readonly ARCHIVE_THRESHOLD_MS = 4 * 60 * 60 * 1000; // 4 hours
 
+  public archiveAllDone(): void {
+    let changed = false;
+    for (const conv of this._conversations.values()) {
+      if (conv.status === 'done' || conv.status === 'cancelled') {
+        conv.status = 'archived';
+        conv.updatedAt = new Date();
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.notifyChange();
+      this.saveState();
+    }
+  }
+
   public archiveStaleConversations(): void {
     const now = Date.now();
     let changed = false;

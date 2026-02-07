@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as os from 'os';
-import { spawn } from 'child_process';
+import { spawn, execFile } from 'child_process';
 import { Conversation } from '../types';
 
 interface CachedSummary {
@@ -9,10 +9,19 @@ interface CachedSummary {
   lastMessage: string;
 }
 
+/** Minimal env passed to child processes — avoids leaking user secrets. */
+const CHILD_ENV: NodeJS.ProcessEnv = {
+  PATH: process.env.PATH,
+  HOME: process.env.HOME,
+  LANG: process.env.LANG,
+  TERM: process.env.TERM
+};
+
 export class SummaryService {
   private _cache: Record<string, CachedSummary> = {};
   private _pending = new Set<string>();
   private _claudeAvailable: boolean | undefined;
+  private _claudePath: string | undefined;
   private _context: vscode.ExtensionContext | undefined;
 
   public init(context: vscode.ExtensionContext) {
@@ -118,14 +127,11 @@ Return ONLY a JSON array in the same order: [{"title":"...","description":"...",
       let stdout = '';
       let stderr = '';
 
-      // Use spawn with shell:true so the user's PATH is resolved correctly
-      // (VS Code extensions don't inherit shell PATH on macOS).
-      // Pipe prompt via stdin to avoid argument length limits.
-      const child = spawn('claude', ['-p'], {
-        shell: true,
+      const claudePath = this._claudePath!;
+      const child = spawn(claudePath, ['-p'], {
         cwd: os.tmpdir(),
         timeout: 60000,
-        env: { ...process.env }
+        env: CHILD_ENV
       });
 
       child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
@@ -135,12 +141,18 @@ Return ONLY a JSON array in the same order: [{"title":"...","description":"...",
 
       child.on('close', (code) => {
         if (code !== 0) {
-          return reject(new Error(`claude exited with code ${code}: ${stderr}`));
+          return reject(new Error(`claude exited with code ${code}`));
         }
         try {
           const match = stdout.match(/\[[\s\S]*\]/);
-          if (!match) return reject(new Error(`No JSON array in Claude response: ${stdout.slice(0, 200)}`));
-          resolve(JSON.parse(match[0]));
+          if (!match) return reject(new Error('No JSON array in Claude response'));
+          const results = JSON.parse(match[0]);
+          if (!Array.isArray(results)) return reject(new Error('Claude response is not an array'));
+          resolve(results.map((r: Record<string, unknown>) => ({
+            title: typeof r.title === 'string' ? r.title : undefined,
+            description: typeof r.description === 'string' ? r.description : undefined,
+            lastMessage: typeof r.lastMessage === 'string' ? r.lastMessage : undefined,
+          })));
         } catch (e) {
           reject(e);
         }
@@ -153,16 +165,24 @@ Return ONLY a JSON array in the same order: [{"title":"...","description":"...",
 
   private checkClaudeAvailable(): Promise<boolean> {
     return new Promise((resolve) => {
-      const child = spawn('claude', ['--version'], { shell: true, timeout: 5000 });
-      child.on('error', () => {
-        console.log('Claudine: Claude CLI not available, skipping summarization');
-        resolve(false);
-      });
-      child.on('close', (code) => {
-        if (code !== 0) {
-          console.log('Claudine: Claude CLI not available, skipping summarization');
+      // Resolve the absolute path to `claude` via `which` to avoid shell: true
+      execFile('which', ['claude'], { timeout: 5000, env: CHILD_ENV }, (err, stdout) => {
+        if (err || !stdout.trim()) {
+          console.log('Claudine: Claude CLI not found in PATH, skipping summarization');
+          return resolve(false);
         }
-        resolve(code === 0);
+        this._claudePath = stdout.trim();
+        const child = spawn(this._claudePath, ['--version'], { timeout: 5000, env: CHILD_ENV });
+        child.on('error', () => {
+          console.log('Claudine: Claude CLI not available, skipping summarization');
+          resolve(false);
+        });
+        child.on('close', (code) => {
+          if (code !== 0) {
+            console.log('Claudine: Claude CLI not available, skipping summarization');
+          }
+          resolve(code === 0);
+        });
       });
     });
   }

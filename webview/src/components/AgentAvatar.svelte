@@ -20,7 +20,7 @@
   class:small={size === 'small'}
   title={tooltipText}
 >
-  {#if agent.avatar && (agent.avatar.startsWith('data:') || agent.avatar.startsWith('http'))}
+  {#if agent.avatar && agent.avatar.startsWith('data:')}
     <img src={agent.avatar} alt={agent.name} />
   {:else}
     <span class="initials">{agent.name.slice(0, 2).toUpperCase()}</span>

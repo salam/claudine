@@ -2,7 +2,13 @@ import * as vscode from 'vscode';
 import { StorageService } from './StorageService';
 
 export class ImageGenerator {
+  private _secrets: vscode.SecretStorage | undefined;
+
   constructor(private readonly _storageService: StorageService) {}
+
+  public setSecretStorage(secrets: vscode.SecretStorage) {
+    this._secrets = secrets;
+  }
 
   public async generateIcon(
     conversationId: string,
@@ -16,7 +22,7 @@ export class ImageGenerator {
       return undefined;
     }
 
-    const apiKey = config.get<string>('imageGenerationApiKey', '');
+    const apiKey = await this._secrets?.get('imageGenerationApiKey') ?? '';
     if (!apiKey) {
       console.warn('Claudine: Image generation API key not configured');
       return undefined;
