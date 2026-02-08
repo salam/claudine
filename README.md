@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://claudine.tools">Website</a> &bull;
+  <a href="https://claudine.pro">Website</a> &bull;
   <a href="#installation">Installation</a> &bull;
   <a href="#features">Features</a> &bull;
   <a href="#configuration">Configuration</a> &bull;
@@ -388,5 +388,5 @@ Developed by [@salam](https://github.com/salam)
 ---
 
 <p align="center">
-  <a href="https://claudine.tools">claudine.tools</a>
+  <a href="https://claudine.pro">claudine.pro</a>
 </p>

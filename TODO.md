@@ -14,7 +14,7 @@ Claudine is a well-architected v0.1.0 extension with strong fundamentals (strict
 |-------|--------|-------|
 | `icon` (PNG, 128x128+) | **Blocker** — VSCE will reject | SVG referenced but marketplace requires PNG. The `"icon"` field is missing entirely from package.json |
 | `repository` | Marketplace page has no source link | `{ "type": "git", "url": "https://github.com/salam/claudine" }` |
-| `homepage` | No link to claudine.tools | Referenced in README but not in manifest |
+| `homepage` | No link to claudine.pro | Referenced in README but not in manifest |
 | `bugs` | No issue tracker link | |
 | `license` | Marketplace shows "unknown" | README says MIT but no `"license": "MIT"` in package.json |
 | `keywords` | Invisible to marketplace search | e.g. `["kanban", "claude", "claude-code", "conversations", "project-management"]` |

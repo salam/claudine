@@ -310,7 +310,7 @@
       <div class="about-icon">🐘</div>
       <div class="about-title">Claudine</div>
       <div class="about-links">
-        <a href="https://claudine.tools" target="_blank" rel="noopener">claudine.tools</a>
+        <a href="https://claudine.pro" target="_blank" rel="noopener">claudine.pro</a>
       </div>
       <div class="about-credit">
         Developed by <a href="https://github.com/salam" target="_blank" rel="noopener">@salam</a>

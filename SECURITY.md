@@ -11,7 +11,7 @@
 If you discover a security vulnerability in Claudine, please report it responsibly:
 
 1. **Do not** open a public GitHub issue
-2. Email **security@claudine.tools** with:
+2. Email **security@claudine.pro** with:
    - A description of the vulnerability
    - Steps to reproduce
    - Potential impact
