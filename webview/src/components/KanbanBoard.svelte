@@ -1,13 +1,15 @@
 <script lang="ts">
+  import { get } from 'svelte/store';
   import { dndzone, SHADOW_PLACEHOLDER_ITEM_ID } from 'svelte-dnd-action';
   import KanbanColumn from './KanbanColumn.svelte';
+  import ColumnResizeHandle from './ColumnResizeHandle.svelte';
   import TaskCard from './TaskCard.svelte';
   import {
     conversations,
     conversationsByStatus, columns, archiveColumn, updateConversationStatus,
     searchMatchIds, searchMode, searchQuery, compactView, collapsedCardIds, focusedConversationId,
     firstConversationId, drafts, addDraft, removeDraft, updateDraft,
-    activeCategories
+    activeCategories, zoomLevel, columnWidths, setColumnWidth, resetAllColumnWidths
   } from '../stores/conversations';
   import { vscode, type Conversation, type ConversationStatus } from '../lib/vscode';
 
@@ -16,11 +18,15 @@
 
   // Auto-detect narrow containers (e.g. user dragged view to sidebar)
   let autoVertical = false;
+  let boardWidth = 0;
   $: isVertical = vertical || autoVertical;
 
   function watchWidth(node: HTMLElement) {
     const observer = new ResizeObserver(entries => {
-      autoVertical = entries[0].contentRect.width < 500;
+      const w = entries[0].contentRect.width;
+      autoVertical = w < 500;
+      boardWidth = w;
+      clampStoredWidths();
     });
     observer.observe(node);
     return { destroy: () => observer.disconnect() };
@@ -115,6 +121,58 @@
   function toggleColumnNarrow(columnId: ConversationStatus) {
     narrowColumns = { ...narrowColumns, [columnId]: !narrowColumns[columnId] };
   }
+
+  const MIN_COLUMN_WIDTH = 160;
+
+  /** No single column may exceed 80% of the visible board width. */
+  function maxColumnWidth(): number {
+    return boardWidth > 0 ? Math.floor(boardWidth * 0.8) : Infinity;
+  }
+
+  function handleColumnResize(leftId: string, rightId: string, deltaX: number) {
+    if (!leftId || !rightId) return;
+    const leftEl = document.querySelector(`[data-column-id="${leftId}"]`) as HTMLElement;
+    const rightEl = document.querySelector(`[data-column-id="${rightId}"]`) as HTMLElement;
+    if (!leftEl || !rightEl) return;
+
+    // Adjust delta for CSS zoom level
+    const zoom = get(zoomLevel);
+    const adjustedDelta = deltaX / zoom;
+
+    // Read current widths: prefer stored values to avoid rounding drift
+    const widths = get(columnWidths);
+    const leftWidth = widths[leftId] ?? Math.round(leftEl.getBoundingClientRect().width / zoom);
+    const rightWidth = widths[rightId] ?? Math.round(rightEl.getBoundingClientRect().width / zoom);
+
+    // Fix the total so independent rounding can't accumulate growth
+    const total = leftWidth + rightWidth;
+    const cap = maxColumnWidth();
+    const newLeftWidth = Math.max(MIN_COLUMN_WIDTH, Math.min(total - MIN_COLUMN_WIDTH, cap, Math.round(leftWidth + adjustedDelta)));
+    const newRightWidth = Math.min(cap, total - newLeftWidth);
+
+    setColumnWidth(leftId, newLeftWidth);
+    setColumnWidth(rightId, newRightWidth);
+  }
+
+  // Shrink any column that exceeds the board width (e.g. after window resize)
+  function clampStoredWidths() {
+    const cap = maxColumnWidth();
+    if (cap === Infinity) return;
+    const widths = get(columnWidths);
+    let changed = false;
+    for (const [id, w] of Object.entries(widths)) {
+      if (w != null && w > cap) {
+        widths[id] = cap;
+        changed = true;
+      }
+    }
+    if (changed) {
+      columnWidths.set({ ...widths });
+      vscode.mergeState({ columnWidths: get(columnWidths) });
+    }
+  }
+
+
 </script>
 
 {#if $conversations.length === 0 && $drafts.length === 0}
@@ -146,9 +204,15 @@
     </div>
   </div>
 {:else}
-<div class="kanban-board" class:vertical={isVertical} use:watchWidth>
-  {#each $columns as column (column.id)}
-    <div class="column-wrapper" class:narrow={narrowColumns[column.id]}>
+<div class="kanban-board" class:vertical={isVertical} use:watchWidth style:zoom={$zoomLevel !== 1 ? $zoomLevel : undefined}>
+  {#each $columns as column, i (column.id)}
+    {#if !isVertical && i > 0}
+      <ColumnResizeHandle
+        on:resize={(e) => handleColumnResize($columns[i - 1].id, column.id, e.detail.deltaX)}
+        on:resetWidths={resetAllColumnWidths}
+      />
+    {/if}
+    <div class="column-wrapper" class:narrow={narrowColumns[column.id]} class:custom-width={$columnWidths[column.id] != null && !narrowColumns[column.id]} data-column-id={column.id} style:width={$columnWidths[column.id] && !narrowColumns[column.id] ? `${$columnWidths[column.id]}px` : undefined} style:flex={$columnWidths[column.id] && !narrowColumns[column.id] ? '0 0 auto' : undefined}>
       <KanbanColumn title={column.title} color={column.color} count={boardItems[column.id].filter(c => !c.isDraft).length} activeCount={boardItems[column.id].filter(c => c.agents.some(a => a.isActive)).length} narrow={narrowColumns[column.id] || false} onToggleNarrow={column.id === 'done' ? () => toggleColumnNarrow(column.id) : null}>
         {#if column.id === 'todo'}
           <div class="quick-idea">
@@ -207,7 +271,13 @@
     </div>
   {/each}
   {#if showArchive}
-    <div class="column-wrapper archive-column">
+    {#if !isVertical}
+      <ColumnResizeHandle
+        on:resize={(e) => handleColumnResize($columns[$columns.length - 1].id, 'archived', e.detail.deltaX)}
+        on:resetWidths={resetAllColumnWidths}
+      />
+    {/if}
+    <div class="column-wrapper archive-column" data-column-id="archived" style:width={$columnWidths['archived'] ? `${$columnWidths['archived']}px` : undefined} style:flex={$columnWidths['archived'] ? '0 0 auto' : undefined}>
       <KanbanColumn title={$archiveColumn.title} color={$archiveColumn.color} count={boardItems['archived'].length} activeCount={0}>
         <div
           class="drop-zone"
@@ -232,7 +302,8 @@
 
 <style>
   .kanban-board { display: flex; gap: 12px; padding: 12px; overflow-x: auto; flex: 1; min-height: 0; align-items: stretch; }
-  .column-wrapper { flex: 1; min-width: 260px; max-width: 350px; display: flex; flex-direction: column; transition: min-width 0.25s ease, max-width 0.25s ease; }
+  .column-wrapper { flex: 1; min-width: 160px; max-width: 350px; display: flex; flex-direction: column; transition: min-width 0.25s ease, max-width 0.25s ease; }
+  .column-wrapper.custom-width { max-width: unset; min-width: unset; }
   .column-wrapper.narrow { flex: 0 0 auto; min-width: 60px; max-width: 60px; }
 
   /* Vertical (sidebar) layout: stack columns top-to-bottom */

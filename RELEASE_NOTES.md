@@ -1,5 +1,12 @@
 # Release Notes
 
+## Version 1.0.5 (Feb 8 2026, 15:07)
+
+* Zoom controls — zoom in/out (50%–150%) via sidebar buttons or Ctrl+=/Ctrl+- shortcuts, with Ctrl+0 to reset
+* Resizable columns — drag the handles between columns to adjust widths, double-click to reset
+* Getting Started walkthrough — guided onboarding via VSCode's built-in Walkthroughs UI (5 steps)
+* Webview security — messages between the board UI and extension are now authenticated with a per-session token
+
 ## Version 1.0.4 (Feb 8 2026, 12:00)
 
 * Rate limit detection — automatically detects when Claude Code hits its API limit and shows the reset time

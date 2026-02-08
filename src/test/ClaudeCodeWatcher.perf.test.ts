@@ -144,15 +144,15 @@ describe('ClaudeCodeWatcher — regression tests', () => {
       // readdirSync for the projects dir: return project dirs
       mockReaddirSync.mockImplementation(((dirPath: string) => {
         if (dirPath === projectsPath) {
-          return [{ name: 'test-project', isDirectory: () => true, isFile: () => false }] as unknown as fs.Dirent[];
+          return [{ name: 'test-project', isDirectory: () => true, isFile: () => false }];
         }
         // readdirSync for the project dir: return JSONL files
         return files.map(f => ({
           name: f.name,
           isDirectory: () => false,
           isFile: () => true,
-        })) as unknown as fs.Dirent[];
-      }) as typeof fs.readdirSync);
+        }));
+      }) as unknown as typeof fs.readdirSync);
 
       mockReadFileSync.mockImplementation(((filePath: string) => {
         const name = path.basename(filePath);
@@ -203,13 +203,13 @@ describe('ClaudeCodeWatcher — regression tests', () => {
       // Setup: one project dir with two JSONL files
       mockReaddirSync.mockImplementation(((dirPath: string) => {
         if (dirPath === projectsPath) {
-          return [{ name: 'test-project', isDirectory: () => true, isFile: () => false }] as unknown as fs.Dirent[];
+          return [{ name: 'test-project', isDirectory: () => true, isFile: () => false }];
         }
         return [
           { name: 'conv-1.jsonl', isDirectory: () => false, isFile: () => true },
           { name: 'conv-2.jsonl', isDirectory: () => false, isFile: () => true },
-        ] as unknown as fs.Dirent[];
-      }) as typeof fs.readdirSync);
+        ];
+      }) as unknown as typeof fs.readdirSync);
 
       const ts = new Date().toISOString();
       const jsonl = JSON.stringify({
@@ -253,12 +253,12 @@ describe('ClaudeCodeWatcher — regression tests', () => {
       // and verify setConversationIcon is NOT called for it.
       mockReaddirSync.mockImplementation(((dirPath: string) => {
         if (dirPath === projectsPath) {
-          return [{ name: 'test-project', isDirectory: () => true, isFile: () => false }] as unknown as fs.Dirent[];
+          return [{ name: 'test-project', isDirectory: () => true, isFile: () => false }];
         }
         return [
           { name: 'conv-with-icon.jsonl', isDirectory: () => false, isFile: () => true },
-        ] as unknown as fs.Dirent[];
-      }) as typeof fs.readdirSync);
+        ];
+      }) as unknown as typeof fs.readdirSync);
 
       const ts = new Date().toISOString();
       const jsonl = JSON.stringify({

@@ -79,6 +79,9 @@ export const CATEGORY_CLASSIFICATION_MESSAGE_LIMIT = 5;
 /** Number of random bytes used for webview CSP nonces. */
 export const NONCE_BYTES = 16;
 
+/** Name of the auth token field included in every webview-to-extension message. */
+export const WEBVIEW_AUTH_TOKEN_FIELD = '_token';
+
 // ── Rate limit detection ─────────────────────────────────────────────
 
 /** Pattern to detect Claude Code's rate limit message and extract reset time + timezone. */

@@ -409,12 +409,20 @@ export async function activate(context: vscode.ExtensionContext) {
   const hasSeenWelcome = context.globalState.get<boolean>('claudine.hasSeenWelcome', false);
   if (!hasSeenWelcome) {
     context.globalState.update('claudine.hasSeenWelcome', true);
+    const walkthroughAction = vscode.l10n.t('Open Walkthrough');
     const openAction = vscode.l10n.t('Open Claudine');
     vscode.window.showInformationMessage(
-      vscode.l10n.t('Claudine is ready! Find the Claudine tab in the bottom panel (next to Terminal).'),
+      vscode.l10n.t('Claudine is ready! A kanban board for your Claude Code conversations.'),
+      walkthroughAction,
       openAction
     ).then(selection => {
-      if (selection === openAction) {
+      if (selection === walkthroughAction) {
+        vscode.commands.executeCommand(
+          'workbench.action.openWalkthrough',
+          'claudine.claudine#claudine.gettingStarted',
+          true
+        );
+      } else if (selection === openAction) {
         vscode.commands.executeCommand('claudine.openKanban');
       }
     });

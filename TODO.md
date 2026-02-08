@@ -331,23 +331,23 @@ The webview is the primary UI surface, and it lacks fundamental accessibility su
 15. ~~Add basic ARIA labels and keyboard navigation in webview~~ DONE
 
 ### P2 — Should add for mature extension
-16. Add walkthrough (`contributes.walkthroughs`)
-17. Add i18n support via `vscode.l10n`
-18. Add diagnostic command
-19. Add webview origin validation
+16. ~~Add walkthrough (`contributes.walkthroughs`)~~ DONE
+17. ~~Add i18n support via `vscode.l10n`~~ DONE
+18. ~~Add diagnostic command~~ DONE
+19. ~~Add webview origin validation~~ DONE
 20. Add virtual scrolling for large boards
-21. Add incremental JSONL parsing
-22. Add CI/CD pipeline with test/lint/package
-23. Decompose `KanbanViewProvider.ts` into smaller modules
-24. Extract magic numbers into named constants
-25. Add `CONTRIBUTING.md`, `SECURITY.md`, issue templates
+21. ~~Add incremental JSONL parsing~~ DONE
+22. ~~Add CI/CD pipeline with test/lint/package~~ DONE
+23. ~~Decompose `KanbanViewProvider.ts` into smaller modules~~ DONE
+24. ~~Extract magic numbers into named constants~~ DONE
+25. ~~Add `CONTRIBUTING.md`, `SECURITY.md`, issue templates~~ DONE
 
 ### P3 — Nice to have
-26. Extension API for other extensions
-27. Custom keybindings
-28. Category/status filtering UI
-29. Notification for "Needs Input" status changes
-30. Board export/import
+26. ~~Extension API for other extensions~~ DONE
+27. ~~Custom keybindings~~ DONE
+28. ~~Category/status filtering UI~~ DONE
+29. ~~Notification for "Needs Input" status changes~~ DONE
+30. ~~Board export/import~~ DONE
 
 ---
 
@@ -370,9 +370,10 @@ The webview is the primary UI surface, and it lacks fundamental accessibility su
 | 13 | Add CONTRIBUTING.md, SECURITY.md, issue templates | Done |
 | 14 | Add incremental JSONL parsing | Done |
 | 15 | Add diagnostic command | Done |
-| 16 | Allow to resize the column widths individually | Pending |
-| 17 | Allow to zoom in and out in the kanban board | Pending |
-| 18 | Allow to zoom in and out in the kanban board | Pending |
-| 19 | Sidebar view: stack columns vertically (single-column layout) instead of horizontal when placed in sidebar | Pending |
+| 16 | Allow to resize the column widths individually | Done |
+| 17 | Allow to zoom in and out in the kanban board | Done |
+| 19 | Add walkthrough (contributes.walkthroughs) for onboarding | Done |
+| 20 | Add webview origin validation (auth token) | Done |
+| 18 | Sidebar view: stack columns vertically (single-column layout) instead of horizontal when placed in sidebar | Done |
 
 **Paused:** virtual scrolling

@@ -275,3 +275,56 @@ export function updateConversationStatus(id: string, newStatus: ConversationStat
     convs.map(c => c.id === id ? { ...c, status: newStatus } : c)
   );
 }
+
+// ── Zoom ──────────────────────────────────────────────────────────────
+
+export const ZOOM_MIN = 0.5;
+export const ZOOM_MAX = 1.5;
+export const ZOOM_STEP = 0.1;
+export const ZOOM_DEFAULT = 1.0;
+
+export const zoomLevel = writable<number>(ZOOM_DEFAULT);
+
+export function zoomIn() {
+  zoomLevel.update(z => Math.min(ZOOM_MAX, Math.round((z + ZOOM_STEP) * 10) / 10));
+  vscode.mergeState({ zoomLevel: get(zoomLevel) });
+}
+
+export function zoomOut() {
+  zoomLevel.update(z => Math.max(ZOOM_MIN, Math.round((z - ZOOM_STEP) * 10) / 10));
+  vscode.mergeState({ zoomLevel: get(zoomLevel) });
+}
+
+export function zoomReset() {
+  zoomLevel.set(ZOOM_DEFAULT);
+  vscode.mergeState({ zoomLevel: ZOOM_DEFAULT });
+}
+
+export function restoreZoom() {
+  const state = vscode.getState<{ zoomLevel?: number }>();
+  if (state?.zoomLevel !== undefined) {
+    zoomLevel.set(state.zoomLevel);
+  }
+}
+
+// ── Column Widths ─────────────────────────────────────────────────────
+
+/** Persisted column widths (px). null = auto/default flex layout. */
+export const columnWidths = writable<Record<string, number | null>>({});
+
+export function setColumnWidth(id: string, width: number | null) {
+  columnWidths.update(w => ({ ...w, [id]: width }));
+  vscode.mergeState({ columnWidths: get(columnWidths) });
+}
+
+export function resetAllColumnWidths() {
+  columnWidths.set({});
+  vscode.mergeState({ columnWidths: {} });
+}
+
+export function restoreColumnWidths() {
+  const state = vscode.getState<{ columnWidths?: Record<string, number | null> }>();
+  if (state?.columnWidths) {
+    columnWidths.set(state.columnWidths);
+  }
+}

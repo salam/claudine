@@ -28,6 +28,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
   private _focusEditorTimer: ReturnType<typeof setTimeout> | undefined;
   private _autoRestartTimer: ReturnType<typeof setTimeout> | undefined;
   private _secrets?: vscode.SecretStorage;
+  private _authToken: string = '';
   private _tabManager: TabManager;
   /** Fingerprints of last-sent conversations, keyed by ID. */
   private _lastSentFingerprints = new Map<string, string>();
@@ -66,6 +67,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     this._disposables = [];
 
     this._view = webviewView;
+    this._authToken = crypto.randomBytes(NONCE_BYTES).toString('hex');
 
     webviewView.webview.options = {
       enableScripts: true,
@@ -79,7 +81,11 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
 
     this._disposables.push(
       webviewView.webview.onDidReceiveMessage(
-        (message: WebviewToExtensionMessage) => {
+        (message: WebviewToExtensionMessage & { _token?: string }) => {
+          if (message._token !== this._authToken) {
+            console.warn('Claudine: Rejected webview message with invalid auth token');
+            return;
+          }
           this.handleWebviewMessage(message);
         }
       ),
@@ -621,6 +627,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div id="app"></div>
+  <script nonce="${nonce}">window.__CLAUDINE_TOKEN__='${this._authToken}';</script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

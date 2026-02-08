@@ -242,6 +242,50 @@
         "key": "ctrl+shift+c",
         "mac": "cmd+shift+c"
       }
+    ],
+    "walkthroughs": [
+      {
+        "id": "claudine.gettingStarted",
+        "title": "Get Started with Claudine",
+        "description": "Learn how to use the Claudine kanban board to manage your Claude Code conversations.",
+        "steps": [
+          {
+            "id": "claudine.walkthrough.installClaude",
+            "title": "Install Claude Code",
+            "description": "Claudine requires the Claude Code extension to discover conversations.\n\n[Open Extensions](command:workbench.extensions.search?%22anthropic.claude-code%22)",
+            "media": { "markdown": "resources/walkthrough/install-claude.md" },
+            "completionEvents": ["extensionInstalled:anthropic.claude-code"]
+          },
+          {
+            "id": "claudine.walkthrough.findBoard",
+            "title": "Open the Board",
+            "description": "Open the Claudine kanban board to see your conversations at a glance.\n\n[Open Claudine Board](command:claudine.openKanban)",
+            "media": { "markdown": "resources/walkthrough/find-board.md" },
+            "completionEvents": ["onCommand:claudine.openKanban"]
+          },
+          {
+            "id": "claudine.walkthrough.startConversation",
+            "title": "Start a Conversation",
+            "description": "Create your first Claude Code conversation. It will appear on the board automatically.\n\n[New Conversation](command:claudine.newConversation)",
+            "media": { "markdown": "resources/walkthrough/start-conversation.md" },
+            "completionEvents": ["onCommand:claudine.newConversation"]
+          },
+          {
+            "id": "claudine.walkthrough.keyFeatures",
+            "title": "Explore Key Features",
+            "description": "Search, filter, drag-and-drop, and keyboard shortcuts to manage your board.\n\n[Search Conversations](command:claudine.searchConversations)",
+            "media": { "markdown": "resources/walkthrough/key-features.md" },
+            "completionEvents": ["onCommand:claudine.searchConversations"]
+          },
+          {
+            "id": "claudine.walkthrough.agentIntegration",
+            "title": "Set Up Agent Integration",
+            "description": "Let Claude Code agents control the board automatically.\n\n[Set Up Agent Integration](command:claudine.setupAgentIntegration)",
+            "media": { "markdown": "resources/walkthrough/agent-integration.md" },
+            "completionEvents": ["onCommand:claudine.setupAgentIntegration"]
+          }
+        ]
+      }
     ]
   },
   "scripts": {

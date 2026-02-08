@@ -319,6 +319,7 @@
 
     <!-- Description (click to expand) -->
     {#if conversation.description}
+      <!-- svelte-ignore a11y-no-noninteractive-element-to-interactive-role -->
       <p
         class="description"
         class:expanded={descriptionExpanded}

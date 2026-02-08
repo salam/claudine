@@ -3,6 +3,7 @@
 declare global {
   interface Window {
     acquireVsCodeApi?: () => VsCodeApi;
+    __CLAUDINE_TOKEN__?: string;
   }
 }
 
@@ -23,7 +24,10 @@ class VSCodeAPIWrapper {
 
   public postMessage(message: unknown): void {
     if (this.vscode) {
-      this.vscode.postMessage(message);
+      const msg = typeof message === 'object' && message !== null
+        ? { ...message, _token: window.__CLAUDINE_TOKEN__ }
+        : message;
+      this.vscode.postMessage(msg);
     } else {
       console.log('VSCode API not available, message:', message);
     }
@@ -40,6 +44,12 @@ class VSCodeAPIWrapper {
     if (this.vscode) {
       this.vscode.setState(state);
     }
+  }
+
+  /** Merge partial state into existing webview state (safe for concurrent writes). */
+  public mergeState(partial: Record<string, unknown>): void {
+    const current = (this.getState<Record<string, unknown>>() ?? {});
+    this.setState({ ...current, ...partial });
   }
 
   public get isInVSCode(): boolean {
