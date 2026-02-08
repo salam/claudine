@@ -103,12 +103,15 @@ export interface Conversation {
   updatedAt: Date | string;
 }
 
+export type ToolbarAction = 'toggleSearch' | 'toggleFilter' | 'toggleCompactView' | 'toggleExpandAll' | 'toggleArchive';
+
 export interface ClaudineSettings {
   imageGenerationApi: 'openai' | 'stability' | 'none';
   claudeCodePath: string;
   enableSummarization: boolean;
   hasApiKey: boolean;
   viewLocation: 'panel' | 'sidebar';
+  toolbarLocation: 'sidebar' | 'titlebar' | 'both';
   autoRestartAfterRateLimit: boolean;
 }
 
@@ -122,4 +125,5 @@ export type ExtensionMessage =
   | { type: 'searchResults'; query: string; ids: string[] }
   | { type: 'draftsLoaded'; drafts: Array<{ id: string; title: string }> }
   | { type: 'apiTestResult'; success: boolean; error?: string }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'toolbarAction'; action: ToolbarAction };

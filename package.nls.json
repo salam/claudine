@@ -17,8 +17,14 @@
   "command.exportBoard": "Export Board...",
   "command.importBoard": "Import Board...",
   "command.showDiagnostics": "Show Diagnostics",
+  "command.toggleSearch": "Toggle Search",
+  "command.toggleFilter": "Toggle Category Filter",
+  "command.toggleCompactView": "Toggle Compact View",
+  "command.toggleExpandAll": "Expand / Collapse All Cards",
+  "command.toggleArchive": "Toggle Archive",
   "config.imageGenerationApi.description": "API to use for generating task icons",
   "config.claudeCodePath.description": "Path to Claude Code data directory",
   "config.enableSummarization.description": "Use Claude Code CLI to generate short summaries for conversation cards",
-  "config.viewLocation.description": "Show the Claudine board in the bottom panel or the sidebar"
+  "config.viewLocation.description": "Show the Claudine board in the bottom panel or the sidebar",
+  "config.toolbarLocation.description": "Where to display the toolbar: inside the webview sidebar, in the VS Code panel title bar, or both"
 }

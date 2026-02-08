@@ -92,6 +92,19 @@
       case 'error':
         addError(message.message);
         break;
+      case 'toolbarAction':
+        handleToolbarAction(message.action);
+        break;
+    }
+  }
+
+  function handleToolbarAction(action: string) {
+    switch (action) {
+      case 'toggleSearch': toggleSearch(); break;
+      case 'toggleFilter': toggleFilter(); break;
+      case 'toggleCompactView': toggleCompact(); break;
+      case 'toggleExpandAll': toggleAllCards(); break;
+      case 'toggleArchive': toggleArchive(); break;
     }
   }
 
@@ -161,10 +174,14 @@
 </script>
 
 <div class="layout">
+  {#if $settings.toolbarLocation !== 'titlebar'}
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <span class="brand-icon">🐘</span>
-      <span class="brand-text">Claudine</span>
+      {#if $settings.viewLocation === 'panel'}
+        <span class="brand-icon">🐘</span>
+      {:else}
+        <span class="brand-text">Claudine</span>
+      {/if}
     </div>
     <div class="sidebar-actions">
       <button class="sidebar-btn" class:active={searchOpen} on:click={toggleSearch} title="Search conversations" aria-label="Search conversations" aria-pressed={searchOpen}>
@@ -222,6 +239,7 @@
       </button>
     </div>
   </aside>
+  {/if}
 
   <main>
     {#if $rateLimitInfo.active}
@@ -323,6 +341,7 @@
     gap: 8px;
     background: var(--vscode-sideBar-background, #252526);
     border-right: 1px solid var(--vscode-panel-border, #404040);
+    overflow: hidden;
   }
   .sidebar-brand {
     display: flex;
@@ -349,7 +368,19 @@
     flex-direction: column;
     align-items: center;
     gap: 4px;
-    margin-top: auto;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 2px 0;
+  }
+  .sidebar-actions::-webkit-scrollbar { width: 4px; }
+  .sidebar-actions::-webkit-scrollbar-track { background: transparent; }
+  .sidebar-actions::-webkit-scrollbar-thumb {
+    background: var(--vscode-scrollbarSlider-background, #4a4a4a);
+    border-radius: 2px;
+  }
+  .sidebar-actions::-webkit-scrollbar-thumb:hover {
+    background: var(--vscode-scrollbarSlider-hoverBackground, #5a5a5a);
   }
   .sidebar-btn {
     display: flex;

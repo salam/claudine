@@ -1,5 +1,10 @@
 # Release Notes
 
+## Version 1.0.5 (Feb 8 2026, 18:48)
+
+* Scrollable toolbar — the sidebar toolbar now scrolls vertically when the panel is too short to show all buttons
+* Panel title bar actions — toolbar buttons can now appear in the VS Code panel tab header (like Debug Console), controlled by the new `claudine.toolbarLocation` setting (`sidebar`, `titlebar`, or `both`)
+
 ## Version 1.0.5 (Feb 8 2026, 15:07)
 
 * Zoom controls — zoom in/out (50%–150%) via sidebar buttons or Ctrl+=/Ctrl+- shortcuts, with Ctrl+0 to reset

@@ -7,7 +7,8 @@ import {
   Conversation,
   ExtensionToWebviewMessage,
   WebviewToExtensionMessage,
-  ClaudineSettings
+  ClaudineSettings,
+  ToolbarAction
 } from '../types';
 import {
   ARCHIVE_CHECK_INTERVAL_MS,
@@ -544,9 +545,14 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       enableSummarization: config.get('enableSummarization', false),
       hasApiKey: !!apiKey,
       viewLocation: config.get('viewLocation', 'panel') as 'panel' | 'sidebar',
+      toolbarLocation: config.get('toolbarLocation', 'sidebar') as 'sidebar' | 'titlebar' | 'both',
       autoRestartAfterRateLimit: config.get('autoRestartAfterRateLimit', false)
     };
     this.sendMessage({ type: 'updateSettings', settings });
+  }
+
+  public sendToolbarAction(action: ToolbarAction) {
+    this.sendMessage({ type: 'toolbarAction', action });
   }
 
   private async testApiConnection() {

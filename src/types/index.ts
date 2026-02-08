@@ -69,7 +69,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'searchResults'; query: string; ids: string[] }
   | { type: 'draftsLoaded'; drafts: Array<{ id: string; title: string }> }
   | { type: 'apiTestResult'; success: boolean; error?: string }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'toolbarAction'; action: ToolbarAction };
 
 export type WebviewToExtensionMessage =
   | { type: 'sendPrompt'; conversationId: string; prompt: string }
@@ -89,12 +90,15 @@ export type WebviewToExtensionMessage =
   | { type: 'toggleAutoRestart' }
   | { type: 'ready' };
 
+export type ToolbarAction = 'toggleSearch' | 'toggleFilter' | 'toggleCompactView' | 'toggleExpandAll' | 'toggleArchive';
+
 export interface ClaudineSettings {
   imageGenerationApi: 'openai' | 'stability' | 'none';
   claudeCodePath: string;
   enableSummarization: boolean;
   hasApiKey: boolean;
   viewLocation: 'panel' | 'sidebar';
+  toolbarLocation: 'sidebar' | 'titlebar' | 'both';
   autoRestartAfterRateLimit: boolean;
 }
 

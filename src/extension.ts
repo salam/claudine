@@ -265,6 +265,25 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Toolbar actions — forwarded to webview from title bar buttons
+  context.subscriptions.push(
+    vscode.commands.registerCommand('claudine.toggleSearch', () => {
+      kanbanProvider.sendToolbarAction('toggleSearch');
+    }),
+    vscode.commands.registerCommand('claudine.toggleFilter', () => {
+      kanbanProvider.sendToolbarAction('toggleFilter');
+    }),
+    vscode.commands.registerCommand('claudine.toggleCompactView', () => {
+      kanbanProvider.sendToolbarAction('toggleCompactView');
+    }),
+    vscode.commands.registerCommand('claudine.toggleExpandAll', () => {
+      kanbanProvider.sendToolbarAction('toggleExpandAll');
+    }),
+    vscode.commands.registerCommand('claudine.toggleArchive', () => {
+      kanbanProvider.sendToolbarAction('toggleArchive');
+    })
+  );
+
   // Regenerate All Icons
   context.subscriptions.push(
     vscode.commands.registerCommand('claudine.regenerateIcons', async () => {

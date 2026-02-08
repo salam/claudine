@@ -51,12 +51,14 @@
       {
         "command": "claudine.refresh",
         "title": "%command.refresh%",
-        "category": "Claudine"
+        "category": "Claudine",
+        "icon": "$(refresh)"
       },
       {
         "command": "claudine.closeEmptyClaudeTabs",
         "title": "%command.closeEmptyClaudeTabs%",
-        "category": "Claudine"
+        "category": "Claudine",
+        "icon": "$(clear-all)"
       },
       {
         "command": "claudine.openConversation",
@@ -71,7 +73,8 @@
       {
         "command": "claudine.newConversation",
         "title": "%command.newConversation%",
-        "category": "Claudine"
+        "category": "Claudine",
+        "icon": "$(add)"
       },
       {
         "command": "claudine.moveConversation",
@@ -96,7 +99,8 @@
       {
         "command": "claudine.toggleSummarization",
         "title": "%command.toggleSummarization%",
-        "category": "Claudine"
+        "category": "Claudine",
+        "icon": "$(sparkle)"
       },
       {
         "command": "claudine.regenerateIcons",
@@ -132,6 +136,36 @@
         "command": "claudine.showDiagnostics",
         "title": "%command.showDiagnostics%",
         "category": "Claudine"
+      },
+      {
+        "command": "claudine.toggleSearch",
+        "title": "%command.toggleSearch%",
+        "category": "Claudine",
+        "icon": "$(search)"
+      },
+      {
+        "command": "claudine.toggleFilter",
+        "title": "%command.toggleFilter%",
+        "category": "Claudine",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "claudine.toggleCompactView",
+        "title": "%command.toggleCompactView%",
+        "category": "Claudine",
+        "icon": "$(list-flat)"
+      },
+      {
+        "command": "claudine.toggleExpandAll",
+        "title": "%command.toggleExpandAll%",
+        "category": "Claudine",
+        "icon": "$(expand-all)"
+      },
+      {
+        "command": "claudine.toggleArchive",
+        "title": "%command.toggleArchive%",
+        "category": "Claudine",
+        "icon": "$(archive)"
       }
     ],
     "viewsContainers": {
@@ -200,12 +234,71 @@
           "default": "panel",
           "description": "%config.viewLocation.description%"
         },
+        "claudine.toolbarLocation": {
+          "type": "string",
+          "enum": [
+            "sidebar",
+            "titlebar",
+            "both"
+          ],
+          "default": "sidebar",
+          "description": "%config.toolbarLocation.description%"
+        },
         "claudine.autoRestartAfterRateLimit": {
           "type": "boolean",
           "default": false,
           "description": "Automatically restart paused tasks when the Claude API rate limit resets"
         }
       }
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "claudine.newConversation",
+          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "claudine.toggleSearch",
+          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "navigation@2"
+        },
+        {
+          "command": "claudine.toggleFilter",
+          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "navigation@3"
+        },
+        {
+          "command": "claudine.toggleCompactView",
+          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "navigation@4"
+        },
+        {
+          "command": "claudine.toggleExpandAll",
+          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "navigation@5"
+        },
+        {
+          "command": "claudine.toggleSummarization",
+          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "navigation@6"
+        },
+        {
+          "command": "claudine.refresh",
+          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "navigation@7"
+        },
+        {
+          "command": "claudine.closeEmptyClaudeTabs",
+          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "1_actions@1"
+        },
+        {
+          "command": "claudine.toggleArchive",
+          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "1_actions@2"
+        }
+      ]
     },
     "keybindings": [
       {

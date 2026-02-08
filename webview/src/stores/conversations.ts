@@ -13,6 +13,7 @@ export const settings = writable<ClaudineSettings>({
   enableSummarization: false,
   hasApiKey: false,
   viewLocation: 'panel',
+  toolbarLocation: 'sidebar',
   autoRestartAfterRateLimit: false
 });
 
