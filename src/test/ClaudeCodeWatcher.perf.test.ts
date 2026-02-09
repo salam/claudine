@@ -6,12 +6,46 @@
  * can be validated without silently breaking functionality.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import { ClaudeCodeWatcher } from '../providers/ClaudeCodeWatcher';
 import { Conversation } from '../types';
+import type { IPlatformAdapter, PlatformEventEmitter, PlatformEvent, Disposable } from '../platform/IPlatformAdapter';
+
+function createMockPlatform(): IPlatformAdapter {
+  return {
+    createEventEmitter<T>(): PlatformEventEmitter<T> {
+      const ee = new EventEmitter();
+      return {
+        get event(): PlatformEvent<T> {
+          return (listener: (e: T) => void): Disposable => {
+            ee.on('data', listener);
+            return { dispose: () => { ee.removeListener('data', listener); } };
+          };
+        },
+        fire: (data: T) => { ee.emit('data', data); },
+        dispose: () => { ee.removeAllListeners(); }
+      };
+    },
+    watchFiles: () => ({ dispose: () => {} }),
+    getConfig: (_k: string, d: unknown) => d as never,
+    ensureDirectory: async () => {},
+    writeFile: async () => {},
+    readFile: async () => new Uint8Array(),
+    stat: async () => undefined,
+    getGlobalState: (_k: string, d: unknown) => d as never,
+    setGlobalState: async () => {},
+    getSecret: async () => undefined,
+    setSecret: async () => {},
+    getGlobalStoragePath: () => '/tmp/claudine-test',
+    getWorkspaceFolders: () => null,
+    isDevelopmentMode: () => false,
+    getExtensionPath: () => undefined,
+  };
+}
 
 // Mock fs (used by ClaudeCodeWatcher for sync directory scanning + search)
 vi.mock('fs', () => ({
@@ -128,7 +162,7 @@ describe('ClaudeCodeWatcher — regression tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockStateManager = createMockStateManager();
-    watcher = new ClaudeCodeWatcher(mockStateManager as never);
+    watcher = new ClaudeCodeWatcher(mockStateManager as never, createMockPlatform());
 
     // Default: existsSync returns true for standard paths
     mockExistsSync.mockReturnValue(true);
@@ -300,6 +334,169 @@ describe('ClaudeCodeWatcher — regression tests', () => {
 
     it('clearPendingIcons does not throw', () => {
       expect(() => watcher.clearPendingIcons()).not.toThrow();
+    });
+  });
+
+  // ---------- Temp directory exclusion ----------
+
+  describe('isExcludedProjectDir (static)', () => {
+    it('excludes macOS temp dir /private/var/folders/', () => {
+      const result = ClaudeCodeWatcher.isExcludedProjectDir(
+        '-private-var-folders-4n-sj5qzp3x3sl32qt21rpsxjlc0000gq-T'
+      );
+      expect(result.excluded).toBe(true);
+      expect(result.reason).toBeDefined();
+    });
+
+    it('excludes /var/folders/ variant', () => {
+      const result = ClaudeCodeWatcher.isExcludedProjectDir(
+        '-var-folders-xx-yy-T'
+      );
+      expect(result.excluded).toBe(true);
+    });
+
+    it('excludes /tmp/ paths', () => {
+      const result = ClaudeCodeWatcher.isExcludedProjectDir('-tmp-scratch-project');
+      expect(result.excluded).toBe(true);
+    });
+
+    it('does NOT exclude normal project paths', () => {
+      const result = ClaudeCodeWatcher.isExcludedProjectDir(
+        '-Users-matthias-Development-claudine'
+      );
+      expect(result.excluded).toBe(false);
+    });
+
+    it('does NOT exclude paths that just contain "var" in a name', () => {
+      const result = ClaudeCodeWatcher.isExcludedProjectDir(
+        '-Users-matthias-Development-variable-project'
+      );
+      expect(result.excluded).toBe(false);
+    });
+  });
+
+  // ---------- decodeProjectDirName ----------
+
+  describe('decodeProjectDirName (static)', () => {
+    it('decodes encoded path back to approximation', () => {
+      expect(ClaudeCodeWatcher.decodeProjectDirName('-Users-matthias-Development-foo'))
+        .toBe('/Users/matthias/Development/foo');
+    });
+
+    it('handles macOS temp path', () => {
+      expect(ClaudeCodeWatcher.decodeProjectDirName(
+        '-private-var-folders-4n-abc123-T'
+      )).toBe('/private/var/folders/4n/abc123/T');
+    });
+  });
+
+  // ---------- discoverProjects ----------
+
+  describe('discoverProjects', () => {
+    it('returns manifest with file counts and exclusion flags', () => {
+      mockReaddirSync.mockImplementation(((dirPath: string) => {
+        if (dirPath === projectsPath) {
+          return [
+            { name: '-Users-matthias-Development-myapp', isDirectory: () => true, isFile: () => false },
+            { name: '-private-var-folders-xx-T', isDirectory: () => true, isFile: () => false },
+          ];
+        }
+        if (dirPath.includes('-Users-matthias-Development-myapp')) {
+          return [
+            { name: 'conv-1.jsonl', isFile: () => true, isDirectory: () => false },
+            { name: 'conv-2.jsonl', isFile: () => true, isDirectory: () => false },
+          ];
+        }
+        if (dirPath.includes('-private-var-folders')) {
+          return [
+            { name: 'conv-temp.jsonl', isFile: () => true, isDirectory: () => false },
+          ];
+        }
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+
+      const manifest = watcher.discoverProjects();
+      expect(manifest).toHaveLength(2);
+
+      const myApp = manifest.find(p => p.name === 'myapp');
+      expect(myApp).toBeDefined();
+      expect(myApp!.fileCount).toBe(2);
+      expect(myApp!.enabled).toBe(true);
+      expect(myApp!.autoExcluded).toBe(false);
+
+      const tempDir = manifest.find(p => p.autoExcluded);
+      expect(tempDir).toBeDefined();
+      expect(tempDir!.fileCount).toBe(1);
+      expect(tempDir!.enabled).toBe(false);
+      expect(tempDir!.autoExcluded).toBe(true);
+    });
+
+    it('skips empty project directories', () => {
+      mockReaddirSync.mockImplementation(((dirPath: string) => {
+        if (dirPath === projectsPath) {
+          return [
+            { name: '-Users-matthias-Development-empty', isDirectory: () => true, isFile: () => false },
+          ];
+        }
+        return []; // no .jsonl files
+      }) as unknown as typeof fs.readdirSync);
+
+      const manifest = watcher.discoverProjects();
+      expect(manifest).toHaveLength(0);
+    });
+  });
+
+  // ---------- setupFileWatcher ----------
+
+  describe('setupFileWatcher', () => {
+    it('sets up watcher without calling refresh', () => {
+      // setupFileWatcher should NOT trigger setConversations (no refresh)
+      watcher.setupFileWatcher();
+      expect(watcher.isWatching).toBe(true);
+      expect(mockStateManager.setConversations).not.toHaveBeenCalled();
+      watcher.stopWatching();
+    });
+  });
+
+  // ---------- scanProjectsProgressively ----------
+
+  describe('scanProjectsProgressively', () => {
+    it('calls onProgress and onProjectScanned per project', async () => {
+      const ts = new Date().toISOString();
+      const jsonl = JSON.stringify({
+        type: 'user', uuid: '1', timestamp: ts, sessionId: 's',
+        parentUuid: null, isSidechain: false,
+        message: { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
+      });
+      const bytes = Buffer.byteLength(jsonl, 'utf-8');
+      mockStat.mockResolvedValue({ size: bytes } as any);
+      mockReadFile.mockResolvedValue(jsonl);
+
+      mockReaddirSync.mockImplementation(((dirPath: string) => {
+        return [
+          { name: 'conv-1.jsonl', isFile: () => true, isDirectory: () => false },
+        ];
+      }) as unknown as typeof fs.readdirSync);
+
+      const onProgress = vi.fn();
+      const onProjectScanned = vi.fn();
+
+      const manifest = [{
+        encodedPath: '-Users-matthias-Development-test',
+        decodedPath: '/Users/matthias/Development/test',
+        name: 'test',
+        fileCount: 1,
+        enabled: true,
+        autoExcluded: false,
+      }];
+
+      const result = await watcher.scanProjectsProgressively(manifest, onProgress, onProjectScanned);
+
+      expect(result.length).toBe(1);
+      expect(onProgress).toHaveBeenCalled();
+      expect(onProjectScanned).toHaveBeenCalledTimes(1);
+      expect(onProjectScanned.mock.calls[0][0]).toBe('/Users/matthias/Development/test');
+      expect(onProjectScanned.mock.calls[0][1]).toHaveLength(1);
     });
   });
 });

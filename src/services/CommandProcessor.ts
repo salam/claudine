@@ -1,11 +1,10 @@
-import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { IPlatformAdapter, Disposable } from '../platform/IPlatformAdapter';
 import { StateManager } from './StateManager';
 import {
   AgentCommand,
   AgentCommandResult,
-  AgentCommandType,
   ConversationStatus,
   ConversationCategory,
   Conversation
@@ -24,33 +23,35 @@ const MAX_COMMAND_AGE_MS = 5 * 60 * 1000;
 
 export class CommandProcessor {
   private _processedIds = new Set<string>();
-  private _watcher: vscode.FileSystemWatcher | undefined;
+  private _watcherDisposable: Disposable | undefined;
   private _commandsPath: string | undefined;
   private _resultsPath: string | undefined;
 
-  constructor(private readonly _stateManager: StateManager) {}
+  constructor(
+    private readonly _stateManager: StateManager,
+    private readonly _platform: IPlatformAdapter
+  ) {}
 
   public startWatching() {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) { return; }
+    const workspaceFolders = this._platform.getWorkspaceFolders();
+    if (!workspaceFolders || workspaceFolders.length === 0) { return; }
 
-    const claudinePath = path.join(workspaceFolder.uri.fsPath, '.claudine');
+    const claudinePath = path.join(workspaceFolders[0], '.claudine');
     this._commandsPath = path.join(claudinePath, 'commands.jsonl');
     this._resultsPath = path.join(claudinePath, 'command-results.json');
 
-    const pattern = new vscode.RelativePattern(claudinePath, 'commands.jsonl');
-    this._watcher = vscode.workspace.createFileSystemWatcher(pattern);
-
-    this._watcher.onDidCreate(() => this.processCommandFile());
-    this._watcher.onDidChange(() => this.processCommandFile());
+    this._watcherDisposable = this._platform.watchFiles(claudinePath, 'commands.jsonl', {
+      onCreate: () => this.processCommandFile(),
+      onChange: () => this.processCommandFile()
+    });
 
     // Process any commands written while the extension was not running
     this.processCommandFile();
   }
 
   public stopWatching() {
-    this._watcher?.dispose();
-    this._watcher = undefined;
+    this._watcherDisposable?.dispose();
+    this._watcherDisposable = undefined;
   }
 
   private async processCommandFile() {

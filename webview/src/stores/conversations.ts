@@ -1,10 +1,33 @@
 import { writable, derived, get } from 'svelte/store';
 import { vscode } from '../lib/vscode';
-import type { Conversation, ConversationStatus, ConversationCategory, ClaudineSettings } from '../lib/vscode';
+import type { Conversation, ConversationStatus, ConversationCategory, ClaudineSettings, ProjectGroup, IndexingPhase, ProjectManifestEntry } from '../lib/vscode';
 import { t } from './locale';
 
 // Main conversations store
 export const conversations = writable<Conversation[]>([]);
+
+// ── Indexing progress (standalone progressive loading) ────────────────
+
+export interface IndexingProgress {
+  phase: IndexingPhase;
+  totalProjects: number;
+  scannedProjects: number;
+  totalFiles: number;
+  scannedFiles: number;
+  currentProject?: string;
+}
+
+export const indexingProgress = writable<IndexingProgress>({
+  phase: 'idle', totalProjects: 0, scannedProjects: 0,
+  totalFiles: 0, scannedFiles: 0
+});
+
+export const projectManifest = writable<ProjectManifestEntry[]>([]);
+
+export const indexingPercent = derived(indexingProgress, ($p) => {
+  if ($p.totalFiles === 0) return 0;
+  return Math.round(($p.scannedFiles / $p.totalFiles) * 100);
+});
 
 // Settings store
 export const settings = writable<ClaudineSettings>({
@@ -12,9 +35,12 @@ export const settings = writable<ClaudineSettings>({
   claudeCodePath: '~/.claude',
   enableSummarization: false,
   hasApiKey: false,
-  viewLocation: 'panel',
   toolbarLocation: 'sidebar',
-  autoRestartAfterRateLimit: false
+  autoRestartAfterRateLimit: false,
+  showTaskIcon: true,
+  showTaskDescription: true,
+  showTaskLatest: true,
+  showTaskGitBranch: true
 });
 
 // Error messages store
@@ -128,6 +154,73 @@ export const rateLimitInfo = derived(conversations, ($conversations) => {
   };
 });
 
+// ── Multi-project grouping (standalone mode) ─────────────────────────
+
+/** Extract a short display name from a workspace path. */
+function projectDisplayName(wsPath: string): string {
+  const parts = wsPath.replace(/\\/g, '/').split('/').filter(Boolean);
+  return parts[parts.length - 1] || wsPath;
+}
+
+/** Conversations grouped by workspace path, sorted by most recently active. */
+export const projectGroups = derived(conversations, ($conversations) => {
+  const map = new Map<string, Conversation[]>();
+
+  for (const c of $conversations) {
+    const key = c.workspacePath || '(unknown)';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(c);
+  }
+
+  const groups: ProjectGroup[] = [];
+  for (const [wsPath, convs] of map) {
+    const nonArchived = convs.filter(c => c.status !== 'archived');
+    groups.push({
+      name: projectDisplayName(wsPath),
+      path: wsPath,
+      conversations: convs,
+      activeCount: nonArchived.length,
+      inProgressCount: convs.filter(c => c.status === 'in-progress').length,
+      needsAttention: convs.some(c => c.hasError || c.hasQuestion || c.isInterrupted || c.status === 'needs-input'),
+    });
+  }
+
+  // Sort: projects with in-progress work first, then by most recent activity
+  groups.sort((a, b) => {
+    if (a.inProgressCount !== b.inProgressCount) return b.inProgressCount - a.inProgressCount;
+    if (a.needsAttention !== b.needsAttention) return a.needsAttention ? -1 : 1;
+    const aLatest = Math.max(...a.conversations.map(c => new Date(c.updatedAt).getTime()));
+    const bLatest = Math.max(...b.conversations.map(c => new Date(c.updatedAt).getTime()));
+    return bLatest - aLatest;
+  });
+
+  return groups;
+});
+
+/** Which project paths are currently expanded in the multi-project view. */
+export const expandedProjects = writable<Set<string>>(new Set());
+
+export function toggleProjectExpanded(path: string) {
+  expandedProjects.update(set => {
+    const next = new Set(set);
+    if (next.has(path)) next.delete(path);
+    else next.add(path);
+    return next;
+  });
+}
+
+export function expandAllProjects() {
+  const groups = get(projectGroups);
+  expandedProjects.set(new Set(groups.map(g => g.path)));
+}
+
+export function collapseAllProjects() {
+  expandedProjects.set(new Set());
+}
+
+/** The currently selected/focused project in single-project navigation mode. */
+export const selectedProjectPath = writable<string | null>(null);
+
 // IDs returned by extension-side JSONL full-text search
 export const extensionSearchMatchIds = writable<Set<string> | null>(null);
 
@@ -200,6 +293,18 @@ export function removeConversations(ids: string[]) {
   let all: Conversation[] = [];
   conversations.update(convs => {
     all = convs.filter(c => !idSet.has(c.id));
+    return all;
+  });
+  conversationsByStatus.set(groupByStatus(all));
+}
+
+/** Append conversations from one project (progressive loading). */
+export function appendProjectConversations(projectPath: string, newConvs: Conversation[]) {
+  let all: Conversation[] = [];
+  conversations.update(existing => {
+    // Remove any previous conversations for this project (in case of re-scan)
+    const filtered = existing.filter(c => c.workspacePath !== projectPath);
+    all = [...filtered, ...newConvs];
     return all;
   });
   conversationsByStatus.set(groupByStatus(all));
@@ -327,5 +432,27 @@ export function restoreColumnWidths() {
   const state = vscode.getState<{ columnWidths?: Record<string, number | null> }>();
   if (state?.columnWidths) {
     columnWidths.set(state.columnWidths);
+  }
+}
+
+// ── Pane Heights (standalone multi-project view) ──────────────────────
+
+/** Persisted pane heights (px) keyed by project path. null = auto/default flex layout. */
+export const paneHeights = writable<Record<string, number | null>>({});
+
+export function setPaneHeight(path: string, height: number | null) {
+  paneHeights.update(h => ({ ...h, [path]: height }));
+  vscode.mergeState({ paneHeights: get(paneHeights) });
+}
+
+export function resetAllPaneHeights() {
+  paneHeights.set({});
+  vscode.mergeState({ paneHeights: {} });
+}
+
+export function restorePaneHeights() {
+  const state = vscode.getState<{ paneHeights?: Record<string, number | null> }>();
+  if (state?.paneHeights) {
+    paneHeights.set(state.paneHeights);
   }
 }

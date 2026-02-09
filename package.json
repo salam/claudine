@@ -1,14 +1,17 @@
 {
   "name": "claudine",
   "displayName": "Claudine",
-  "description": "Kanban board for managing Claude Code conversations",
-  "version": "0.1.0",
+  "description": "%extension.description%",
+  "version": "1.1.0",
   "publisher": "claudine",
   "license": "MIT",
-  "icon": "resources/icons/claudine.png",
+  "icon": "resources/icons/claudine-activitybar.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/salam/claudine"
+  },
+  "sponsor": {
+    "url": "https://github.com/sponsors/salam"
   },
   "homepage": "https://claudine.pro",
   "bugs": {
@@ -118,11 +121,6 @@
         "category": "Claudine"
       },
       {
-        "command": "claudine.togglePlacement",
-        "title": "%command.togglePlacement%",
-        "category": "Claudine"
-      },
-      {
         "command": "claudine.exportBoard",
         "title": "%command.exportBoard%",
         "category": "Claudine"
@@ -166,21 +164,44 @@
         "title": "%command.toggleArchive%",
         "category": "Claudine",
         "icon": "$(archive)"
+      },
+      {
+        "command": "claudine.zoomIn",
+        "title": "%command.zoomIn%",
+        "category": "Claudine",
+        "icon": "$(zoom-in)"
+      },
+      {
+        "command": "claudine.zoomOut",
+        "title": "%command.zoomOut%",
+        "category": "Claudine",
+        "icon": "$(zoom-out)"
+      },
+      {
+        "command": "claudine.zoomReset",
+        "title": "%command.zoomReset%",
+        "category": "Claudine",
+        "icon": "$(screen-normal)"
+      },
+      {
+        "command": "claudine.toggleSettingsPanel",
+        "title": "%command.toggleSettingsPanel%",
+        "category": "Claudine",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "claudine.toggleAbout",
+        "title": "%command.toggleAbout%",
+        "category": "Claudine",
+        "icon": "$(info)"
       }
     ],
     "viewsContainers": {
       "panel": [
         {
           "id": "claudine-panel",
-          "title": "🐘 Claudine",
-          "icon": "resources/icons/claudine.png"
-        }
-      ],
-      "activitybar": [
-        {
-          "id": "claudine-sidebar",
-          "title": "Claudine",
-          "icon": "resources/icons/claudine-activitybar.svg"
+          "title": "%viewContainer.panel.title%",
+          "icon": "resources/icons/claudine-activitybar3.svg"
         }
       ]
     },
@@ -189,21 +210,12 @@
         {
           "type": "webview",
           "id": "claudine.kanbanView",
-          "name": "🐘 Claudine",
-          "when": "config.claudine.viewLocation != 'sidebar'"
-        }
-      ],
-      "claudine-sidebar": [
-        {
-          "type": "webview",
-          "id": "claudine.kanbanViewSidebar",
-          "name": "Claudine",
-          "when": "config.claudine.viewLocation == 'sidebar'"
+          "name": "%view.panel.name%"
         }
       ]
     },
     "configuration": {
-      "title": "Claudine",
+      "title": "%config.title%",
       "properties": {
         "claudine.imageGenerationApi": {
           "type": "string",
@@ -225,21 +237,11 @@
           "default": false,
           "description": "%config.enableSummarization.description%"
         },
-        "claudine.viewLocation": {
-          "type": "string",
-          "enum": [
-            "panel",
-            "sidebar"
-          ],
-          "default": "panel",
-          "description": "%config.viewLocation.description%"
-        },
         "claudine.toolbarLocation": {
           "type": "string",
           "enum": [
             "sidebar",
-            "titlebar",
-            "both"
+            "titlebar"
           ],
           "default": "sidebar",
           "description": "%config.toolbarLocation.description%"
@@ -247,56 +249,96 @@
         "claudine.autoRestartAfterRateLimit": {
           "type": "boolean",
           "default": false,
-          "description": "Automatically restart paused tasks when the Claude API rate limit resets"
+          "description": "%config.autoRestartAfterRateLimit.description%"
+        },
+        "claudine.showTaskIcon": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.showTaskIcon.description%"
+        },
+        "claudine.showTaskDescription": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.showTaskDescription.description%"
+        },
+        "claudine.showTaskLatest": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.showTaskLatest.description%"
+        },
+        "claudine.showTaskGitBranch": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.showTaskGitBranch.description%"
         }
       }
     },
     "menus": {
       "view/title": [
         {
-          "command": "claudine.newConversation",
-          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "command": "claudine.toggleSearch",
+          "when": "(view == claudine.kanbanView) && config.claudine.toolbarLocation != 'sidebar'",
           "group": "navigation@1"
         },
         {
-          "command": "claudine.toggleSearch",
-          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "command": "claudine.toggleFilter",
+          "when": "(view == claudine.kanbanView) && config.claudine.toolbarLocation != 'sidebar'",
           "group": "navigation@2"
         },
         {
-          "command": "claudine.toggleFilter",
-          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "command": "claudine.toggleCompactView",
+          "when": "(view == claudine.kanbanView) && config.claudine.toolbarLocation != 'sidebar'",
           "group": "navigation@3"
         },
         {
-          "command": "claudine.toggleCompactView",
-          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "command": "claudine.toggleExpandAll",
+          "when": "(view == claudine.kanbanView) && config.claudine.toolbarLocation != 'sidebar'",
           "group": "navigation@4"
         },
         {
-          "command": "claudine.toggleExpandAll",
-          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "command": "claudine.toggleSummarization",
+          "when": "(view == claudine.kanbanView) && config.claudine.toolbarLocation != 'sidebar'",
           "group": "navigation@5"
         },
         {
-          "command": "claudine.toggleSummarization",
-          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "command": "claudine.refresh",
+          "when": "(view == claudine.kanbanView) && config.claudine.toolbarLocation != 'sidebar'",
           "group": "navigation@6"
         },
         {
-          "command": "claudine.refresh",
-          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
+          "command": "claudine.closeEmptyClaudeTabs",
+          "when": "(view == claudine.kanbanView) && config.claudine.toolbarLocation != 'sidebar'",
           "group": "navigation@7"
         },
         {
-          "command": "claudine.closeEmptyClaudeTabs",
-          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
-          "group": "1_actions@1"
+          "command": "claudine.toggleArchive",
+          "when": "(view == claudine.kanbanView) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "navigation@8"
         },
         {
-          "command": "claudine.toggleArchive",
-          "when": "(view == claudine.kanbanView || view == claudine.kanbanViewSidebar) && config.claudine.toolbarLocation != 'sidebar'",
-          "group": "1_actions@2"
+          "command": "claudine.zoomOut",
+          "when": "(view == claudine.kanbanView) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "navigation@9"
+        },
+        {
+          "command": "claudine.zoomReset",
+          "when": "(view == claudine.kanbanView) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "navigation@10"
+        },
+        {
+          "command": "claudine.zoomIn",
+          "when": "(view == claudine.kanbanView) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "navigation@11"
+        },
+        {
+          "command": "claudine.toggleSettingsPanel",
+          "when": "(view == claudine.kanbanView) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "navigation@12"
+        },
+        {
+          "command": "claudine.toggleAbout",
+          "when": "(view == claudine.kanbanView) && config.claudine.toolbarLocation != 'sidebar'",
+          "group": "navigation@13"
         }
       ]
     },
@@ -310,25 +352,25 @@
         "command": "claudine.refresh",
         "key": "ctrl+shift+r",
         "mac": "cmd+shift+r",
-        "when": "claudine.kanbanView.visible || claudine.kanbanViewSidebar.visible"
+        "when": "claudine.kanbanView.visible"
       },
       {
         "command": "claudine.searchConversations",
         "key": "ctrl+shift+f",
         "mac": "cmd+shift+f",
-        "when": "claudine.kanbanView.visible || claudine.kanbanViewSidebar.visible"
+        "when": "claudine.kanbanView.visible"
       },
       {
         "command": "claudine.newConversation",
         "key": "ctrl+shift+n",
         "mac": "cmd+shift+n",
-        "when": "claudine.kanbanView.visible || claudine.kanbanViewSidebar.visible"
+        "when": "claudine.kanbanView.visible"
       },
       {
         "command": "claudine.showNeedsInput",
         "key": "ctrl+shift+i",
         "mac": "cmd+shift+i",
-        "when": "claudine.kanbanView.visible || claudine.kanbanViewSidebar.visible"
+        "when": "claudine.kanbanView.visible"
       },
       {
         "command": "claudine.focusClaude",
@@ -339,47 +381,70 @@
     "walkthroughs": [
       {
         "id": "claudine.gettingStarted",
-        "title": "Get Started with Claudine",
-        "description": "Learn how to use the Claudine kanban board to manage your Claude Code conversations.",
+        "title": "%walkthrough.gettingStarted.title%",
+        "description": "%walkthrough.gettingStarted.description%",
         "steps": [
           {
             "id": "claudine.walkthrough.installClaude",
-            "title": "Install Claude Code",
-            "description": "Claudine requires the Claude Code extension to discover conversations.\n\n[Open Extensions](command:workbench.extensions.search?%22anthropic.claude-code%22)",
-            "media": { "markdown": "resources/walkthrough/install-claude.md" },
-            "completionEvents": ["extensionInstalled:anthropic.claude-code"]
+            "title": "%walkthrough.installClaude.title%",
+            "description": "%walkthrough.installClaude.description%",
+            "media": {
+              "markdown": "resources/walkthrough/install-claude.md"
+            },
+            "completionEvents": [
+              "extensionInstalled:anthropic.claude-code"
+            ]
           },
           {
             "id": "claudine.walkthrough.findBoard",
-            "title": "Open the Board",
-            "description": "Open the Claudine kanban board to see your conversations at a glance.\n\n[Open Claudine Board](command:claudine.openKanban)",
-            "media": { "markdown": "resources/walkthrough/find-board.md" },
-            "completionEvents": ["onCommand:claudine.openKanban"]
+            "title": "%walkthrough.findBoard.title%",
+            "description": "%walkthrough.findBoard.description%",
+            "media": {
+              "markdown": "resources/walkthrough/find-board.md"
+            },
+            "completionEvents": [
+              "onCommand:claudine.openKanban"
+            ]
           },
           {
             "id": "claudine.walkthrough.startConversation",
-            "title": "Start a Conversation",
-            "description": "Create your first Claude Code conversation. It will appear on the board automatically.\n\n[New Conversation](command:claudine.newConversation)",
-            "media": { "markdown": "resources/walkthrough/start-conversation.md" },
-            "completionEvents": ["onCommand:claudine.newConversation"]
+            "title": "%walkthrough.startConversation.title%",
+            "description": "%walkthrough.startConversation.description%",
+            "media": {
+              "markdown": "resources/walkthrough/start-conversation.md"
+            },
+            "completionEvents": [
+              "onCommand:claudine.newConversation"
+            ]
           },
           {
             "id": "claudine.walkthrough.keyFeatures",
-            "title": "Explore Key Features",
-            "description": "Search, filter, drag-and-drop, and keyboard shortcuts to manage your board.\n\n[Search Conversations](command:claudine.searchConversations)",
-            "media": { "markdown": "resources/walkthrough/key-features.md" },
-            "completionEvents": ["onCommand:claudine.searchConversations"]
+            "title": "%walkthrough.keyFeatures.title%",
+            "description": "%walkthrough.keyFeatures.description%",
+            "media": {
+              "markdown": "resources/walkthrough/key-features.md"
+            },
+            "completionEvents": [
+              "onCommand:claudine.searchConversations"
+            ]
           },
           {
             "id": "claudine.walkthrough.agentIntegration",
-            "title": "Set Up Agent Integration",
-            "description": "Let Claude Code agents control the board automatically.\n\n[Set Up Agent Integration](command:claudine.setupAgentIntegration)",
-            "media": { "markdown": "resources/walkthrough/agent-integration.md" },
-            "completionEvents": ["onCommand:claudine.setupAgentIntegration"]
+            "title": "%walkthrough.agentIntegration.title%",
+            "description": "%walkthrough.agentIntegration.description%",
+            "media": {
+              "markdown": "resources/walkthrough/agent-integration.md"
+            },
+            "completionEvents": [
+              "onCommand:claudine.setupAgentIntegration"
+            ]
           }
         ]
       }
     ]
+  },
+  "bin": {
+    "claudine": "./out-standalone/claudine.js"
   },
   "scripts": {
     "vscode:prepublish": "npm run package && npm run build:webview",
@@ -389,13 +454,21 @@
     "compile:check": "tsc -p ./ --noEmit",
     "build:webview": "cd webview && npm run build",
     "dev:webview": "cd webview && npm run dev",
+    "build:standalone": "node esbuild-standalone.mjs",
+    "standalone": "node esbuild-standalone.mjs && node out-standalone/claudine.js",
+    "dev:standalone": "node esbuild-standalone.mjs --watch",
     "lint": "eslint src --ext ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
+  "dependencies": {
+    "chokidar": "^4.0.0",
+    "ws": "^8.18.0"
+  },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.5.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
     "esbuild": "^0.27.3",

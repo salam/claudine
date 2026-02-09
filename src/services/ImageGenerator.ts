@@ -1,29 +1,25 @@
-import * as vscode from 'vscode';
+import { IPlatformAdapter } from '../platform/IPlatformAdapter';
 import { StorageService } from './StorageService';
 import { MAX_IMAGE_PROMPT_LENGTH } from '../constants';
 
 export class ImageGenerator {
-  private _secrets: vscode.SecretStorage | undefined;
-
-  constructor(private readonly _storageService: StorageService) {}
-
-  public setSecretStorage(secrets: vscode.SecretStorage) {
-    this._secrets = secrets;
-  }
+  constructor(
+    private readonly _storageService: StorageService,
+    private readonly _platform: IPlatformAdapter
+  ) {}
 
   public async generateIcon(
     conversationId: string,
     title: string,
     description: string
   ): Promise<string | undefined> {
-    const config = vscode.workspace.getConfiguration('claudine');
-    const apiType = config.get<string>('imageGenerationApi', 'none');
+    const apiType = this._platform.getConfig<string>('imageGenerationApi', 'none');
 
     if (apiType === 'none') {
       return undefined;
     }
 
-    const apiKey = await this._secrets?.get('imageGenerationApiKey') ?? '';
+    const apiKey = await this._platform.getSecret('imageGenerationApiKey') ?? '';
     if (!apiKey) {
       console.warn('Claudine: Image generation API key not configured');
       return undefined;

@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "out-standalone",
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["src/**/*", "standalone/**/*"],
+  "exclude": ["node_modules", "webview"]
+}

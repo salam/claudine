@@ -6,9 +6,43 @@
  * can be validated without silently breaking functionality.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { EventEmitter } from 'events';
 import { StateManager } from '../services/StateManager';
 import { Conversation, ConversationStatus } from '../types';
 import { SAVE_STATE_DEBOUNCE_MS, NOTIFY_COALESCE_MS } from '../constants';
+import type { IPlatformAdapter, PlatformEventEmitter, PlatformEvent, Disposable } from '../platform/IPlatformAdapter';
+
+function createMockPlatform(): IPlatformAdapter {
+  return {
+    createEventEmitter<T>(): PlatformEventEmitter<T> {
+      const ee = new EventEmitter();
+      return {
+        get event(): PlatformEvent<T> {
+          return (listener: (e: T) => void): Disposable => {
+            ee.on('data', listener);
+            return { dispose: () => { ee.removeListener('data', listener); } };
+          };
+        },
+        fire: (data: T) => { ee.emit('data', data); },
+        dispose: () => { ee.removeAllListeners(); }
+      };
+    },
+    watchFiles: () => ({ dispose: () => {} }),
+    getConfig: (_k: string, d: unknown) => d as never,
+    ensureDirectory: async () => {},
+    writeFile: async () => {},
+    readFile: async () => new Uint8Array(),
+    stat: async () => undefined,
+    getGlobalState: (_k: string, d: unknown) => d as never,
+    setGlobalState: async () => {},
+    getSecret: async () => undefined,
+    setSecret: async () => {},
+    getGlobalStoragePath: () => '/tmp/claudine-test',
+    getWorkspaceFolders: () => null,
+    isDevelopmentMode: () => false,
+    getExtensionPath: () => undefined,
+  };
+}
 
 function createMockStorage() {
   return {
@@ -56,7 +90,7 @@ describe('StateManager — regression tests', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     mockStorage = createMockStorage();
-    stateManager = new StateManager(mockStorage as never);
+    stateManager = new StateManager(mockStorage as never, createMockPlatform());
     await stateManager.ready;
   });
 

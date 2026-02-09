@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set package.json version
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: npm version "$RELEASE_VERSION" --no-git-tag-version
+
+      - name: Install extension dependencies
+        run: npm ci
+
+      - name: Install webview dependencies
+        run: cd webview && npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run compile:check
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Package VSIX
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: npx @vscode/vsce package --no-dependencies "$RELEASE_VERSION"
+
+      - name: Publish to VS Code Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: npx @vscode/vsce publish --no-dependencies --packagePath "claudine-${RELEASE_VERSION}.vsix"
+
+      - name: Publish to Open VSX
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: npx ovsx publish "claudine-${RELEASE_VERSION}.vsix" -p "$OVSX_PAT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: claudine-${{ steps.version.outputs.version }}.vsix
+          generate_release_notes: true

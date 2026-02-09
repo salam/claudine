@@ -1,5 +1,5 @@
-import * as vscode from 'vscode';
 import * as path from 'path';
+import { IPlatformAdapter } from '../platform/IPlatformAdapter';
 import { Conversation } from '../types';
 
 interface BoardState {
@@ -8,16 +8,16 @@ interface BoardState {
 }
 
 export class StorageService {
-  private _globalStorageUri: vscode.Uri;
+  private _globalStoragePath: string;
 
-  constructor(private readonly _context: vscode.ExtensionContext) {
-    this._globalStorageUri = _context.globalStorageUri;
+  constructor(private readonly _platform: IPlatformAdapter) {
+    this._globalStoragePath = _platform.getGlobalStoragePath();
     this.ensureStorageExists();
   }
 
   private async ensureStorageExists() {
     try {
-      await vscode.workspace.fs.createDirectory(this._globalStorageUri);
+      await this._platform.ensureDirectory(this._globalStoragePath);
     } catch {
       // Directory might already exist
     }
@@ -26,83 +26,70 @@ export class StorageService {
   // Global storage methods (for extension-wide data)
 
   public async saveGlobalSetting<T>(key: string, value: T): Promise<void> {
-    await this._context.globalState.update(key, value);
+    await this._platform.setGlobalState(key, value);
   }
 
   public getGlobalSetting<T>(key: string, defaultValue: T): T {
-    return this._context.globalState.get(key, defaultValue);
+    return this._platform.getGlobalState(key, defaultValue);
   }
 
   public async saveIcon(conversationId: string, iconData: string): Promise<void> {
-    const iconPath = vscode.Uri.joinPath(
-      this._globalStorageUri,
-      'icons',
-      `${conversationId}.png`
-    );
+    const iconsDir = path.join(this._globalStoragePath, 'icons');
+    const iconPath = path.join(iconsDir, `${conversationId}.png`);
 
     try {
-      await vscode.workspace.fs.createDirectory(
-        vscode.Uri.joinPath(this._globalStorageUri, 'icons')
-      );
+      await this._platform.ensureDirectory(iconsDir);
     } catch {
       // Directory might already exist
     }
 
     // Convert base64 to buffer and save
     const buffer = Buffer.from(iconData.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-    await vscode.workspace.fs.writeFile(iconPath, buffer);
+    await this._platform.writeFile(iconPath, buffer);
   }
 
   public async getIconPath(conversationId: string): Promise<string | undefined> {
-    const iconPath = vscode.Uri.joinPath(
-      this._globalStorageUri,
-      'icons',
-      `${conversationId}.png`
-    );
+    const iconPath = path.join(this._globalStoragePath, 'icons', `${conversationId}.png`);
 
-    try {
-      await vscode.workspace.fs.stat(iconPath);
-      return iconPath.fsPath;
-    } catch {
-      return undefined;
+    const stats = await this._platform.stat(iconPath);
+    if (stats) {
+      return iconPath;
     }
+    return undefined;
   }
 
   // Workspace storage methods (for project-specific data)
 
   public async saveBoardState(state: BoardState): Promise<void> {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
+    const workspaceFolders = this._platform.getWorkspaceFolders();
+    if (!workspaceFolders || workspaceFolders.length === 0) {
       // Fall back to global storage
       await this.saveGlobalSetting('boardState', state);
       return;
     }
 
-    const claudinePath = vscode.Uri.joinPath(workspaceFolder.uri, '.claudine');
-    const statePath = vscode.Uri.joinPath(claudinePath, 'state.json');
+    const workspaceRoot = workspaceFolders[0];
+    const claudinePath = path.join(workspaceRoot, '.claudine');
+    const statePath = path.join(claudinePath, 'state.json');
 
     try {
-      await vscode.workspace.fs.createDirectory(claudinePath);
+      await this._platform.ensureDirectory(claudinePath);
     } catch {
       // Directory might already exist
     }
 
     const stateJson = JSON.stringify(state, null, 2);
-    await vscode.workspace.fs.writeFile(statePath, Buffer.from(stateJson));
+    await this._platform.writeFile(statePath, stateJson);
   }
 
   public async loadBoardState(): Promise<BoardState | null> {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    const workspaceFolders = this._platform.getWorkspaceFolders();
 
-    if (workspaceFolder) {
-      const statePath = vscode.Uri.joinPath(
-        workspaceFolder.uri,
-        '.claudine',
-        'state.json'
-      );
+    if (workspaceFolders && workspaceFolders.length > 0) {
+      const statePath = path.join(workspaceFolders[0], '.claudine', 'state.json');
 
       try {
-        const content = await vscode.workspace.fs.readFile(statePath);
+        const content = await this._platform.readFile(statePath);
         return JSON.parse(content.toString());
       } catch {
         // File doesn't exist
@@ -117,49 +104,49 @@ export class StorageService {
     conversationId: string,
     iconData: string
   ): Promise<string | undefined> {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return undefined;
+    const workspaceFolders = this._platform.getWorkspaceFolders();
+    if (!workspaceFolders || workspaceFolders.length === 0) { return undefined; }
 
-    const claudinePath = vscode.Uri.joinPath(workspaceFolder.uri, '.claudine');
-    const iconsPath = vscode.Uri.joinPath(claudinePath, 'icons');
-    const iconPath = vscode.Uri.joinPath(iconsPath, `${conversationId}.png`);
+    const claudinePath = path.join(workspaceFolders[0], '.claudine');
+    const iconsPath = path.join(claudinePath, 'icons');
+    const iconPath = path.join(iconsPath, `${conversationId}.png`);
 
     try {
-      await vscode.workspace.fs.createDirectory(iconsPath);
+      await this._platform.ensureDirectory(iconsPath);
     } catch {
       // Directory might already exist
     }
 
     const buffer = Buffer.from(iconData.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-    await vscode.workspace.fs.writeFile(iconPath, buffer);
+    await this._platform.writeFile(iconPath, buffer);
 
-    return iconPath.fsPath;
+    return iconPath;
   }
 
   public async saveDrafts(drafts: Array<{ id: string; title: string }>): Promise<void> {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return;
+    const workspaceFolders = this._platform.getWorkspaceFolders();
+    if (!workspaceFolders || workspaceFolders.length === 0) { return; }
 
-    const claudinePath = vscode.Uri.joinPath(workspaceFolder.uri, '.claudine');
-    const draftsPath = vscode.Uri.joinPath(claudinePath, 'drafts.json');
+    const claudinePath = path.join(workspaceFolders[0], '.claudine');
+    const draftsPath = path.join(claudinePath, 'drafts.json');
 
     try {
-      await vscode.workspace.fs.createDirectory(claudinePath);
+      await this._platform.ensureDirectory(claudinePath);
     } catch {
       // Directory might already exist
     }
 
-    await vscode.workspace.fs.writeFile(draftsPath, Buffer.from(JSON.stringify(drafts, null, 2)));
+    await this._platform.writeFile(draftsPath, JSON.stringify(drafts, null, 2));
   }
 
   public async loadDrafts(): Promise<Array<{ id: string; title: string }>> {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return [];
+    const workspaceFolders = this._platform.getWorkspaceFolders();
+    if (!workspaceFolders || workspaceFolders.length === 0) { return []; }
 
-    const draftsPath = vscode.Uri.joinPath(workspaceFolder.uri, '.claudine', 'drafts.json');
+    const draftsPath = path.join(workspaceFolders[0], '.claudine', 'drafts.json');
 
     try {
-      const content = await vscode.workspace.fs.readFile(draftsPath);
+      const content = await this._platform.readFile(draftsPath);
       return JSON.parse(content.toString());
     } catch {
       return [];
@@ -167,11 +154,11 @@ export class StorageService {
   }
 
   public getWorkspaceIconPath(conversationId: string): string | undefined {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return undefined;
+    const workspaceFolders = this._platform.getWorkspaceFolders();
+    if (!workspaceFolders || workspaceFolders.length === 0) { return undefined; }
 
     return path.join(
-      workspaceFolder.uri.fsPath,
+      workspaceFolders[0],
       '.claudine',
       'icons',
       `${conversationId}.png`

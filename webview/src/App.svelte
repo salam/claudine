@@ -1,20 +1,25 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import KanbanBoard from './components/KanbanBoard.svelte';
+  import MultiProjectView from './components/MultiProjectView.svelte';
   import SettingsPanel from './components/SettingsPanel.svelte';
   import { vscode, type ExtensionMessage } from './lib/vscode';
   import {
     settings, addError, setConversations, upsertConversation, removeConversations,
+    appendProjectConversations,
     focusedConversationId, searchQuery, searchMode, compactView,
     extensionSearchMatchIds, loadDraftsFromExtension,
     expandAllCards, collapseAllCards,
     activeCategories, toggleCategory, clearCategoryFilter, getCategoryDetails,
     rateLimitInfo,
+    indexingProgress, projectManifest,
     zoomLevel, zoomIn, zoomOut, zoomReset, restoreZoom, ZOOM_MIN, ZOOM_MAX,
-    restoreColumnWidths
+    restoreColumnWidths,
+    restorePaneHeights
   } from './stores/conversations';
-  import type { ConversationCategory } from './lib/vscode';
+  import type { Conversation, ConversationCategory } from './lib/vscode';
   import { localeStrings, t } from './stores/locale';
+  import { themePreference, resolvedTheme, cycleTheme } from './stores/theme';
 
   let searchOpen = false;
   let filterOpen = false;
@@ -50,6 +55,8 @@
     window.addEventListener('keydown', handleKeydown);
     restoreZoom();
     restoreColumnWidths();
+    restorePaneHeights();
+    requestNotificationPermission();
     vscode.postMessage({ type: 'ready' });
     return () => {
       window.removeEventListener('message', handleMessage);
@@ -73,6 +80,7 @@
         break;
       case 'conversationUpdated':
         upsertConversation(message.conversation);
+        checkNotifications(message.conversation);
         break;
       case 'removeConversations':
         removeConversations(message.ids);
@@ -88,6 +96,22 @@
         break;
       case 'updateLocale':
         localeStrings.set(message.strings);
+        break;
+      case 'indexingProgress':
+        indexingProgress.set({
+          phase: message.phase,
+          totalProjects: message.totalProjects,
+          scannedProjects: message.scannedProjects,
+          totalFiles: message.totalFiles,
+          scannedFiles: message.scannedFiles,
+          currentProject: message.currentProject,
+        });
+        break;
+      case 'projectDiscovered':
+        projectManifest.set(message.projects);
+        break;
+      case 'projectConversationsLoaded':
+        appendProjectConversations(message.projectPath, message.conversations);
         break;
       case 'error':
         addError(message.message);
@@ -105,6 +129,11 @@
       case 'toggleCompactView': toggleCompact(); break;
       case 'toggleExpandAll': toggleAllCards(); break;
       case 'toggleArchive': toggleArchive(); break;
+      case 'zoomIn': zoomIn(); break;
+      case 'zoomOut': zoomOut(); break;
+      case 'zoomReset': zoomReset(); break;
+      case 'toggleSettingsPanel': toggleSettings(); break;
+      case 'toggleAbout': toggleAbout(); break;
     }
   }
 
@@ -161,6 +190,40 @@
     vscode.postMessage({ type: 'toggleAutoRestart' });
   }
 
+  // ── Desktop notifications (standalone only) ──────────────────────────
+  const notifiedIds = new Set<string>();
+  let notificationsReady = false;
+
+  function requestNotificationPermission() {
+    if (!vscode.isStandalone || typeof Notification === 'undefined') return;
+    if (Notification.permission === 'granted') {
+      notificationsReady = true;
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission().then(p => { notificationsReady = p === 'granted'; });
+    }
+  }
+
+  function notifyNeedsInput(conv: Conversation) {
+    if (!notificationsReady || !vscode.isStandalone) return;
+    if (notifiedIds.has(conv.id)) return;
+    notifiedIds.add(conv.id);
+    const title = conv.title || 'Conversation needs input';
+    new Notification('Claudine', {
+      body: title,
+      tag: conv.id,
+      silent: false,
+    });
+  }
+
+  function checkNotifications(conv: Conversation) {
+    if (conv.hasQuestion || conv.status === 'needs-input') {
+      notifyNeedsInput(conv);
+    } else {
+      // Clear notification tracking when no longer needs attention
+      notifiedIds.delete(conv.id);
+    }
+  }
+
   let allExpanded = false;
 
   function toggleAllCards() {
@@ -174,68 +237,61 @@
 </script>
 
 <div class="layout">
-  {#if $settings.toolbarLocation !== 'titlebar'}
+  {#if $settings.toolbarLocation === 'sidebar'}
   <aside class="sidebar">
     <div class="sidebar-brand">
-      {#if $settings.viewLocation === 'panel'}
-        <span class="brand-icon">🐘</span>
-      {:else}
-        <span class="brand-text">Claudine</span>
-      {/if}
+      <span class="brand-icon">🐘</span>
     </div>
     <div class="sidebar-actions">
       <button class="sidebar-btn" class:active={searchOpen} on:click={toggleSearch} title="Search conversations" aria-label="Search conversations" aria-pressed={searchOpen}>
-        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M10.02 10.727a5.5 5.5 0 1 1 .707-.707l3.127 3.126a.5.5 0 0 1-.708.708l-3.127-3.127ZM11 6.5a4.5 4.5 0 1 0-9 0 4.5 4.5 0 0 0 9 0Z"/></svg>
       </button>
       <button class="sidebar-btn" class:active={filterOpen || $activeCategories.size > 0} on:click={toggleFilter} title="Filter by category" aria-label="Filter by category" aria-pressed={filterOpen}>
-        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/></svg>
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M9.5 14h-3a.5.5 0 0 1-.5-.5V9.329c0-.401-.156-.777-.439-1.061l-4-4A1.915 1.915 0 0 1 2.914 1h10.172a1.915 1.915 0 0 1 1.353 3.267l-4 4c-.283.284-.439.66-.439 1.061v4.171a.5.5 0 0 1-.5.5V14ZM7 13h2V9.329c0-.668.26-1.296.732-1.768l4-4a.915.915 0 0 0-.646-1.56H2.914a.915.915 0 0 0-.646 1.561l4 4c.473.472.732 1.1.732 1.768v3.671V13Z"/></svg>
       </button>
       <button class="sidebar-btn" class:active={$compactView} on:click={toggleCompact} title="Toggle compact / full view" aria-label="Toggle compact or full view" aria-pressed={$compactView}>
-        {#if $compactView}
-          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v1.5H2V3zm0 4h12v1.5H2V7zm0 4h12v1.5H2V11z"/></svg>
-        {:else}
-          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zm8 0A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm-8 8A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm8 0A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5v-3z"/></svg>
-        {/if}
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 0 1h-8a.5.5 0 0 1-.5-.5ZM13.5 6h-11a.5.5 0 0 0 0 1h11a.5.5 0 0 0 0-1Zm-4 3h-7a.5.5 0 0 0 0 1h7a.5.5 0 0 0 0-1ZM2.5 12h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1 0-1Z"/></svg>
       </button>
       <button class="sidebar-btn" on:click={toggleAllCards} title="Expand / Collapse all" aria-label={allExpanded ? 'Collapse all cards' : 'Expand all cards'}>
         {#if allExpanded}
-          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 3.5a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 0 1h-13a.5.5 0 0 1-.5-.5zm3 3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm3 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5z"/></svg>
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M14 3.268V11a3 3 0 0 1-3 3H3.268c.346.598.992 1 1.732 1h6a4 4 0 0 0 4-4V5c0-.74-.402-1.387-1-1.732ZM9.5 7.5a.5.5 0 0 0 0-1h-5a.5.5 0 0 0 0 1h5ZM11 1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h8Zm1 2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V3Z"/></svg>
         {:else}
-          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M7 3.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zm-3 3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-3 3a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 0 1h-13a.5.5 0 0 1-.5-.5z"/></svg>
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M14 3.268V11a3 3 0 0 1-3 3H3.268c.346.598.992 1 1.732 1h6a4 4 0 0 0 4-4V5c0-.74-.402-1.387-1-1.732ZM9.5 7.5a.5.5 0 0 0 0-1h-2v-2a.5.5 0 0 0-1 0v2h-2a.5.5 0 0 0 0 1h2v2a.5.5 0 0 0 1 0v-2h2ZM11 1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h8Zm1 2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V3Z"/></svg>
         {/if}
       </button>
       <button class="sidebar-btn" class:active={$settings.enableSummarization} on:click={toggleSummarization} title={$settings.enableSummarization ? 'Summarization ON (click to disable)' : 'Summarization OFF (click to enable)'} aria-label="Toggle summarization" aria-pressed={$settings.enableSummarization}>
-        {#if $settings.enableSummarization}
-          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l1.545 4.753h4.999l-4.044 2.94 1.545 4.753L8 10.506l-4.045 2.94 1.545-4.753L1.456 5.753h4.999z"/></svg>
-        {:else}
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1"><path d="M8 1l1.545 4.753h4.999l-4.044 2.94 1.545 4.753L8 10.506l-4.045 2.94 1.545-4.753L1.456 5.753h4.999z"/></svg>
-        {/if}
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.465 9.83a.921.921 0 0 0 1.07 0 .98.98 0 0 0 .341-.46l.347-1.067c.085-.251.226-.48.413-.668.187-.186.415-.327.665-.41l1.086-.354a.923.923 0 0 0-.037-1.75l-1.069-.346a1.7 1.7 0 0 1-1.08-1.078l-.353-1.084a.917.917 0 0 0-.869-.61.92.92 0 0 0-.875.624l-.356 1.09A1.71 1.71 0 0 1 3.7 4.775l-1.084.351a.923.923 0 0 0 .013 1.745l1.067.347a1.712 1.712 0 0 1 1.081 1.083l.352 1.08c.063.181.181.338.337.449ZM4.007 6.264 3.152 6l.864-.28a2.721 2.721 0 0 0 1.045-.66c.292-.299.512-.66.644-1.056l.265-.859.28.862a2.706 2.706 0 0 0 1.718 1.715l.88.27-.86.28A2.7 2.7 0 0 0 6.27 7.986l-.265.857-.279-.859a2.7 2.7 0 0 0-1.719-1.72Zm6.527 7.587A.806.806 0 0 0 11 14a.813.813 0 0 0 .759-.55l.248-.761c.053-.159.143-.303.26-.421.118-.119.262-.208.42-.26l.772-.252a.8.8 0 0 0-.023-1.52l-.764-.25a1.075 1.075 0 0 1-.68-.678l-.252-.774a.8.8 0 0 0-1.518.011l-.247.762a1.073 1.073 0 0 1-.664.679l-.776.253a.8.8 0 0 0-.388 1.222c.099.14.239.244.4.3l.763.247a1.055 1.055 0 0 1 .68.683l.253.774a.8.8 0 0 0 .292.387Zm-.914-2.793L9.442 11l.184-.064a2.09 2.09 0 0 0 1.3-1.317l.058-.178.06.181a2.076 2.076 0 0 0 1.316 1.316l.195.064-.18.059a2.077 2.077 0 0 0-1.317 1.32l-.059.181-.058-.18a2.074 2.074 0 0 0-1.32-1.322Z"/></svg>
       </button>
       <button class="sidebar-btn" on:click={handleRefresh} title="Refresh conversations" aria-label="Refresh conversations">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M3 8a5 5 0 0 1 9-3h-2a.5.5 0 0 0 0 1h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-1 0v1.531a6 6 0 1 0 1.476 4.513.5.5 0 0 0-.996-.089A5 5 0 0 1 3 8Z"/></svg>
       </button>
       <button class="sidebar-btn" on:click={handleCleanSweep} title="Close empty & duplicate Claude tabs" aria-label="Close empty and duplicate Claude tabs">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 22-1-4"/><path d="M19 14a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2h-3a1 1 0 0 1-1-1V4a2 2 0 0 0-4 0v5a1 1 0 0 1-1 1H6a2 2 0 0 0-2 2v1a1 1 0 0 0 1 1"/><path d="M19 14H5l-1.973 6.767A1 1 0 0 0 4 22h16a1 1 0 0 0 .973-1.233z"/><path d="m8 22 1-4"/></svg>
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13.5 12a.5.5 0 0 1 0 1h-11a.5.5 0 0 1 0-1h11ZM13.5 9a.5.5 0 0 1 0 1h-11a.5.5 0 0 1 0-1h11ZM13.5 6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1 0-1h6ZM5.5.999a.5.5 0 0 1 .354.855L3.707 4l2.147 2.146a.502.502 0 0 1-.708.708L3 4.707.854 6.854a.5.5 0 0 1-.708-.708L2.293 4 .146 1.854a.5.5 0 0 1 .708-.708L3 3.293l2.146-2.147A.502.502 0 0 1 5.5.999ZM13.5 3a.5.5 0 0 1 0 1h-6a.5.5 0 0 1 0-1h6Z"/></svg>
       </button>
       <button class="sidebar-btn" class:active={showArchive} on:click={toggleArchive} title={showArchive ? 'Hide archived conversations' : 'Show archived conversations'} aria-label="Toggle archive" aria-pressed={showArchive}>
-        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M0 2a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1v7.5a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 1 12.5V5a1 1 0 0 1-1-1V2zm2 3v7.5A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5V5H2zm13-3H1v2h14V2zM5 7.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5z"/></svg>
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6.5 8a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3ZM1 3.5A1.5 1.5 0 0 1 2.5 2h11A1.5 1.5 0 0 1 15 3.5v1a1.5 1.5 0 0 1-1 1.415V11.5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 11.5V5.915A1.5 1.5 0 0 1 1 4.5v-1ZM2.5 3a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-11ZM3 6v5.5A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5V6H3Z"/></svg>
       </button>
       <div class="sidebar-zoom">
         <button class="sidebar-btn" on:click={zoomOut} title="Zoom out (Ctrl+-)" aria-label="Zoom out" disabled={$zoomLevel <= ZOOM_MIN}>
-          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3" y="7" width="10" height="2" rx="1"/></svg>
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8.5 6a.5.5 0 0 1 0 1h-4a.5.5 0 0 1 0-1h4Zm-2-5a5.5 5.5 0 0 1 4.227 9.02l3.127 3.127a.5.5 0 1 1-.707.707l-3.127-3.127A5.5 5.5 0 1 1 6.5 1Zm0 1a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"/></svg>
         </button>
         <button class="sidebar-btn zoom-indicator" on:click={zoomReset} title="Reset zoom (Ctrl+0)" aria-label="Reset zoom to 100%">
           <span class="zoom-text">{Math.round($zoomLevel * 100)}</span>
         </button>
         <button class="sidebar-btn" on:click={zoomIn} title="Zoom in (Ctrl+=)" aria-label="Zoom in" disabled={$zoomLevel >= ZOOM_MAX}>
-          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7 3h2v4h4v2H9v4H7V9H3V7h4z"/></svg>
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6.5 4a.5.5 0 0 1 .5.5V6h1.5a.5.5 0 0 1 0 1H7v1.5a.5.5 0 0 1-1 0V7H4.5a.5.5 0 0 1 0-1H6V4.5a.5.5 0 0 1 .5-.5Zm0-3a5.5 5.5 0 0 1 4.227 9.02l3.127 3.127a.5.5 0 1 1-.707.707l-3.127-3.127A5.5 5.5 0 1 1 6.5 1Zm0 1a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"/></svg>
         </button>
       </div>
+      {#if vscode.isStandalone}
+        <button class="sidebar-btn" on:click={cycleTheme} title="Theme: {$themePreference} ({$resolvedTheme})" aria-label="Toggle theme">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.002a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm0 13v-12a6 6 0 1 1 0 12Z"/></svg>
+        </button>
+      {/if}
       <button class="sidebar-btn" class:active={settingsOpen} on:click={toggleSettings} title="Settings" aria-label="Settings" aria-pressed={settingsOpen}>
-        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.902 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.116l.094-.318z"/></svg>
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 6a2 2 0 1 0-.001 3.999A2 2 0 0 0 8 6Zm0 3a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm6.565.715-1.286-1.087a.821.821 0 0 1 0-1.256l1.286-1.087a.412.412 0 0 0 .126-.441 6.991 6.991 0 0 0-1.472-2.536.415.415 0 0 0-.446-.112l-1.587.565a.831.831 0 0 1-.279.049.826.826 0 0 1-.813-.676l-.303-1.652a.414.414 0 0 0-.321-.329 7.135 7.135 0 0 0-2.939 0 .414.414 0 0 0-.321.329l-.302 1.652a.827.827 0 0 1-1.092.628l-1.587-.565a.42.42 0 0 0-.446.112A6.994 6.994 0 0 0 1.31 5.845a.41.41 0 0 0 .126.441l1.286 1.087a.821.821 0 0 1 0 1.256L1.436 9.716a.412.412 0 0 0-.126.441 6.98 6.98 0 0 0 1.473 2.536.415.415 0 0 0 .446.112l1.587-.565a.831.831 0 0 1 .279-.048c.392 0 .74.278.813.676l.302 1.652c.03.164.157.294.321.329a7.118 7.118 0 0 0 2.939 0 .414.414 0 0 0 .321-.329l.303-1.652a.827.827 0 0 1 1.092-.628l1.586.565a.415.415 0 0 0 .446-.112 6.977 6.977 0 0 0 1.472-2.536.41.41 0 0 0-.126-.441l.001-.001Zm-1.837 2.011-1.207-.43a1.831 1.831 0 0 0-2.41 1.39l-.23 1.251a6.149 6.149 0 0 1-1.761-.001l-.229-1.251a1.825 1.825 0 0 0-2.411-1.39l-1.207.43a5.928 5.928 0 0 1-.879-1.511l.974-.823c.373-.315.6-.757.64-1.243a1.808 1.808 0 0 0-.64-1.54l-.974-.823a5.911 5.911 0 0 1 .879-1.511l1.207.43a1.831 1.831 0 0 0 2.411-1.39l.229-1.251a6.174 6.174 0 0 1 1.761-.001l.229 1.251a1.825 1.825 0 0 0 2.411 1.39l1.207-.43c.368.46.662.966.879 1.511l-.973.823a1.807 1.807 0 0 0-.64 1.243 1.807 1.807 0 0 0 .641 1.54l.974.823a5.911 5.911 0 0 1-.879 1.511l-.002.002Z"/></svg>
       </button>
       <button class="sidebar-btn" class:active={aboutOpen} on:click={toggleAbout} title="About Claudine" aria-label="About Claudine" aria-pressed={aboutOpen}>
-        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 12.5a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11zM7.25 5a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0zM7.25 7h1.5v4.5h-1.5V7z"/></svg>
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8.499 7.5a.5.5 0 1 0-1 0v3a.5.5 0 0 0 1 0v-3Zm.25-2a.749.749 0 1 1-1.499 0 .749.749 0 0 1 1.498 0ZM8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1ZM2 8a6 6 0 1 1 12 0A6 6 0 0 1 2 8Z"/></svg>
       </button>
     </div>
   </aside>
@@ -299,7 +355,11 @@
       </div>
     {/if}
     <SettingsPanel visible={settingsOpen} />
-    <KanbanBoard {showArchive} vertical={$settings.viewLocation === 'sidebar'} />
+    {#if vscode.isStandalone}
+      <MultiProjectView {showArchive} />
+    {:else}
+      <KanbanBoard {showArchive} />
+    {/if}
   </main>
 </div>
 
@@ -353,16 +413,6 @@
     width: 100%;
   }
   .brand-icon { font-size: 13px; opacity: 0.8; line-height: 1; }
-  .brand-text {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    font-size: 8px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--vscode-descriptionForeground, #8c8c8c);
-    user-select: none;
-  }
   .sidebar-actions {
     display: flex;
     flex-direction: column;

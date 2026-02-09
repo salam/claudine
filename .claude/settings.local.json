@@ -27,7 +27,18 @@
       "Bash(npx @vscode/vsce ls:*)",
       "Bash(npx @vscode/vsce:*)",
       "Bash(npx vite build:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(git log:*)",
+      "Bash(npx eslint:*)",
+      "Bash(node esbuild.mjs:*)",
+      "Bash(node esbuild-standalone.mjs:*)",
+      "Bash(timeout 5 node:*)",
+      "Bash(curl:*)",
+      "Bash(pkill:*)",
+      "Bash(node /Users/matthias/Development/claudine/esbuild-standalone.mjs:*)",
+      "WebFetch(domain:www.heroui.com)",
+      "Bash(npm create:*)",
+      "Bash(npx astro add:*)"
     ]
   }
 }

@@ -4,7 +4,7 @@
   "parserOptions": {
     "ecmaVersion": 2022,
     "sourceType": "module",
-    "project": "./tsconfig.json"
+    "project": ["./tsconfig.json", "./tsconfig.standalone.json"]
   },
   "plugins": ["@typescript-eslint"],
   "extends": [
@@ -22,5 +22,5 @@
     "semi": ["error", "always"],
     "curly": ["warn", "multi-line"]
   },
-  "ignorePatterns": ["out", "webview", "**/*.d.ts"]
+  "ignorePatterns": ["out", "out-standalone", "webview", "**/*.d.ts"]
 }

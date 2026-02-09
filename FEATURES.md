@@ -22,3 +22,27 @@
 - [x] Render single summary dot in TaskCard narrow view
 - [x] Running dots pulse with 2s animation
 - [x] Tooltip shows tool name on hover
+
+## Localization Bundles (DE/ES/FR/IT)
+
+- [x] Audit current localization coverage and identify hardcoded non-localized UI strings
+- [x] Tokenize remaining localizable `package.json` metadata strings into `package.nls.json`
+- [x] Add `package.nls.de.json`, `package.nls.es.json`, `package.nls.fr.json`, `package.nls.it.json`
+- [x] Add runtime translation bundles in `l10n/` for `de`, `es`, `fr`, `it`
+- [x] Add a unit test to enforce locale key parity across all translation bundles
+
+## VS Code Placement Ownership
+
+- [x] Remove user-facing `claudine.viewLocation` configuration
+- [x] Remove placement toggle command and dual-view contribution wiring
+- [x] Keep `claudine.kanbanView` as a single view ID so VS Code stores/moves placement natively
+- [x] Drive board orientation from live layout geometry instead of persisted setting
+- [x] Add regression tests that stale/deprecated placement writes are ignored
+
+## Marketplace Packaging & Deploy Scripts
+
+- [x] Add a deploy script in `tools/` to publish the latest `claudine-x.y.z.vsix` to VS Code Marketplace
+- [x] Update `tools/build-vsix.sh` to read the latest version from `CHANGELOG.md`
+- [x] Update `package.json` version automatically before packaging
+- [x] Package the VSIX with the resolved release version (`claudine-x.y.z.vsix`)
+- [x] Add unit tests for changelog version extraction and latest-vsix selection

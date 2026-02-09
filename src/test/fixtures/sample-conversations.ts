@@ -362,6 +362,54 @@ export const rateLimitResolvedConversation = [
   assistantMessage("I've built the API. All done!", 28),
 ].join('\n');
 
+// ── BUG5 — False "needs input" while agent is working ────────────────
+
+/** BUG5 — Recently active conversation where Claude dispatched a tool (e.g. Read)
+ *  and the tool result hasn't been written yet. Should be in-progress, NOT needs-input. */
+export const activeToolExecutingConversation = [
+  userMessage('Help me debug this', 1.5),
+  assistantMessage('Let me check the logs.', 0.5, [{ name: 'Read', input: { file_path: '/src/main.ts' } }]),
+].join('\n');
+
+/** BUG5 — Recently active conversation with Task (sub-agent) dispatched.
+ *  Should be in-progress, NOT needs-input. */
+export const activeSubAgentConversation = [
+  userMessage('Explore the codebase', 1.5),
+  assistantMessage('Let me explore.', 0.5, [
+    { name: 'Task', input: { subagent_type: 'Explore', description: 'Explore codebase' } },
+  ]),
+].join('\n');
+
+/** BUG5 — Recently active conversation with Bash tool dispatched.
+ *  Should be in-progress, NOT needs-input. */
+export const activeBashConversation = [
+  userMessage('Run the tests', 1.5),
+  assistantMessage('Running tests now.', 0.5, [{ name: 'Bash', input: { command: 'npm test' } }]),
+].join('\n');
+
+/** BUG5 — Recently active conversation with TodoWrite dispatched.
+ *  Should be in-progress, NOT needs-input. */
+export const activeTodoWriteConversation = [
+  userMessage('Plan the implementation', 1.5),
+  assistantMessage('Let me create a plan.', 0.5, [{ name: 'TodoWrite' }]),
+].join('\n');
+
+/** BUG5b — Assistant says "I should implement..." — "should i" in "should implement"
+ *  must NOT trigger the needs-input question regex. */
+export const shouldImplementConversation = [
+  userMessage('Add dark mode', 20),
+  assistantMessage('I should implement this using CSS variables. Let me start working on it.', 18),
+].join('\n');
+
+/** BUG5b — Assistant mentions "would you like" mid-conversation but user already responded.
+ *  Since the conversation continued past the question, it should NOT be needs-input. */
+export const answeredQuestionConversation = [
+  userMessage('Add dark mode', 30),
+  assistantMessage('Would you like me to use CSS variables or a theme provider?', 28),
+  userMessage('CSS variables please', 25),
+  assistantMessage('Great, working on it now.', 23, [{ name: 'Edit' }]),
+].join('\n');
+
 /** Conversation with more than 3 sidechain entries — only last 3 should be kept. */
 export const manySidechainStepsConversation = [
   userMessage('Large task', 30),

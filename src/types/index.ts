@@ -58,6 +58,27 @@ export interface BoardState {
   lastUpdated: Date;
 }
 
+// ── Project manifest (standalone progressive loading) ─────────────
+
+export interface ProjectManifestEntry {
+  /** Encoded directory name under ~/.claude/projects/ */
+  encodedPath: string;
+  /** Decoded workspace path (best-effort) */
+  decodedPath?: string;
+  /** Display name (last path component) */
+  name: string;
+  /** Number of .jsonl files found (fast count, no parsing) */
+  fileCount: number;
+  /** Whether this project is enabled for loading */
+  enabled: boolean;
+  /** Whether this was auto-excluded (temp dir) */
+  autoExcluded: boolean;
+  /** Reason for auto-exclusion, if any */
+  excludeReason?: string;
+}
+
+export type IndexingPhase = 'idle' | 'discovery' | 'scanning' | 'complete';
+
 // Messages between extension and webview
 export type ExtensionToWebviewMessage =
   | { type: 'updateConversations'; conversations: Conversation[] }
@@ -70,11 +91,17 @@ export type ExtensionToWebviewMessage =
   | { type: 'draftsLoaded'; drafts: Array<{ id: string; title: string }> }
   | { type: 'apiTestResult'; success: boolean; error?: string }
   | { type: 'error'; message: string }
-  | { type: 'toolbarAction'; action: ToolbarAction };
+  | { type: 'toolbarAction'; action: ToolbarAction }
+  | { type: 'indexingProgress'; phase: IndexingPhase; totalProjects: number; scannedProjects: number; totalFiles: number; scannedFiles: number; currentProject?: string }
+  | { type: 'projectDiscovered'; projects: ProjectManifestEntry[] }
+  | { type: 'projectConversationsLoaded'; projectPath: string; conversations: Conversation[] };
+
+export type OpenConversationTarget = 'terminal' | 'vscode';
 
 export type WebviewToExtensionMessage =
   | { type: 'sendPrompt'; conversationId: string; prompt: string }
   | { type: 'openConversation'; conversationId: string }
+  | { type: 'openConversationAs'; conversationId: string; target: OpenConversationTarget }
   | { type: 'openGitBranch'; conversationId: string; branch?: string }
   | { type: 'moveConversation'; conversationId: string; newStatus: ConversationStatus }
   | { type: 'refreshConversations' }
@@ -88,18 +115,23 @@ export type WebviewToExtensionMessage =
   | { type: 'setupAgentIntegration' }
   | { type: 'testApiConnection' }
   | { type: 'toggleAutoRestart' }
+  | { type: 'setProjectEnabled'; projectPath: string; enabled: boolean }
+  | { type: 'setAllProjectsEnabled'; enabled: boolean }
   | { type: 'ready' };
 
-export type ToolbarAction = 'toggleSearch' | 'toggleFilter' | 'toggleCompactView' | 'toggleExpandAll' | 'toggleArchive';
+export type ToolbarAction = 'toggleSearch' | 'toggleFilter' | 'toggleCompactView' | 'toggleExpandAll' | 'toggleArchive' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'toggleSettingsPanel' | 'toggleAbout';
 
 export interface ClaudineSettings {
   imageGenerationApi: 'openai' | 'stability' | 'none';
   claudeCodePath: string;
   enableSummarization: boolean;
   hasApiKey: boolean;
-  viewLocation: 'panel' | 'sidebar';
-  toolbarLocation: 'sidebar' | 'titlebar' | 'both';
+  toolbarLocation: 'sidebar' | 'titlebar';
   autoRestartAfterRateLimit: boolean;
+  showTaskIcon: boolean;
+  showTaskDescription: boolean;
+  showTaskLatest: boolean;
+  showTaskGitBranch: boolean;
 }
 
 // Claude Code data structures (based on actual file format)

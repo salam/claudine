@@ -1,0 +1,43 @@
+version: "1.0"
+watch:
+  include:
+    - "**/*.md"
+    - "**/*.json"
+    - "**/*.yaml"
+    - "**/*.yml"
+    - "**/*.toml"
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/.env"
+    - "**/.env.*"
+  exclude:
+    - node_modules/**
+    - .git/**
+    - .driftctrl/**
+    - package-lock.json
+    - pnpm-lock.yaml
+    - yarn.lock
+    - bun.lockb
+    - "*.min.js"
+    - "*.min.css"
+    - "*.map"
+  debounceMs: 500
+  maxFileSizeBytes: 1048576
+detection:
+  enableRuleBased: true
+  enableNLI: false
+  enableLLM: false
+  minConfidence: 0.6
+nli:
+  provider: ollama
+  model: nli-deberta-v3-base
+  ollamaEndpoint: http://localhost:11434
+llm:
+  provider: none
+  model: ""
+  apiKeyEnvVar: ""
+  maxTokensPerRequest: 4096
+  rateLimit:
+    requestsPerMinute: 30
+server:
+  webViewerPort: 7437

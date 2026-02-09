@@ -32,10 +32,19 @@ export const window = {
   showInformationMessage: async () => undefined,
   showErrorMessage: async () => undefined,
   showWarningMessage: async () => undefined,
+  tabGroups: {
+    onDidChangeTabs: () => ({ dispose: () => {} }),
+  },
+  onDidChangeActiveTextEditor: () => ({ dispose: () => {} }),
+  onDidChangeActiveTerminal: () => ({ dispose: () => {} }),
 };
 
 export const Uri = {
   file: (path: string) => ({ fsPath: path, scheme: 'file' }),
+  joinPath: (base: { fsPath: string }, ...segments: string[]) => ({
+    fsPath: [base.fsPath, ...segments].join('/'),
+    scheme: 'file'
+  }),
 };
 
 export enum ConfigurationTarget {

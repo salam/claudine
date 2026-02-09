@@ -332,6 +332,63 @@ describe('ConversationParser', () => {
     });
   });
 
+  // ── BUG5 — False "needs input" while agent is working ────────────
+
+  describe('BUG5 — active tool execution should not trigger needs-input', () => {
+    it('detects in-progress (not needs-input) when Read tool is executing', async () => {
+      const result = await parseContent(fixtures.activeToolExecutingConversation);
+      expect(result).not.toBeNull();
+      expect(result!.status).toBe('in-progress');
+      expect(result!.hasQuestion).toBe(false);
+    });
+
+    it('detects in-progress (not needs-input) when Task sub-agent is executing', async () => {
+      const result = await parseContent(fixtures.activeSubAgentConversation);
+      expect(result).not.toBeNull();
+      expect(result!.status).toBe('in-progress');
+      expect(result!.hasQuestion).toBe(false);
+    });
+
+    it('detects in-progress (not needs-input) when Bash tool is executing', async () => {
+      const result = await parseContent(fixtures.activeBashConversation);
+      expect(result).not.toBeNull();
+      expect(result!.status).toBe('in-progress');
+      expect(result!.hasQuestion).toBe(false);
+    });
+
+    it('detects in-progress (not needs-input) when TodoWrite is executing', async () => {
+      const result = await parseContent(fixtures.activeTodoWriteConversation);
+      expect(result).not.toBeNull();
+      expect(result!.status).toBe('in-progress');
+      expect(result!.hasQuestion).toBe(false);
+    });
+
+    it('still detects needs-input for AskUserQuestion (not a false positive)', async () => {
+      const result = await parseContent(fixtures.askUserQuestionConversation);
+      expect(result!.status).toBe('needs-input');
+      expect(result!.hasQuestion).toBe(true);
+    });
+
+    it('still detects needs-input for question text patterns', async () => {
+      const result = await parseContent(fixtures.needsInputConversation);
+      expect(result!.status).toBe('needs-input');
+    });
+
+    it('does NOT trigger needs-input for "should implement" (BUG5b regex false positive)', async () => {
+      const result = await parseContent(fixtures.shouldImplementConversation);
+      expect(result).not.toBeNull();
+      // "should implement" must not match "should i" pattern
+      expect(result!.status).not.toBe('needs-input');
+    });
+
+    it('does NOT trigger needs-input when a question was already answered (BUG5b)', async () => {
+      const result = await parseContent(fixtures.answeredQuestionConversation);
+      expect(result).not.toBeNull();
+      // User responded after the question → conversation moved on
+      expect(result!.status).not.toBe('needs-input');
+    });
+  });
+
   describe('sidechain activity dots', () => {
     it('collects sidechain steps with correct statuses', async () => {
       const result = await parseContent(fixtures.sidechainActivityConversation);

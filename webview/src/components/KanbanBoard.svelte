@@ -14,17 +14,29 @@
   import { vscode, type Conversation, type ConversationStatus } from '../lib/vscode';
 
   export let showArchive: boolean = false;
-  export let vertical: boolean = false;
+  /** When set, only show conversations from this workspace path. */
+  export let projectFilter: string | undefined = undefined;
 
-  // Auto-detect narrow containers (e.g. user dragged view to sidebar)
-  let autoVertical = false;
+  // Infer placement from board geometry so orientation follows VS Code-managed placement.
   let boardWidth = 0;
-  $: isVertical = vertical || autoVertical;
+  let inferredPlacement: 'panel' | 'sidebar' = 'panel';
+  $: isVertical = inferredPlacement === 'sidebar';
+
+  function inferPlacement(width: number, height: number): 'panel' | 'sidebar' {
+    if (height > 0) {
+      const aspectRatio = width / height;
+      // Sidebar is typically tall/narrow, panel is typically wide/short.
+      if (aspectRatio <= 1.05) return 'sidebar';
+      if (aspectRatio >= 1.35) return 'panel';
+    }
+    // Fallback for ambiguous geometry during transitions.
+    return width < 560 ? 'sidebar' : 'panel';
+  }
 
   function watchWidth(node: HTMLElement) {
     const observer = new ResizeObserver(entries => {
-      const w = entries[0].contentRect.width;
-      autoVertical = w < 500;
+      const { width: w, height: h } = entries[0].contentRect;
+      inferredPlacement = inferPlacement(w, h);
       boardWidth = w;
       clampStoredWidths();
     });
@@ -67,9 +79,15 @@
   };
 
   // Reactive sync: merge extension conversations + drafts into board items.
+  // When projectFilter is set, only include conversations matching that workspace path.
   $: {
     const items = { ...$conversationsByStatus };
-    items['todo'] = [...$drafts, ...items['todo']];
+    if (projectFilter) {
+      for (const key of Object.keys(items) as ConversationStatus[]) {
+        items[key] = items[key].filter(c => c.workspacePath === projectFilter);
+      }
+    }
+    items['todo'] = [...(projectFilter ? [] : $drafts), ...items['todo']];
     boardItems = items;
   }
 
@@ -204,7 +222,12 @@
     </div>
   </div>
 {:else}
-<div class="kanban-board" class:vertical={isVertical} use:watchWidth style:zoom={$zoomLevel !== 1 ? $zoomLevel : undefined}>
+<div class="zoom-wrapper">
+<div class="kanban-board" class:vertical={isVertical} use:watchWidth
+     style:transform={$zoomLevel !== 1 ? `scale(${$zoomLevel})` : undefined}
+     style:transform-origin="top left"
+     style:width={$zoomLevel !== 1 ? `${100 / $zoomLevel}%` : undefined}
+     style:height={$zoomLevel !== 1 ? `${100 / $zoomLevel}%` : undefined}>
   {#each $columns as column, i (column.id)}
     {#if !isVertical && i > 0}
       <ColumnResizeHandle
@@ -298,10 +321,14 @@
     </div>
   {/if}
 </div>
+</div>
 {/if}
 
 <style>
-  .kanban-board { display: flex; gap: 12px; padding: 12px; overflow-x: auto; flex: 1; min-height: 0; align-items: stretch; }
+  /* BUG2b: zoom-wrapper isolates CSS transform from svelte-dnd-action's
+     position:fixed clone so drag coordinates stay consistent. */
+  .zoom-wrapper { flex: 1; min-height: 0; overflow: hidden; }
+  .kanban-board { display: flex; gap: 12px; padding: 12px; overflow-x: auto; width: 100%; height: 100%; align-items: stretch; }
   .column-wrapper { flex: 1; min-width: 160px; max-width: 350px; display: flex; flex-direction: column; transition: min-width 0.25s ease, max-width 0.25s ease; }
   .column-wrapper.custom-width { max-width: unset; min-width: unset; }
   .column-wrapper.narrow { flex: 0 0 auto; min-width: 60px; max-width: 60px; }

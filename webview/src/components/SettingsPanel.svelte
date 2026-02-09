@@ -117,6 +117,14 @@
       </div>
     {/if}
 
+    <div class="field">
+      <span class="field-label">Toolbar Location</span>
+      <select value={$settings.toolbarLocation} on:change={(e) => updateSetting('toolbarLocation', e.currentTarget.value)}>
+        <option value="sidebar">Sidebar</option>
+        <option value="titlebar">Title bar</option>
+      </select>
+    </div>
+
     <label class="toggle-field">
       <input
         type="checkbox"
@@ -125,6 +133,28 @@
       />
       <span class="toggle-label">Auto-restart after rate limit</span>
     </label>
+
+    <div class="field">
+      <span class="field-label">Card Layout</span>
+      <div class="toggle-group">
+        <label class="toggle-field">
+          <input type="checkbox" checked={$settings.showTaskIcon} on:change={(e) => updateSetting('showTaskIcon', e.currentTarget.checked)} />
+          <span class="toggle-label">Icon</span>
+        </label>
+        <label class="toggle-field">
+          <input type="checkbox" checked={$settings.showTaskDescription} on:change={(e) => updateSetting('showTaskDescription', e.currentTarget.checked)} />
+          <span class="toggle-label">Description</span>
+        </label>
+        <label class="toggle-field">
+          <input type="checkbox" checked={$settings.showTaskLatest} on:change={(e) => updateSetting('showTaskLatest', e.currentTarget.checked)} />
+          <span class="toggle-label">Latest message</span>
+        </label>
+        <label class="toggle-field">
+          <input type="checkbox" checked={$settings.showTaskGitBranch} on:change={(e) => updateSetting('showTaskGitBranch', e.currentTarget.checked)} />
+          <span class="toggle-label">Git branch</span>
+        </label>
+      </div>
+    </div>
 
     <button class="regen-btn" on:click={regenerateIcons}>Regenerate Thumbnails</button>
   </div>
@@ -237,6 +267,12 @@
   .toggle-label {
     font-size: 10px;
     color: var(--vscode-foreground, #cccccc);
+  }
+  .toggle-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 2px;
   }
   .regen-btn {
     padding: 4px 10px;

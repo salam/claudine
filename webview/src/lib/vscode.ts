@@ -1,9 +1,11 @@
-// VSCode Webview API bridge
+// VSCode Webview API bridge — supports both VSCode postMessage and standalone WebSocket
 
 declare global {
   interface Window {
     acquireVsCodeApi?: () => VsCodeApi;
     __CLAUDINE_TOKEN__?: string;
+    __CLAUDINE_STANDALONE__?: boolean;
+    __CLAUDINE_WS_URL__?: string;
   }
 }
 
@@ -13,23 +15,35 @@ interface VsCodeApi {
   setState(state: unknown): void;
 }
 
+/** Reconnection parameters for standalone WebSocket. */
+const WS_RECONNECT_BASE_MS = 500;
+const WS_RECONNECT_MAX_MS = 10_000;
+
 class VSCodeAPIWrapper {
   private readonly vscode: VsCodeApi | undefined;
+  private _ws: WebSocket | undefined;
+  private _wsReconnectDelay = WS_RECONNECT_BASE_MS;
+  private _wsReconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
     if (typeof window !== 'undefined' && window.acquireVsCodeApi) {
       this.vscode = window.acquireVsCodeApi();
+    } else if (typeof window !== 'undefined' && window.__CLAUDINE_STANDALONE__) {
+      this._connectWebSocket();
     }
   }
 
   public postMessage(message: unknown): void {
+    const msg = typeof message === 'object' && message !== null
+      ? { ...message, _token: window.__CLAUDINE_TOKEN__ }
+      : message;
+
     if (this.vscode) {
-      const msg = typeof message === 'object' && message !== null
-        ? { ...message, _token: window.__CLAUDINE_TOKEN__ }
-        : message;
       this.vscode.postMessage(msg);
+    } else if (this._ws && this._ws.readyState === WebSocket.OPEN) {
+      this._ws.send(JSON.stringify(msg));
     } else {
-      console.log('VSCode API not available, message:', message);
+      console.log('No transport available, message:', message);
     }
   }
 
@@ -37,12 +51,24 @@ class VSCodeAPIWrapper {
     if (this.vscode) {
       return this.vscode.getState() as T | undefined;
     }
-    return undefined;
+    // Standalone: use localStorage
+    try {
+      const stored = localStorage.getItem('claudine-state');
+      return stored ? JSON.parse(stored) as T : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   public setState<T>(state: T): void {
     if (this.vscode) {
       this.vscode.setState(state);
+    } else {
+      try {
+        localStorage.setItem('claudine-state', JSON.stringify(state));
+      } catch {
+        // localStorage may be full or unavailable
+      }
     }
   }
 
@@ -54,6 +80,56 @@ class VSCodeAPIWrapper {
 
   public get isInVSCode(): boolean {
     return !!this.vscode;
+  }
+
+  public get isStandalone(): boolean {
+    return !this.vscode && !!window.__CLAUDINE_STANDALONE__;
+  }
+
+  // ── WebSocket transport for standalone mode ──────────────────────
+
+  private _connectWebSocket() {
+    const wsUrl = window.__CLAUDINE_WS_URL__;
+    if (!wsUrl) return;
+
+    try {
+      this._ws = new WebSocket(wsUrl);
+
+      this._ws.onopen = () => {
+        this._wsReconnectDelay = WS_RECONNECT_BASE_MS;
+        // Send ready to trigger initial state push from server
+        this.postMessage({ type: 'ready' });
+      };
+
+      this._ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          // Dispatch as a window MessageEvent so App.svelte's handler picks it up
+          window.dispatchEvent(new MessageEvent('message', { data }));
+        } catch (err) {
+          console.error('Claudine: Error parsing WebSocket message', err);
+        }
+      };
+
+      this._ws.onclose = () => {
+        this._scheduleReconnect();
+      };
+
+      this._ws.onerror = () => {
+        // onclose fires after onerror — reconnect handled there
+      };
+    } catch (err) {
+      console.error('Claudine: WebSocket connection failed', err);
+      this._scheduleReconnect();
+    }
+  }
+
+  private _scheduleReconnect() {
+    clearTimeout(this._wsReconnectTimer);
+    this._wsReconnectTimer = setTimeout(() => {
+      this._wsReconnectDelay = Math.min(this._wsReconnectDelay * 2, WS_RECONNECT_MAX_MS);
+      this._connectWebSocket();
+    }, this._wsReconnectDelay);
   }
 }
 
@@ -101,6 +177,23 @@ export interface Conversation {
   originalDescription?: string;
   createdAt: Date | string;
   updatedAt: Date | string;
+  workspacePath?: string;
+}
+
+/** A group of conversations belonging to the same project. */
+export interface ProjectGroup {
+  /** Display name derived from the workspace path (last directory component). */
+  name: string;
+  /** Full workspace path, e.g. "/Users/matthias/Development/claudine". */
+  path: string;
+  /** Conversations belonging to this project. */
+  conversations: Conversation[];
+  /** Count of active (non-archived) conversations. */
+  activeCount: number;
+  /** Count of conversations currently in-progress. */
+  inProgressCount: number;
+  /** True if any conversation has an error or needs input. */
+  needsAttention: boolean;
 }
 
 export type ToolbarAction = 'toggleSearch' | 'toggleFilter' | 'toggleCompactView' | 'toggleExpandAll' | 'toggleArchive';
@@ -110,9 +203,24 @@ export interface ClaudineSettings {
   claudeCodePath: string;
   enableSummarization: boolean;
   hasApiKey: boolean;
-  viewLocation: 'panel' | 'sidebar';
   toolbarLocation: 'sidebar' | 'titlebar' | 'both';
   autoRestartAfterRateLimit: boolean;
+  showTaskIcon: boolean;
+  showTaskDescription: boolean;
+  showTaskLatest: boolean;
+  showTaskGitBranch: boolean;
+}
+
+export type IndexingPhase = 'idle' | 'discovery' | 'scanning' | 'complete';
+
+export interface ProjectManifestEntry {
+  encodedPath: string;
+  decodedPath?: string;
+  name: string;
+  fileCount: number;
+  enabled: boolean;
+  autoExcluded: boolean;
+  excludeReason?: string;
 }
 
 export type ExtensionMessage =
@@ -126,4 +234,7 @@ export type ExtensionMessage =
   | { type: 'draftsLoaded'; drafts: Array<{ id: string; title: string }> }
   | { type: 'apiTestResult'; success: boolean; error?: string }
   | { type: 'error'; message: string }
-  | { type: 'toolbarAction'; action: ToolbarAction };
+  | { type: 'toolbarAction'; action: ToolbarAction }
+  | { type: 'indexingProgress'; phase: IndexingPhase; totalProjects: number; scannedProjects: number; totalFiles: number; scannedFiles: number; currentProject?: string }
+  | { type: 'projectDiscovered'; projects: ProjectManifestEntry[] }
+  | { type: 'projectConversationsLoaded'; projectPath: string; conversations: Conversation[] };

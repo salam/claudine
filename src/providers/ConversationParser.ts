@@ -457,11 +457,16 @@ export class ConversationParser {
         return 'needs-input';
       }
 
-      // Check for question / approval patterns
+      // Check for question / approval patterns (word-bounded to avoid partial
+      // matches like "should implement" triggering "should i")
       if (
-        /would you like|do you want|should i|please (confirm|approve|review)|which (option|approach)/i.test(content)
+        /\b(would you like|do you want|shall i|should i\b(?!\w)|please (confirm|approve|review)|which (option|approach) (would|do|should))\b/i.test(content)
       ) {
-        return 'needs-input';
+        // Only treat as needs-input if this is the LAST assistant message and
+        // the user hasn't responded yet (i.e. the conversation ended on this).
+        if (lastAssistant === lastMessage) {
+          return 'needs-input';
+        }
       }
 
       // Check for completion
@@ -477,10 +482,12 @@ export class ConversationParser {
       return 'in-progress';
     }
 
-    // Last message from assistant with tool uses
+    // Last message from assistant with tool uses — the tool is either currently
+    // executing or the session was abandoned. Genuine questions (AskUserQuestion,
+    // ExitPlanMode) are already caught above, so a pending tool_use on a recently
+    // active session most likely means the tool is still running, not waiting for
+    // user permission.
     if (lastMessage.role === 'assistant' && lastMessage.toolUses.length > 0) {
-      // Recently active → likely waiting for permission approval
-      if (this.isRecentlyActive(messages)) return 'needs-input';
       return 'in-progress';
     }
 
@@ -552,7 +559,7 @@ export class ConversationParser {
       return true;
     }
     // Last message is assistant with tool_use but no user response.
-    // If recently active → waiting for permission (not interrupted).
+    // If recently active → tool still executing (not interrupted).
     // If stale → session was interrupted/abandoned.
     if (lastMsg.role === 'assistant' && lastMsg.toolUses.length > 0 && !lastMsg.hasQuestion) {
       return !this.isRecentlyActive(messages);
@@ -567,11 +574,10 @@ export class ConversationParser {
     const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
     if (!lastAssistant) return false;
     if (lastAssistant.hasQuestion) return true;
-    // Pending tool_use on a recently active conversation → waiting for permission
-    const lastMsg = messages[messages.length - 1];
-    if (lastMsg.role === 'assistant' && lastMsg.toolUses.length > 0 && this.isRecentlyActive(messages)) {
-      return true;
-    }
+    // Note: We no longer treat a pending tool_use on a recently active conversation
+    // as a question — it's far more likely the tool is still executing than waiting
+    // for permission. Genuine permission prompts use AskUserQuestion which sets
+    // hasQuestion = true above.
     return false;
   }
 

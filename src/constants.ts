@@ -1,8 +1,5 @@
 // ── Timing constants ─────────────────────────────────────────────────
 
-/** Delay for VS Code to re-evaluate `when` clauses after toggling panel ↔ sidebar. */
-export const VIEW_SWITCH_DELAY_MS = 300;
-
 /** Interval between automatic checks for stale done/cancelled conversations. */
 export const ARCHIVE_CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 

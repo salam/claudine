@@ -23,13 +23,15 @@ import {
 export class KanbanViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'claudine.kanbanView';
 
-  private _view?: vscode.WebviewView;
+  private _views = new Map<string, {
+    view: vscode.WebviewView;
+    disposables: vscode.Disposable[];
+  }>();
   private _disposables: vscode.Disposable[] = [];
   private _archiveTimer: ReturnType<typeof setInterval>;
   private _focusEditorTimer: ReturnType<typeof setTimeout> | undefined;
   private _autoRestartTimer: ReturnType<typeof setTimeout> | undefined;
   private _secrets?: vscode.SecretStorage;
-  private _authToken: string = '';
   private _tabManager: TabManager;
   /** Fingerprints of last-sent conversations, keyed by ID. */
   private _lastSentFingerprints = new Map<string, string>();
@@ -61,14 +63,14 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     _context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken
   ) {
-    // Clean up listeners from a previous view (e.g. when switching panel ↔ sidebar)
-    for (const d of this._disposables) {
-      d.dispose();
+    const viewKey = webviewView.viewType;
+    const previous = this._views.get(viewKey);
+    if (previous) {
+      for (const d of previous.disposables) {
+        d.dispose();
+      }
     }
-    this._disposables = [];
-
-    this._view = webviewView;
-    this._authToken = crypto.randomBytes(NONCE_BYTES).toString('hex');
+    const authToken = crypto.randomBytes(NONCE_BYTES).toString('hex');
 
     webviewView.webview.options = {
       enableScripts: true,
@@ -78,12 +80,12 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       ]
     };
 
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview, authToken);
 
-    this._disposables.push(
+    const viewDisposables: vscode.Disposable[] = [
       webviewView.webview.onDidReceiveMessage(
         (message: WebviewToExtensionMessage & { _token?: string }) => {
-          if (message._token !== this._authToken) {
+          if (message._token !== authToken) {
             console.warn('Claudine: Rejected webview message with invalid auth token');
             return;
           }
@@ -95,24 +97,29 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
           this.refresh();
           this.resumeArchiveTimer();
         } else {
-          this.pauseArchiveTimer();
+          this.syncArchiveTimerWithVisibility();
         }
       })
-    );
+    ];
 
     // Track which editor/terminal is focused to detect active Claude Code conversation
-    this._disposables.push(
-      vscode.window.tabGroups.onDidChangeTabs(() => {
-        this._tabManager.pruneStaleTabMappings();
-        this._tabManager.scheduleFocusDetection();
-      }),
-      vscode.window.onDidChangeActiveTextEditor(() => {
-        this._tabManager.scheduleFocusDetection();
-      }),
-      vscode.window.onDidChangeActiveTerminal(() => {
-        this._tabManager.scheduleFocusDetection();
-      })
-    );
+    if (this._disposables.length === 0) {
+      this._disposables.push(
+        vscode.window.tabGroups.onDidChangeTabs(() => {
+          this._tabManager.pruneStaleTabMappings();
+          this._tabManager.scheduleFocusDetection();
+        }),
+        vscode.window.onDidChangeActiveTextEditor(() => {
+          this._tabManager.scheduleFocusDetection();
+        }),
+        vscode.window.onDidChangeActiveTerminal(() => {
+          this._tabManager.scheduleFocusDetection();
+        })
+      );
+    }
+
+    this._views.set(viewKey, { view: webviewView, disposables: viewDisposables });
+    this.syncArchiveTimerWithVisibility();
   }
 
   private handleWebviewMessage(message: WebviewToExtensionMessage) {
@@ -170,7 +177,11 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
         const ALLOWED_SETTING_KEYS = [
           'imageGenerationApi',
           'enableSummarization',
-          'autoRestartAfterRateLimit'
+          'autoRestartAfterRateLimit',
+          'showTaskIcon',
+          'showTaskDescription',
+          'showTaskLatest',
+          'showTaskGitBranch'
         ];
         if (message.key === 'imageGenerationApiKey') {
           this._secrets?.store('imageGenerationApiKey', String(message.value ?? '')).then(() => {
@@ -544,9 +555,12 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       claudeCodePath: config.get('claudeCodePath', '~/.claude'),
       enableSummarization: config.get('enableSummarization', false),
       hasApiKey: !!apiKey,
-      viewLocation: config.get('viewLocation', 'panel') as 'panel' | 'sidebar',
-      toolbarLocation: config.get('toolbarLocation', 'sidebar') as 'sidebar' | 'titlebar' | 'both',
-      autoRestartAfterRateLimit: config.get('autoRestartAfterRateLimit', false)
+      toolbarLocation: config.get('toolbarLocation', 'sidebar') as 'sidebar' | 'titlebar',
+      autoRestartAfterRateLimit: config.get('autoRestartAfterRateLimit', false),
+      showTaskIcon: config.get('showTaskIcon', true),
+      showTaskDescription: config.get('showTaskDescription', true),
+      showTaskLatest: config.get('showTaskLatest', true),
+      showTaskGitBranch: config.get('showTaskGitBranch', true)
     };
     this.sendMessage({ type: 'updateSettings', settings });
   }
@@ -585,9 +599,19 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
   }
 
   private sendMessage(message: ExtensionToWebviewMessage) {
-    if (this._view) {
-      this._view.webview.postMessage(message);
+    for (const { view } of this._views.values()) {
+      view.webview.postMessage(message);
     }
+  }
+
+  private syncArchiveTimerWithVisibility() {
+    for (const { view } of this._views.values()) {
+      if (view.visible) {
+        this.resumeArchiveTimer();
+        return;
+      }
+    }
+    this.pauseArchiveTimer();
   }
 
   private pauseArchiveTimer() {
@@ -607,12 +631,19 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     clearTimeout(this._focusEditorTimer);
     this.cancelAutoRestart();
     this._tabManager.dispose();
+    for (const { disposables } of this._views.values()) {
+      for (const d of disposables) {
+        d.dispose();
+      }
+    }
+    this._views.clear();
     for (const d of this._disposables) {
       d.dispose();
     }
+    this._disposables = [];
   }
 
-  private _getHtmlForWebview(webview: vscode.Webview): string {
+  private _getHtmlForWebview(webview: vscode.Webview, authToken: string): string {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, 'webview', 'dist', 'assets', 'index.js')
     );
@@ -633,7 +664,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div id="app"></div>
-  <script nonce="${nonce}">window.__CLAUDINE_TOKEN__='${this._authToken}';</script>
+  <script nonce="${nonce}">window.__CLAUDINE_TOKEN__='${authToken}';</script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

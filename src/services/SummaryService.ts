@@ -1,6 +1,6 @@
-import * as vscode from 'vscode';
 import * as os from 'os';
 import { spawn, execFile } from 'child_process';
+import { IPlatformAdapter } from '../platform/IPlatformAdapter';
 import { Conversation } from '../types';
 import {
   SUMMARIZATION_BATCH_SIZE,
@@ -30,11 +30,11 @@ export class SummaryService {
   private _pending = new Set<string>();
   private _claudeAvailable: boolean | undefined;
   private _claudePath: string | undefined;
-  private _context: vscode.ExtensionContext | undefined;
+  private _platform: IPlatformAdapter | undefined;
 
-  public init(context: vscode.ExtensionContext) {
-    this._context = context;
-    this._cache = context.globalState.get<Record<string, CachedSummary>>('summaryCache', {});
+  public init(platform: IPlatformAdapter) {
+    this._platform = platform;
+    this._cache = platform.getGlobalState<Record<string, CachedSummary>>('summaryCache', {});
   }
 
   /** Apply cached summary to a conversation. Returns true if cache hit. */
@@ -77,7 +77,7 @@ export class SummaryService {
     onUpdate: (id: string, summary: CachedSummary) => void
   ): void {
     // Check setting
-    const enabled = vscode.workspace.getConfiguration('claudine').get<boolean>('enableSummarization', false);
+    const enabled = this._platform?.getConfig<boolean>('enableSummarization', false) ?? false;
     if (!enabled) return;
 
     // Prune stale entries on each scan cycle
@@ -213,6 +213,6 @@ Return ONLY a JSON array in the same order: [{"title":"...","description":"...",
   }
 
   private saveCache() {
-    this._context?.globalState.update('summaryCache', this._cache);
+    this._platform?.setGlobalState('summaryCache', this._cache);
   }
 }

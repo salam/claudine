@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { VsCodeAdapter } from './platform/VsCodeAdapter';
 import { KanbanViewProvider } from './providers/KanbanViewProvider';
 import { ClaudeCodeWatcher } from './providers/ClaudeCodeWatcher';
 import { StateManager } from './services/StateManager';
@@ -9,7 +10,6 @@ import { ImageGenerator } from './services/ImageGenerator';
 import { CommandProcessor } from './services/CommandProcessor';
 import { promptExport, promptImport } from './services/BoardExporter';
 import { ConversationStatus } from './types';
-import { VIEW_SWITCH_DELAY_MS } from './constants';
 
 let kanbanProvider: KanbanViewProvider;
 let claudeCodeWatcher: ClaudeCodeWatcher;
@@ -21,19 +21,21 @@ let commandProcessor: CommandProcessor;
 export async function activate(context: vscode.ExtensionContext) {
   console.log('Claudine extension is now active');
 
+  // Initialize platform adapter — decouples services from VS Code APIs
+  const platform = new VsCodeAdapter(context);
+
   // Initialize services
-  storageService = new StorageService(context);
-  stateManager = new StateManager(storageService);
-  imageGenerator = new ImageGenerator(storageService);
-  imageGenerator.setSecretStorage(context.secrets);
-  claudeCodeWatcher = new ClaudeCodeWatcher(stateManager, context, imageGenerator);
+  storageService = new StorageService(platform);
+  stateManager = new StateManager(storageService, platform);
+  imageGenerator = new ImageGenerator(storageService, platform);
+  claudeCodeWatcher = new ClaudeCodeWatcher(stateManager, platform, imageGenerator);
 
   // Wait for saved state to load before scanning — prevents stale cross-project
   // conversations from being re-injected after setConversations() cleans up.
   await stateManager.ready;
 
   // Watch for agent commands in .claudine/commands.jsonl
-  commandProcessor = new CommandProcessor(stateManager);
+  commandProcessor = new CommandProcessor(stateManager, platform);
   commandProcessor.startWatching();
 
   // Initialize the Kanban view provider
@@ -51,21 +53,16 @@ export async function activate(context: vscode.ExtensionContext) {
     await vscode.workspace.getConfiguration('claudine').update('imageGenerationApiKey', undefined, vscode.ConfigurationTarget.Global);
   }
 
-  // Register the webview provider for both panel and sidebar view IDs.
-  // Only one is visible at a time, controlled by the claudine.viewLocation setting
-  // and `when` clauses in package.json.
+  // Register the Claudine webview once; VS Code persists placement when users move the view.
   const webviewOptions = { webviewOptions: { retainContextWhenHidden: true } };
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider('claudine.kanbanView', kanbanProvider, webviewOptions),
-    vscode.window.registerWebviewViewProvider('claudine.kanbanViewSidebar', kanbanProvider, webviewOptions)
+    vscode.window.registerWebviewViewProvider('claudine.kanbanView', kanbanProvider, webviewOptions)
   );
 
   // Register commands
   context.subscriptions.push(
     vscode.commands.registerCommand('claudine.openKanban', () => {
-      const location = vscode.workspace.getConfiguration('claudine').get<string>('viewLocation', 'panel');
-      const viewId = location === 'sidebar' ? 'claudine.kanbanViewSidebar' : 'claudine.kanbanView';
-      vscode.commands.executeCommand(`${viewId}.focus`);
+      vscode.commands.executeCommand('claudine.kanbanView.focus');
     })
   );
 
@@ -281,6 +278,21 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand('claudine.toggleArchive', () => {
       kanbanProvider.sendToolbarAction('toggleArchive');
+    }),
+    vscode.commands.registerCommand('claudine.zoomIn', () => {
+      kanbanProvider.sendToolbarAction('zoomIn');
+    }),
+    vscode.commands.registerCommand('claudine.zoomOut', () => {
+      kanbanProvider.sendToolbarAction('zoomOut');
+    }),
+    vscode.commands.registerCommand('claudine.zoomReset', () => {
+      kanbanProvider.sendToolbarAction('zoomReset');
+    }),
+    vscode.commands.registerCommand('claudine.toggleSettingsPanel', () => {
+      kanbanProvider.sendToolbarAction('toggleSettingsPanel');
+    }),
+    vscode.commands.registerCommand('claudine.toggleAbout', () => {
+      kanbanProvider.sendToolbarAction('toggleAbout');
     })
   );
 
@@ -298,24 +310,6 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('claudine.openSettings', () => {
       vscode.commands.executeCommand('workbench.action.openSettings', '@ext:claudine.claudine');
-    })
-  );
-
-  // Toggle Placement — switch between bottom panel and sidebar
-  context.subscriptions.push(
-    vscode.commands.registerCommand('claudine.togglePlacement', async () => {
-      const cfg = vscode.workspace.getConfiguration('claudine');
-      const current = cfg.get<string>('viewLocation', 'panel');
-      const next = current === 'sidebar' ? 'panel' : 'sidebar';
-      await cfg.update('viewLocation', next, vscode.ConfigurationTarget.Global);
-      // Focus the newly visible view after a brief delay for VSCode to re-evaluate when clauses
-      setTimeout(() => {
-        const viewId = next === 'sidebar' ? 'claudine.kanbanViewSidebar' : 'claudine.kanbanView';
-        vscode.commands.executeCommand(`${viewId}.focus`);
-      }, VIEW_SWITCH_DELAY_MS);
-      vscode.window.showInformationMessage(
-        vscode.l10n.t('Claudine moved to {0}.', next === 'sidebar' ? vscode.l10n.t('sidebar') : vscode.l10n.t('panel'))
-      );
     })
   );
 
@@ -391,7 +385,6 @@ export async function activate(context: vscode.ExtensionContext) {
         '',
         '## Configuration',
         `  Claude Code Path: ${claudeCodeWatcher.claudePath}`,
-        `  View Location: ${config.get('viewLocation', 'panel')}`,
         `  Image Generation API: ${config.get('imageGenerationApi', 'none')}`,
         `  API Key Configured: ${apiKey ? 'Yes' : 'No'}`,
         `  Summarization: ${config.get('enableSummarization', false) ? 'Enabled' : 'Disabled'}`,

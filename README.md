@@ -177,7 +177,6 @@ Open VS Code Settings (`Ctrl+,` / `Cmd+,`) and search for **Claudine**.
 | `claudine.claudeCodePath` | `string` | `~/.claude` | Path to the Claude Code data directory |
 | `claudine.imageGenerationApi` | `string` | `none` | API for task icons: `openai`, `stability`, or `none` |
 | `claudine.enableSummarization` | `boolean` | `false` | Generate short summaries for card titles and descriptions |
-| `claudine.viewLocation` | `string` | `panel` | Show the board in the bottom `panel` or the `sidebar` |
 
 API keys are stored securely via VS Code's `SecretStorage` and configured through the in-app settings panel.
 
@@ -199,7 +198,7 @@ Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and type "Claudine":
 
 | Command | Keybinding | Description |
 | ------- | ---------- | ----------- |
-| Open Kanban Board | `Cmd+Shift+K` | Focus the Claudine panel or sidebar |
+| Open Kanban Board | `Cmd+Shift+K` | Focus the Claudine board |
 | Refresh Conversations | `Cmd+Shift+R` | Re-scan JSONL files and update the board |
 | Open Conversation... | | Pick a conversation from a list and open it |
 | Search Conversations... | `Cmd+Shift+F` | Search text across all JSONL files |
@@ -212,7 +211,6 @@ Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and type "Claudine":
 | Archive Completed Conversations | | Immediately archive all done/cancelled cards |
 | Toggle AI Summarization | | Enable or disable AI-generated card summaries |
 | Regenerate All Icons | | Clear and regenerate all conversation icons |
-| Toggle Panel / Sidebar Placement | | Switch the board between panel and sidebar |
 | Export Board... | | Save the board as CSV, JSON, or Trello format |
 | Import Board... | | Load conversations from a Claudine JSON export |
 | Show Diagnostics | | Display extension health info (paths, watcher, counts) |

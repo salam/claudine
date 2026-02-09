@@ -37,6 +37,8 @@
   let prevFocused = false;
   let descriptionExpanded = false;
   let latestExpanded = false;
+  let openMenuVisible = false;
+  let openMenuEl: HTMLDivElement;
 
   // Activity timer — counts while agents are actively working, pauses when awaiting user input.
   // Uses a single shared 1s tick (activityTick store) instead of per-card setInterval.
@@ -121,7 +123,22 @@
   }
 
   function handleOpenConversation() {
-    vscode.postMessage({ type: 'openConversation', conversationId: conversation.id });
+    if (vscode.isStandalone) {
+      openMenuVisible = !openMenuVisible;
+    } else {
+      vscode.postMessage({ type: 'openConversation', conversationId: conversation.id });
+    }
+  }
+
+  function handleOpenAs(target: 'terminal' | 'vscode') {
+    openMenuVisible = false;
+    vscode.postMessage({ type: 'openConversationAs', conversationId: conversation.id, target });
+  }
+
+  function handleClickOutsideMenu(e: MouseEvent) {
+    if (openMenuVisible && openMenuEl && !openMenuEl.contains(e.target as Node)) {
+      openMenuVisible = false;
+    }
   }
 
   function handleSendPrompt(event: CustomEvent<string>) {
@@ -142,20 +159,26 @@
   }
 </script>
 
+<svelte:window on:click={handleClickOutsideMenu} />
+
 {#if conversation.isDraft}
   <!-- Draft view: just the prompt text + send button -->
   <div class="task-card draft">
     <div class="drag-handle" title="Drag to move">
       <svg viewBox="0 0 6 10" fill="currentColor"><circle cx="1.5" cy="1.5" r="1"/><circle cx="4.5" cy="1.5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="4.5" cy="5" r="1"/><circle cx="1.5" cy="8.5" r="1"/><circle cx="4.5" cy="8.5" r="1"/></svg>
     </div>
-    <input
+    <textarea
       class="draft-prompt-input"
-      type="text"
-      value={conversation.title}
-      on:input={(e) => dispatch('updateDraft', { id: conversation.id, title: e.currentTarget.value })}
-      on:keydown={(e) => { if (e.key === 'Enter') dispatch('sendDraft', conversation.id); }}
+      rows="1"
+      on:input={(e) => {
+        const ta = e.currentTarget;
+        dispatch('updateDraft', { id: conversation.id, title: ta.value });
+        ta.style.height = 'auto';
+        ta.style.height = ta.scrollHeight + 'px';
+      }}
+      on:keydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); dispatch('sendDraft', conversation.id); } }}
       placeholder="Describe your idea..."
-    />
+    >{conversation.title}</textarea>
     <button class="draft-delete" on:click={() => dispatch('deleteDraft', conversation.id)} title="Delete idea">
       <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
     </button>
@@ -240,7 +263,21 @@
         <span class="activity-timer-inline" class:paused={!isActive}>{timerDisplay}</span>
       {/if}
     </div>
-    <button class="compact-title-btn" on:click={handleOpenConversation} title={titleTooltip}>{@html highlight(cleanTitle(displayTitle))}</button>
+    <div class="title-wrap compact-title-wrap">
+      <button class="compact-title-btn" on:click={handleOpenConversation} title={titleTooltip}>{@html highlight(cleanTitle(displayTitle))}</button>
+      {#if openMenuVisible}
+        <div class="open-menu" bind:this={openMenuEl}>
+          <button class="open-menu-item" on:click={() => handleOpenAs('terminal')}>
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 9l3-3-3-3-.7.7L7.6 6 5.3 8.3 6 9zm4 1H7v1h3v-1zM1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v11a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 13.5v-11zM2.5 2a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h11a.5.5 0 00.5-.5v-11a.5.5 0 00-.5-.5h-11z"/></svg>
+            Open in Terminal
+          </button>
+          <button class="open-menu-item" on:click={() => handleOpenAs('vscode')}>
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M10.94 1L6 5.63 2.36 3 1 3.87l3.5 3.12L1 10.12 2.36 13 6 10.37 10.94 15 15 13.13V2.87L10.94 1zm.56 10.76l-4-3.07v-.38l4-3.07v6.52z"/></svg>
+            Open in VSCode
+          </button>
+        </div>
+      {/if}
+    </div>
     {#if conversation.sidechainSteps?.length}
       <div class="sidechain-dots compact" title="Subagent activity">
         {#each conversation.sidechainSteps as step}
@@ -293,19 +330,35 @@
       <div class="drag-handle" title="Drag to move">
         <svg viewBox="0 0 6 10" fill="currentColor"><circle cx="1.5" cy="1.5" r="1"/><circle cx="4.5" cy="1.5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="4.5" cy="5" r="1"/><circle cx="1.5" cy="8.5" r="1"/><circle cx="4.5" cy="8.5" r="1"/></svg>
       </div>
-      {#if conversation.icon}
-        <div class="icon-badge thumb-hover-trigger">
-          <img src={conversation.icon} alt="" />
-          <div class="thumb-hover-popup"><img src={conversation.icon} alt="Task icon" /></div>
-        </div>
-      {:else}
-        <div class="category-badge" title={categoryDetails.label}>
-          <span class="category-icon">{categoryDetails.icon}</span>
-        </div>
+      {#if $settings.showTaskIcon}
+        {#if conversation.icon}
+          <div class="icon-badge thumb-hover-trigger">
+            <img src={conversation.icon} alt="" />
+            <div class="thumb-hover-popup"><img src={conversation.icon} alt="Task icon" /></div>
+          </div>
+        {:else}
+          <div class="category-badge" title={categoryDetails.label}>
+            <span class="category-icon">{categoryDetails.icon}</span>
+          </div>
+        {/if}
       {/if}
-      <button class="title-btn" on:click={handleOpenConversation} title={titleTooltip}>
-        {@html highlight(cleanTitle(displayTitle))}
-      </button>
+      <div class="title-wrap">
+        <button class="title-btn" on:click={handleOpenConversation} title={titleTooltip}>
+          {@html highlight(cleanTitle(displayTitle))}
+        </button>
+        {#if openMenuVisible}
+          <div class="open-menu" bind:this={openMenuEl}>
+            <button class="open-menu-item" on:click={() => handleOpenAs('terminal')}>
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 9l3-3-3-3-.7.7L7.6 6 5.3 8.3 6 9zm4 1H7v1h3v-1zM1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v11a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 13.5v-11zM2.5 2a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h11a.5.5 0 00.5-.5v-11a.5.5 0 00-.5-.5h-11z"/></svg>
+              Open in Terminal
+            </button>
+            <button class="open-menu-item" on:click={() => handleOpenAs('vscode')}>
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M10.94 1L6 5.63 2.36 3 1 3.87l3.5 3.12L1 10.12 2.36 13 6 10.37 10.94 15 15 13.13V2.87L10.94 1zm.56 10.76l-4-3.07v-.38l4-3.07v6.52z"/></svg>
+              Open in VSCode
+            </button>
+          </div>
+        {/if}
+      </div>
       {#if isFirst}
         <span class="first-badge" title="This is were it all started for this project">Genesis</span>
       {/if}
@@ -318,7 +371,7 @@
     </div>
 
     <!-- Description (click to expand) -->
-    {#if conversation.description}
+    {#if $settings.showTaskDescription && conversation.description}
       <!-- svelte-ignore a11y-no-noninteractive-element-to-interactive-role -->
       <p
         class="description"
@@ -332,7 +385,7 @@
     {/if}
 
     <!-- Latest message (click to expand) -->
-    {#if conversation.lastMessage}
+    {#if $settings.showTaskLatest && conversation.lastMessage}
       <div
         class="last-message"
         class:expanded={latestExpanded}
@@ -348,7 +401,7 @@
 
     <!-- Git branch + Agents on same line (#10) -->
     <div class="meta-row">
-      {#if conversation.gitBranch}
+      {#if $settings.showTaskGitBranch && conversation.gitBranch}
         <button class="git-branch" on:click={handleGitBranchClick} title="Open in source control">
           <svg class="git-icon" viewBox="0 0 16 16" fill="currentColor">
             <path d="M11.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zm-2.25.75a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.492 2.492 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25zM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zM3.5 3.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0z"/>
@@ -392,7 +445,7 @@
 
   /* ---- Draft card ---- */
   .task-card.draft {
-    display: flex; align-items: center; gap: 6px;
+    display: flex; align-items: flex-start; gap: 6px;
     padding: 6px 8px; margin-bottom: 4px; border-radius: 6px;
     border-left: 2px dashed var(--vscode-disabledForeground, #6b6b6b);
     background: var(--vscode-editor-background, #1e1e1e);
@@ -406,6 +459,7 @@
     flex: 1; min-width: 0;
     font-size: 10px;
     color: var(--vscode-input-foreground, #cccccc);
+    resize: none; overflow: hidden;
     background: transparent;
     border: none; border-bottom: 1px dashed var(--vscode-panel-border, #404040);
     outline: none; padding: 2px 0;
@@ -502,12 +556,37 @@
     background: var(--category-color); border-radius: 4px; opacity: 0.9;
   }
   .category-icon { font-size: 12px; filter: grayscale(0.2); }
+  .title-wrap { position: relative; flex: 1; min-width: 0; }
+  .compact-title-wrap { display: flex; }
   .title-btn {
     font-size: 11px; font-weight: 600; color: var(--vscode-foreground, #cccccc); line-height: 1.3;
     flex: 1; word-break: break-word; text-align: left;
     background: none; border: none; cursor: pointer; padding: 0; font-family: inherit;
   }
   .title-btn:hover { color: var(--vscode-textLink-foreground, #3794ff); }
+
+  /* ---- Open-in dropdown menu ---- */
+  .open-menu {
+    position: absolute; top: 100%; left: 0; z-index: 60;
+    margin-top: 4px; min-width: 170px;
+    background: var(--vscode-menu-background, #252526);
+    border: 1px solid var(--vscode-menu-border, #454545);
+    border-radius: 6px; padding: 4px 0;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+  }
+  .open-menu-item {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 6px 12px;
+    font-size: 11px; font-family: inherit;
+    color: var(--vscode-menu-foreground, #cccccc);
+    background: none; border: none; cursor: pointer;
+    text-align: left; white-space: nowrap;
+  }
+  .open-menu-item:hover {
+    background: var(--vscode-menu-selectionBackground, #094771);
+    color: var(--vscode-menu-selectionForeground, #ffffff);
+  }
+  .open-menu-item svg { width: 14px; height: 14px; flex-shrink: 0; }
 
   .description {
     font-size: 10px; color: var(--vscode-descriptionForeground, #8c8c8c);

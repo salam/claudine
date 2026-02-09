@@ -1,16 +1,25 @@
-import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
+import { IPlatformAdapter, Disposable } from '../platform/IPlatformAdapter';
 import { ConversationParser } from './ConversationParser';
 import { StateManager } from '../services/StateManager';
 import { SummaryService } from '../services/SummaryService';
 import { ImageGenerator } from '../services/ImageGenerator';
-import { Conversation } from '../types';
+import { Conversation, ProjectManifestEntry } from '../types';
 import { MAX_IMAGE_FILE_SIZE_BYTES } from '../constants';
 
+/** Patterns that identify OS temp/system directories to auto-exclude in standalone mode. */
+const EXCLUDED_PATH_PATTERNS = [
+  /\/var\/folders\//,       // macOS temp (also /private/var/folders/)
+  /\/tmp\//,                // Unix /tmp
+  /\\Temp\\/i,              // Windows %TEMP%
+  /\/\.Trash\//,            // macOS Trash
+  /\\Recycle\.Bin\\/i,      // Windows Recycle Bin
+];
+
 export class ClaudeCodeWatcher {
-  private _watcher: vscode.FileSystemWatcher | undefined;
+  private _watcherDisposable: Disposable | undefined;
   private _parser: ConversationParser;
   private _summaryService: SummaryService;
   private _imageGenerator: ImageGenerator | undefined;
@@ -23,18 +32,24 @@ export class ClaudeCodeWatcher {
     this._iconPending.clear();
   }
 
-  constructor(private readonly _stateManager: StateManager, context?: vscode.ExtensionContext, imageGenerator?: ImageGenerator) {
+  constructor(
+    private readonly _stateManager: StateManager,
+    private readonly _platform: IPlatformAdapter,
+    imageGenerator?: ImageGenerator
+  ) {
     this._parser = new ConversationParser();
     this._summaryService = new SummaryService();
     this._imageGenerator = imageGenerator;
-    if (context) this._summaryService.init(context);
+    this._summaryService.init(_platform);
     this._claudePath = this.getClaudePath();
 
     // When running in Extension Development Host, exclude the extension's own
     // workspace so that development conversations don't appear in the EDH board.
-    if (context?.extensionMode === vscode.ExtensionMode.Development) {
-      this._excludedWorkspacePath = context.extensionUri.fsPath;
-      console.log(`Claudine: Development mode — excluding extension workspace: ${this._excludedWorkspacePath}`);
+    if (_platform.isDevelopmentMode()) {
+      this._excludedWorkspacePath = _platform.getExtensionPath();
+      if (this._excludedWorkspacePath) {
+        console.log(`Claudine: Development mode — excluding extension workspace: ${this._excludedWorkspacePath}`);
+      }
     }
   }
 
@@ -45,7 +60,7 @@ export class ClaudeCodeWatcher {
 
   /** Whether the file system watcher is active. */
   public get isWatching(): boolean {
-    return this._watcher !== undefined;
+    return this._watcherDisposable !== undefined;
   }
 
   /** Number of files held in the incremental parse cache. */
@@ -54,36 +69,38 @@ export class ClaudeCodeWatcher {
   }
 
   private getClaudePath(): string {
-    const config = vscode.workspace.getConfiguration('claudine');
-    const configPath = config.get<string>('claudeCodePath', '~/.claude');
+    const configPath = this._platform.getConfig<string>('claudeCodePath', '~/.claude');
     return configPath.replace('~', os.homedir());
   }
 
   public startWatching() {
+    this.setupFileWatcher();
+    // Initial scan
+    this.refresh();
+  }
+
+  /** Set up the file system watcher without triggering an initial scan. */
+  public setupFileWatcher() {
     // Watch the Claude Code projects directory for JSONL changes
     const projectsPath = path.join(this._claudePath, 'projects');
 
     try {
-      const watchPattern = new vscode.RelativePattern(projectsPath, '**/*.jsonl');
-      this._watcher = vscode.workspace.createFileSystemWatcher(watchPattern);
-
-      this._watcher.onDidCreate((uri) => this.onFileChanged(uri));
-      this._watcher.onDidChange((uri) => this.onFileChanged(uri));
-      this._watcher.onDidDelete((uri) => this.onFileDeleted(uri));
+      this._watcherDisposable = this._platform.watchFiles(projectsPath, '**/*.jsonl', {
+        onCreate: (filePath) => this.onFileChanged(filePath),
+        onChange: (filePath) => this.onFileChanged(filePath),
+        onDelete: (filePath) => this.onFileDeleted(filePath)
+      });
 
       console.log(`Claudine: Watching ${projectsPath} for changes`);
     } catch (error) {
       console.error('Claudine: Error setting up file watcher', error);
     }
-
-    // Initial scan
-    this.refresh();
   }
 
   public stopWatching() {
-    if (this._watcher) {
-      this._watcher.dispose();
-      this._watcher = undefined;
+    if (this._watcherDisposable) {
+      this._watcherDisposable.dispose();
+      this._watcherDisposable = undefined;
     }
   }
 
@@ -115,19 +132,19 @@ export class ClaudeCodeWatcher {
     }
   }
 
-  private async onFileChanged(uri: vscode.Uri) {
+  private async onFileChanged(filePath: string) {
     // Only process top-level JSONL files (not subagent files)
-    if (this.isSubagentFile(uri.fsPath)) return;
+    if (this.isSubagentFile(filePath)) return;
 
     // Skip files from the extension's own workspace when in EDH
-    if (this._excludedWorkspacePath && this.isFromExcludedWorkspace(uri.fsPath)) return;
+    if (this._excludedWorkspacePath && this.isFromExcludedWorkspace(filePath)) return;
 
     // BUG2: Only process files that belong to the current workspace's project
     // directory. The file watcher covers all projects, so we must filter here.
-    if (!this.isFromCurrentWorkspace(uri.fsPath)) return;
+    if (!this.isFromCurrentWorkspace(filePath)) return;
 
     try {
-      const conversation = await this._parser.parseFile(uri.fsPath);
+      const conversation = await this._parser.parseFile(filePath);
       if (conversation) {
         this._summaryService.applyCached(conversation);
         this._stateManager.updateConversation(conversation);
@@ -150,13 +167,13 @@ export class ClaudeCodeWatcher {
         }
       }
     } catch (error) {
-      console.error(`Claudine: Error parsing file ${uri.fsPath}`, error);
+      console.error(`Claudine: Error parsing file ${filePath}`, error);
     }
   }
 
-  private onFileDeleted(uri: vscode.Uri) {
-    this._parser.clearCache(uri.fsPath);
-    const conversationId = path.basename(uri.fsPath, '.jsonl');
+  private onFileDeleted(filePath: string) {
+    this._parser.clearCache(filePath);
+    const conversationId = path.basename(filePath, '.jsonl');
     if (conversationId) {
       this._stateManager.removeConversation(conversationId);
     }
@@ -175,12 +192,12 @@ export class ClaudeCodeWatcher {
   /** BUG2: Check whether a JSONL file belongs to one of the current workspace's
    *  project directories. When no workspace is open, allow all files (fallback). */
   private isFromCurrentWorkspace(filePath: string): boolean {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
+    const workspaceFolders = this._platform.getWorkspaceFolders();
     if (!workspaceFolders || workspaceFolders.length === 0) return true; // fallback: no workspace → allow all
 
     for (const folder of workspaceFolders) {
-      if (this._excludedWorkspacePath && folder.uri.fsPath === this._excludedWorkspacePath) continue;
-      const encodedPath = this.encodeWorkspacePath(folder.uri.fsPath);
+      if (this._excludedWorkspacePath && folder === this._excludedWorkspacePath) continue;
+      const encodedPath = this.encodeWorkspacePath(folder);
       if (filePath.includes(`${path.sep}${encodedPath}${path.sep}`)) return true;
     }
     return false;
@@ -238,21 +255,21 @@ export class ClaudeCodeWatcher {
         return dirs;
       }
 
-      const workspaceFolders = vscode.workspace.workspaceFolders;
+      const workspaceFolders = this._platform.getWorkspaceFolders();
 
       if (workspaceFolders && workspaceFolders.length > 0) {
         // Only scan project directories that match the current workspace
         for (const folder of workspaceFolders) {
           // Skip the extension's own workspace when running in EDH
-          if (this._excludedWorkspacePath && folder.uri.fsPath === this._excludedWorkspacePath) {
-            console.log(`Claudine: Skipping extension dev workspace: ${folder.uri.fsPath}`);
+          if (this._excludedWorkspacePath && folder === this._excludedWorkspacePath) {
+            console.log(`Claudine: Skipping extension dev workspace: ${folder}`);
             continue;
           }
 
-          const encodedPath = this.encodeWorkspacePath(folder.uri.fsPath);
+          const encodedPath = this.encodeWorkspacePath(folder);
           const projectDir = path.join(projectsPath, encodedPath);
 
-          console.log(`Claudine: Workspace "${folder.uri.fsPath}" → encoded "${encodedPath}"`);
+          console.log(`Claudine: Workspace "${folder}" → encoded "${encodedPath}"`);
 
           if (fs.existsSync(projectDir)) {
             dirs.push(projectDir);
@@ -266,9 +283,13 @@ export class ClaudeCodeWatcher {
         console.log('Claudine: No workspace folders, scanning all projects');
         const entries = fs.readdirSync(projectsPath, { withFileTypes: true });
         for (const entry of entries) {
-          if (entry.isDirectory()) {
-            dirs.push(path.join(projectsPath, entry.name));
+          if (!entry.isDirectory()) continue;
+          const exclusion = ClaudeCodeWatcher.isExcludedProjectDir(entry.name);
+          if (exclusion.excluded) {
+            console.log(`Claudine: Auto-excluding project dir "${entry.name}" — ${exclusion.reason}`);
+            continue;
           }
+          dirs.push(path.join(projectsPath, entry.name));
         }
       }
     } catch (error) {
@@ -284,6 +305,149 @@ export class ClaudeCodeWatcher {
    */
   private encodeWorkspacePath(workspacePath: string): string {
     return workspacePath.replace(/\//g, '-');
+  }
+
+  // ── Project discovery & progressive scanning (standalone) ─────────
+
+  /**
+   * Decode an encoded project directory name back to a path approximation.
+   * e.g. "-Users-matthias-Development-foo" → "/Users/matthias/Development/foo"
+   */
+  public static decodeProjectDirName(encodedName: string): string {
+    return '/' + encodedName.replace(/^-/, '').replace(/-/g, '/');
+  }
+
+  /**
+   * Check whether an encoded project directory name corresponds to an OS
+   * temp/system directory that should be auto-excluded from scanning.
+   */
+  public static isExcludedProjectDir(encodedDirName: string): { excluded: boolean; reason?: string } {
+    const decoded = ClaudeCodeWatcher.decodeProjectDirName(encodedDirName);
+    for (const pattern of EXCLUDED_PATH_PATTERNS) {
+      if (pattern.test(decoded)) {
+        return { excluded: true, reason: `Temp/system path (${pattern.source})` };
+      }
+    }
+    return { excluded: false };
+  }
+
+  /**
+   * Quickly enumerate all project directories and count their .jsonl files
+   * without parsing any of them. Returns a manifest suitable for the UI.
+   */
+  public discoverProjects(): ProjectManifestEntry[] {
+    const projectsPath = path.join(this._claudePath, 'projects');
+    if (!fs.existsSync(projectsPath)) return [];
+
+    const entries = fs.readdirSync(projectsPath, { withFileTypes: true });
+    const manifest: ProjectManifestEntry[] = [];
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+
+      const exclusion = ClaudeCodeWatcher.isExcludedProjectDir(entry.name);
+      const projectDir = path.join(projectsPath, entry.name);
+
+      let fileCount = 0;
+      try {
+        const files = fs.readdirSync(projectDir, { withFileTypes: true });
+        fileCount = files.filter(f => f.isFile() && f.name.endsWith('.jsonl')).length;
+      } catch {
+        // Skip unreadable dirs
+      }
+
+      if (fileCount === 0) continue;
+
+      const decoded = ClaudeCodeWatcher.decodeProjectDirName(entry.name);
+      const segments = decoded.split('/').filter(Boolean);
+      const name = segments[segments.length - 1] || entry.name;
+
+      manifest.push({
+        encodedPath: entry.name,
+        decodedPath: decoded,
+        name,
+        fileCount,
+        enabled: !exclusion.excluded,
+        autoExcluded: exclusion.excluded,
+        excludeReason: exclusion.reason,
+      });
+    }
+
+    return manifest;
+  }
+
+  /**
+   * Scan enabled projects one at a time, emitting results after each project.
+   * Yields to the event loop periodically to keep the server responsive.
+   */
+  public async scanProjectsProgressively(
+    enabledProjects: ProjectManifestEntry[],
+    onProgress: (progress: {
+      scannedProjects: number;
+      totalProjects: number;
+      scannedFiles: number;
+      totalFiles: number;
+      currentProject: string;
+    }) => void,
+    onProjectScanned: (projectPath: string, conversations: Conversation[]) => void
+  ): Promise<Conversation[]> {
+    const projectsPath = path.join(this._claudePath, 'projects');
+    const allConversations: Conversation[] = [];
+    const totalProjects = enabledProjects.length;
+    const totalFiles = enabledProjects.reduce((sum, p) => sum + p.fileCount, 0);
+    let scannedProjects = 0;
+    let scannedFiles = 0;
+
+    for (const project of enabledProjects) {
+      const projectDir = path.join(projectsPath, project.encodedPath);
+      const projectConvs: Conversation[] = [];
+
+      onProgress({ scannedProjects, totalProjects, scannedFiles, totalFiles, currentProject: project.name });
+
+      try {
+        const entries = fs.readdirSync(projectDir, { withFileTypes: true });
+
+        for (const entry of entries) {
+          if (!entry.isFile() || !entry.name.endsWith('.jsonl')) continue;
+          const filePath = path.join(projectDir, entry.name);
+
+          try {
+            const conversation = await this._parser.parseFile(filePath);
+            if (conversation) {
+              projectConvs.push(conversation);
+            }
+          } catch (error) {
+            console.error(`Claudine: Error parsing ${filePath}`, error);
+          }
+
+          scannedFiles++;
+
+          // Yield to the event loop every 50 files to keep the server responsive
+          if (scannedFiles % 50 === 0) {
+            await new Promise(resolve => setImmediate(resolve));
+          }
+        }
+      } catch (error) {
+        console.error(`Claudine: Error reading directory ${projectDir}`, error);
+      }
+
+      // Apply cached summaries
+      for (const conv of projectConvs) {
+        this._summaryService.applyCached(conv);
+      }
+
+      allConversations.push(...projectConvs);
+      scannedProjects++;
+
+      onProjectScanned(project.decodedPath || project.name, projectConvs);
+    }
+
+    // Merge with saved board state
+    await this.mergeSavedState(allConversations);
+
+    onProgress({ scannedProjects: totalProjects, totalProjects, scannedFiles: totalFiles, totalFiles, currentProject: '' });
+
+    return allConversations;
   }
 
   /**
@@ -386,11 +550,11 @@ export class ClaudeCodeWatcher {
   }
 
   private async mergeSavedState(conversations: Conversation[]) {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
+    const workspaceFolders = this._platform.getWorkspaceFolders();
     if (!workspaceFolders) return;
 
     for (const folder of workspaceFolders) {
-      const statePath = path.join(folder.uri.fsPath, '.claudine', 'state.json');
+      const statePath = path.join(folder, '.claudine', 'state.json');
 
       try {
         if (!fs.existsSync(statePath)) continue;

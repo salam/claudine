@@ -1,19 +1,19 @@
-import * as vscode from 'vscode';
+import { IPlatformAdapter, PlatformEvent, PlatformEventEmitter } from '../platform/IPlatformAdapter';
 import { StorageService } from './StorageService';
 import { Conversation, ConversationStatus } from '../types';
 import { SAVE_STATE_DEBOUNCE_MS, NOTIFY_COALESCE_MS } from '../constants';
 
 export class StateManager {
   private _conversations: Map<string, Conversation> = new Map();
-  private _onConversationsChanged: vscode.EventEmitter<Conversation[]>;
-  private _onNeedsInput: vscode.EventEmitter<Conversation>;
-  private _onRateLimitDetected: vscode.EventEmitter<Conversation>;
+  private _onConversationsChanged: PlatformEventEmitter<Conversation[]>;
+  private _onNeedsInput: PlatformEventEmitter<Conversation>;
+  private _onRateLimitDetected: PlatformEventEmitter<Conversation>;
 
-  public readonly onConversationsChanged: vscode.Event<Conversation[]>;
+  public readonly onConversationsChanged: PlatformEvent<Conversation[]>;
   /** Fires when a conversation transitions into 'needs-input' status. */
-  public readonly onNeedsInput: vscode.Event<Conversation>;
+  public readonly onNeedsInput: PlatformEvent<Conversation>;
   /** Fires when a conversation becomes rate-limited (transition from not-limited to limited). */
-  public readonly onRateLimitDetected: vscode.Event<Conversation>;
+  public readonly onRateLimitDetected: PlatformEvent<Conversation>;
 
   /** Resolves when saved state has been loaded from disk. Await before scanning. */
   public readonly ready: Promise<void>;
@@ -22,12 +22,15 @@ export class StateManager {
   private _notifyTimer: ReturnType<typeof setTimeout> | undefined;
   private _sortedCache: Conversation[] | null = null;
 
-  constructor(private readonly _storageService: StorageService) {
-    this._onConversationsChanged = new vscode.EventEmitter<Conversation[]>();
+  constructor(
+    private readonly _storageService: StorageService,
+    platform: IPlatformAdapter
+  ) {
+    this._onConversationsChanged = platform.createEventEmitter<Conversation[]>();
     this.onConversationsChanged = this._onConversationsChanged.event;
-    this._onNeedsInput = new vscode.EventEmitter<Conversation>();
+    this._onNeedsInput = platform.createEventEmitter<Conversation>();
     this.onNeedsInput = this._onNeedsInput.event;
-    this._onRateLimitDetected = new vscode.EventEmitter<Conversation>();
+    this._onRateLimitDetected = platform.createEventEmitter<Conversation>();
     this.onRateLimitDetected = this._onRateLimitDetected.event;
 
     this.ready = new Promise(resolve => { this._readyResolve = resolve; });

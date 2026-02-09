@@ -6,7 +6,7 @@
  * can be validated without silently breaking functionality.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { EventEmitter } from 'vscode';
+import * as vscode from 'vscode';
 import { KanbanViewProvider } from '../providers/KanbanViewProvider';
 import { Conversation } from '../types';
 
@@ -58,8 +58,8 @@ function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
 }
 
 function createMockStateManager() {
-  const conversationsEmitter = new EventEmitter();
-  const needsInputEmitter = new EventEmitter();
+  const conversationsEmitter = new vscode.EventEmitter();
+  const needsInputEmitter = new vscode.EventEmitter();
 
   return {
     getConversations: vi.fn().mockReturnValue([]),
@@ -101,6 +101,71 @@ function createMockExtensionUri() {
     fsPath: '/mock/extension',
     scheme: 'file',
   };
+}
+
+type MockWebviewView = {
+  viewType: string;
+  visible: boolean;
+  webview: {
+    options: unknown;
+    html: string;
+    postMessage: ReturnType<typeof vi.fn>;
+    asWebviewUri: (uri: { fsPath: string }) => { toString: () => string };
+    onDidReceiveMessage: (cb: (message: unknown) => void) => { dispose: () => void };
+  };
+  onDidChangeVisibility: (cb: () => void) => { dispose: () => void };
+  emitMessage: (message: unknown) => void;
+  setVisible: (visible: boolean) => void;
+};
+
+function createMockWebviewView(viewType: string): MockWebviewView {
+  let messageHandler: ((message: unknown) => void) | undefined;
+  let visibilityHandler: (() => void) | undefined;
+
+  const view: MockWebviewView = {
+    viewType,
+    visible: true,
+    webview: {
+      options: undefined,
+      html: '',
+      postMessage: vi.fn(),
+      asWebviewUri: (uri: { fsPath: string }) => ({ toString: () => `mock:${uri.fsPath}` }),
+      onDidReceiveMessage: (cb: (message: unknown) => void) => {
+        messageHandler = cb;
+        return {
+          dispose: () => {
+            if (messageHandler === cb) {
+              messageHandler = undefined;
+            }
+          }
+        };
+      }
+    },
+    onDidChangeVisibility: (cb: () => void) => {
+      visibilityHandler = cb;
+      return {
+        dispose: () => {
+          if (visibilityHandler === cb) {
+            visibilityHandler = undefined;
+          }
+        }
+      };
+    },
+    emitMessage: (message: unknown) => {
+      messageHandler?.(message);
+    },
+    setVisible: (visible: boolean) => {
+      view.visible = visible;
+      visibilityHandler?.();
+    }
+  };
+
+  return view;
+}
+
+function extractTokenFromHtml(html: string): string {
+  const match = html.match(/window\.__CLAUDINE_TOKEN__='([^']+)'/);
+  return match?.[1] || '';
 }
 
 describe('KanbanViewProvider — regression tests', () => {
@@ -186,6 +251,51 @@ describe('KanbanViewProvider — regression tests', () => {
 
       vi.advanceTimersByTime(10 * 60 * 1000);
       expect(mockStateManager.archiveStaleConversations).not.toHaveBeenCalled();
+    });
+  });
+
+  // BUG4d — stale webview listeners must not react after the same view is resolved again.
+  describe('BUG4d — stale webview disposal', () => {
+    it('ignores messages from the previously resolved view instance', () => {
+      const firstView = createMockWebviewView('claudine.kanbanView');
+      const secondView = createMockWebviewView('claudine.kanbanView');
+      provider.resolveWebviewView(firstView as never, {} as never, {} as never);
+      const firstToken = extractTokenFromHtml(firstView.webview.html);
+      provider.resolveWebviewView(secondView as never, {} as never, {} as never);
+      const secondToken = extractTokenFromHtml(secondView.webview.html);
+
+      mockStateManager.getConversations.mockClear();
+      firstView.emitMessage({ type: 'ready', _token: firstToken });
+      expect(mockStateManager.getConversations).not.toHaveBeenCalled();
+
+      secondView.emitMessage({ type: 'ready', _token: secondToken });
+      expect(mockStateManager.getConversations).toHaveBeenCalled();
+    });
+  });
+
+  // BUG4d — placement is VS Code-managed, so deprecated viewLocation writes must be ignored.
+  describe('BUG4d — deprecated viewLocation setting writes are ignored', () => {
+    it('does not persist viewLocation when webview sends updateSetting', async () => {
+      const panelView = createMockWebviewView('claudine.kanbanView');
+      provider.resolveWebviewView(panelView as never, {} as never, {} as never);
+      const panelToken = extractTokenFromHtml(panelView.webview.html);
+
+      const update = vi.fn().mockResolvedValue(undefined);
+      const getConfigurationSpy = vi.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
+        get: (_key: string, defaultValue?: unknown) => defaultValue as never,
+        update,
+      } as never);
+
+      panelView.emitMessage({
+        type: 'updateSetting',
+        key: 'viewLocation',
+        value: 'panel',
+        _token: panelToken,
+      });
+      await Promise.resolve();
+
+      expect(update).not.toHaveBeenCalled();
+      getConfigurationSpy.mockRestore();
     });
   });
 });
