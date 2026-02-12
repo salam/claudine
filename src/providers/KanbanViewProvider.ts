@@ -223,6 +223,12 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
         this.testApiConnection();
         break;
 
+      case 'openExternal':
+        if (message.url && /^https?:\/\//.test(message.url)) {
+          vscode.env.openExternal(vscode.Uri.parse(message.url));
+        }
+        break;
+
       case 'toggleAutoRestart': {
         const cfg = vscode.workspace.getConfiguration('claudine');
         const current = cfg.get<boolean>('autoRestartAfterRateLimit', false);

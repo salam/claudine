@@ -239,6 +239,9 @@ export class ConversationParser {
     let rateLimitResetDisplay: string | undefined;
     let rateLimitResetTime: string | undefined;
 
+    // BUG7: anchor reset-time computation to the message's own timestamp
+    const messageDate = entry.timestamp ? new Date(entry.timestamp) : undefined;
+
     for (const block of contentBlocks) {
       if (block.type === 'text' && block.text) {
         textParts.push(block.text);
@@ -249,7 +252,7 @@ export class ConversationParser {
           const timeStr = rlMatch[1]; // e.g. "10am"
           const tz = rlMatch[2];      // e.g. "Europe/Zurich"
           rateLimitResetDisplay = `${timeStr} (${tz})`;
-          rateLimitResetTime = ConversationParser.parseResetTime(timeStr, tz);
+          rateLimitResetTime = ConversationParser.parseResetTime(timeStr, tz, messageDate);
         }
       } else if (block.type === 'tool_use' && block.name) {
         toolUses.push({
@@ -279,7 +282,7 @@ export class ConversationParser {
           const timeStr = rlMatch[1];
           const tz = rlMatch[2];
           rateLimitResetDisplay = `${timeStr} (${tz})`;
-          rateLimitResetTime = ConversationParser.parseResetTime(timeStr, tz);
+          rateLimitResetTime = ConversationParser.parseResetTime(timeStr, tz, messageDate);
         }
       }
     }
@@ -581,7 +584,7 @@ export class ConversationParser {
     return false;
   }
 
-  /** Check if any recent message carries a rate limit notice. */
+  /** Check if any recent message carries a rate limit notice that hasn't expired yet. */
   private hasRecentRateLimit(messages: ParsedMessage[]): boolean {
     let lastUserIdx = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -591,7 +594,20 @@ export class ConversationParser {
       }
     }
     if (lastUserIdx === -1) return false;
-    return messages.slice(lastUserIdx).some(m => m.isRateLimited);
+
+    const now = Date.now();
+    // BUG7: a rate limit is only active if its reset time is still in the future
+    return messages.slice(lastUserIdx).some(m => {
+      if (!m.isRateLimited) return false;
+      if (m.rateLimitResetTime) {
+        return new Date(m.rateLimitResetTime).getTime() > now;
+      }
+      // No parseable reset time — fall back to message age (expire after 6 hours)
+      if (m.timestamp) {
+        return (now - new Date(m.timestamp).getTime()) < 6 * 60 * 60 * 1000;
+      }
+      return true;
+    });
   }
 
   /** Extract rate limit reset info from the most recent rate-limited message. */
@@ -606,9 +622,13 @@ export class ConversationParser {
 
   /**
    * Parse a human-readable reset time (e.g. "10am", "2:30pm") in a given timezone
-   * into the next occurrence as an ISO 8601 string.
+   * into the next occurrence after `referenceDate` as an ISO 8601 string.
+   *
+   * When `referenceDate` is provided (e.g. the message timestamp), the result is
+   * anchored to that moment — so a stale rate-limit message from yesterday produces
+   * a past date that callers can compare against `now` to detect expiry.
    */
-  public static parseResetTime(timeStr: string, timezone: string): string | undefined {
+  public static parseResetTime(timeStr: string, timezone: string, referenceDate?: Date): string | undefined {
     try {
       // Parse the time components from strings like "10am", "2:30pm", "10 am"
       const match = timeStr.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i);
@@ -621,14 +641,14 @@ export class ConversationParser {
       if (meridiem === 'pm' && hours < 12) hours += 12;
       if (meridiem === 'am' && hours === 12) hours = 0;
 
-      // Get the current time in the target timezone
-      const now = new Date();
+      // Use the reference date (message timestamp) or fall back to now
+      const ref = referenceDate || new Date();
       const formatter = new Intl.DateTimeFormat('en-US', {
         timeZone: timezone,
         year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit', hour12: false
       });
-      const parts = formatter.formatToParts(now);
+      const parts = formatter.formatToParts(ref);
       const get = (type: string) => parts.find(p => p.type === type)?.value || '0';
 
       const currentYear = parseInt(get('year'), 10);
@@ -637,8 +657,8 @@ export class ConversationParser {
       const currentHour = parseInt(get('hour'), 10);
       const currentMinute = parseInt(get('minute'), 10);
 
-      // Build a date in the target timezone for today at the reset time.
-      // If that time has passed already, advance to tomorrow.
+      // Build a date in the target timezone for the reference day at the reset time.
+      // If that time has passed relative to the reference, advance to the next day.
       let resetDay = currentDay;
       if (hours < currentHour || (hours === currentHour && minutes <= currentMinute)) {
         resetDay += 1;
@@ -666,8 +686,8 @@ export class ConversationParser {
       const offsetMs = (gotMinutes - wantedMinutes) * 60 * 1000;
       const corrected = new Date(tzDate.getTime() - offsetMs);
 
-      // If the corrected time is in the past, add 24 hours
-      if (corrected.getTime() <= now.getTime()) {
+      // If the corrected time is still before the reference, add 24 hours
+      if (corrected.getTime() <= ref.getTime()) {
         corrected.setTime(corrected.getTime() + 24 * 60 * 60 * 1000);
       }
 

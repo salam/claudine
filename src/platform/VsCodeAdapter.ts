@@ -50,6 +50,10 @@ export class VsCodeAdapter implements IPlatformAdapter {
     return vscode.workspace.getConfiguration('claudine').get<T>(key, defaultValue);
   }
 
+  async setConfig<T>(key: string, value: T): Promise<void> {
+    await vscode.workspace.getConfiguration('claudine').update(key, value, vscode.ConfigurationTarget.Global);
+  }
+
   // ── File system ──────────────────────────────────────────────────
 
   async ensureDirectory(dirPath: string): Promise<void> {

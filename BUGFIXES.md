@@ -60,3 +60,36 @@
 - **Symptom:** Conversations where the assistant says things like "I should implement this using CSS variables" are detected as "needs input" because "should implement" contains the substring "should i".
 - **Root cause:** The question-detection regex `/should i/i` lacked word boundaries, matching partial words. Additionally, the regex was checked against ANY last assistant message — even one from earlier in the conversation that the user already responded to.
 - [✔️] Fixed — added word boundaries to regex patterns; question pattern only triggers needs-input when it's the very last message (user hasn't responded yet)
+
+## BUG7 — Stale "You've hit your limit" banner from old conversations
+- **Reported:** 2026-02-11
+- **Symptom:** The rate-limit banner ("You've hit your limit · resets 10am (Europe/Zurich)") stays visible even when the stated reset time has long passed (e.g. from a conversation that hit the limit yesterday).
+- **Root cause:** `parseResetTime()` always uses `new Date()` (now) as its reference date and adds 24 hours when the time-of-day has already passed, so the computed `rateLimitResetTime` is always in the future — even for rate limits from days ago. `hasRecentRateLimit()` only checks whether a rate-limit text pattern exists after the last user message, never whether the limit has actually expired.
+- [✔️] Fixed — `parseResetTime()` now accepts an optional `referenceDate` (the message timestamp) instead of always using `now`; `hasRecentRateLimit()` checks whether the computed reset time is still in the future before flagging a conversation as rate-limited
+
+## BUG8 — AI summarization toggle button doesn't work
+- **Reported:** 2026-02-11
+- **Symptom:** The AI-based summary of task titles and descriptions is always on. The related toolbar button doesn't toggle it off — the summarized text keeps showing regardless of the button state.
+- **Root cause:** Two issues:
+  1. **Standalone mode**: `StandaloneMessageHandler.toggleSummarization` reads the current config value but never writes the toggled value back. The `IPlatformAdapter` interface lacks a `setConfig` method entirely, so the standalone handler was left as a documented no-op. The in-memory config and the on-disk `config.json` are never updated.
+  2. **Standalone `updateSetting` handler**: The `updateSetting` case only handles `imageGenerationApiKey` (a secret); all other config keys are silently ignored with a comment "user edits the file directly."
+- [✔️] Fixed — added `setConfig` to `IPlatformAdapter` + both adapters; standalone handler now toggles and persists; `updateSetting` handler also writes allowed config keys
+
+## BUG9 — Standalone mode: live monitoring not working (no real-time updates)
+- **Reported:** 2026-02-11
+- **Symptom:** After the initial project scan completes, changes to JSONL files (new Claude Code activity) are not pushed to the browser. The board only shows a static snapshot from startup; users must manually refresh to see updates.
+- **Root cause:** `StandaloneAdapter.watchFiles()` passes a glob pattern (e.g. `~/.claude/projects/**/*.jsonl`) directly to `chokidar.watch()`. Chokidar v4 does not fire `change` events when the watched path is a glob — only when watching a concrete directory. The watcher initializes and reports "ready" but silently drops all subsequent file modification events.
+- [✔️] Fixed — watch base directory instead of glob pattern; filter events by file extension in callbacks
+
+## BUG10 — Done/Cancelled/Archived tasks bounce back to active columns on trailing JSONL output
+
+- **Reported:** 2026-02-11
+- **Symptom:** A task manually moved to Done, Cancelled, or Archived jumps back to Needs Input, In Progress, or In Review when the JSONL file receives trailing content (e.g. final tool results, closing assistant messages) even though the user did not resume the conversation.
+- **Root cause:** `mergeWithExisting()` only preserves the terminal status when `hasNewContent` is false. When new bytes are appended to the JSONL (even non-user content like trailing tool output), the guard is bypassed and the parser's auto-detected status overwrites the manual override.
+- [✔️] Fixed — `mergeWithExisting()` now preserves terminal status even when new content arrives, unless the agent is actively running (conversation genuinely resumed)
+
+## BUG6 — Newsletter SQLite file not created in some PHP hosts
+- **Reported:** 2026-02-09
+- **Symptom:** Submitting the website newsletter form succeeds/fails inconsistently, but `newsletter-subscribers.sqlite` is not created on disk.
+- **Root cause:** Storage path resolution only targeted `dirname(__DIR__) . '/data'`, which can be blocked by hosting layout/open_basedir restrictions or unwritable parent directories. The script also relied on implicit SQLite file creation only.
+- [✔️] Fixed — endpoint now resolves the first writable storage directory (custom env dir/file, project data dir, public data dir, or system temp dir) and explicitly creates/verifies the SQLite file before writing

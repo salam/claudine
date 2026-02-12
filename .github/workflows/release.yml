@@ -47,7 +47,7 @@ jobs:
       - name: Package VSIX
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
-        run: npx @vscode/vsce package --no-dependencies "$RELEASE_VERSION"
+        run: ./tools/package-vsix.sh "$RELEASE_VERSION"
 
       - name: Publish to VS Code Marketplace
         env:

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/salam/claudine/main/resources/icons/claudine.png" width="128" height="128" alt="Claudine logo">
+  <img src="https://claudine.pro/logo.png" width="128" height="128" alt="Claudine logo">
 </p>
 
 <h1 align="center">Claudine</h1>
@@ -25,7 +25,7 @@
 
 Claudine is a Visual Studio Code extension that gives you a kanban-style overview of all your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) conversations. It auto-detects status and category from your session files and renders an interactive board directly in VS Code.
 
-![Claudine kanban board screenshot](https://raw.githubusercontent.com/salam/claudine/main/resources/screenshot.png)
+![Claudine kanban board screenshot](https://claudine.pro/_astro/screenshot.B1SLdmVt.png)
 
 ## Installation
 
@@ -105,10 +105,6 @@ Keybindings shown are macOS defaults. On Windows/Linux, replace `Cmd` with `Ctrl
 ## Contributing
 
 Contributions are welcome! See the [GitHub repository](https://github.com/salam/claudine) for details.
-
-## License
-
-[MIT](https://github.com/salam/claudine/blob/main/LICENSE)
 
 ## Credits
 

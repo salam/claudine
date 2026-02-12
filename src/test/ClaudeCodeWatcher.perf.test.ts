@@ -32,6 +32,7 @@ function createMockPlatform(): IPlatformAdapter {
     },
     watchFiles: () => ({ dispose: () => {} }),
     getConfig: (_k: string, d: unknown) => d as never,
+    setConfig: async () => {},
     ensureDirectory: async () => {},
     writeFile: async () => {},
     readFile: async () => new Uint8Array(),

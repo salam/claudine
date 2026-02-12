@@ -105,24 +105,35 @@ export class StandaloneMessageHandler {
       }
 
       case 'toggleSummarization': {
-        // In standalone mode, toggle the config value in the JSON file
         const current = this._platform.getConfig<boolean>('enableSummarization', false);
-        // Note: StandaloneAdapter doesn't persist config changes yet — this is a no-op for now
-        // The setting is read-only from ~/.claudine/config.json
-        this.sendSettings();
-        if (!current) {
-          this.progressiveRefresh();
-        }
+        this._platform.setConfig('enableSummarization', !current).then(() => {
+          this.sendSettings();
+          if (!current) {
+            this.progressiveRefresh();
+          }
+        });
         break;
       }
 
       case 'updateSetting': {
+        const ALLOWED_SETTING_KEYS = [
+          'imageGenerationApi',
+          'enableSummarization',
+          'autoRestartAfterRateLimit',
+          'showTaskIcon',
+          'showTaskDescription',
+          'showTaskLatest',
+          'showTaskGitBranch'
+        ];
         if (message.key === 'imageGenerationApiKey') {
           this._platform.setSecret('imageGenerationApiKey', String(message.value ?? '')).then(() => {
             this.sendSettings();
           });
+        } else if (ALLOWED_SETTING_KEYS.includes(message.key)) {
+          this._platform.setConfig(message.key, message.value).then(() => {
+            this.sendSettings();
+          });
         }
-        // Other settings are read from config.json — user edits the file directly
         break;
       }
 

@@ -18,6 +18,32 @@ let storageService: StorageService;
 let imageGenerator: ImageGenerator;
 let commandProcessor: CommandProcessor;
 
+export type AgentIntegrationState = 'missing' | 'unreferenced' | 'ok';
+
+/**
+ * Pure check: determines the agent integration status for a workspace root.
+ * Returns 'missing' when CLAUDINE.AGENTS.md does not exist,
+ * 'unreferenced' when it exists but neither AGENTS.md nor CLAUDE.md mention it,
+ * or 'ok' when everything is wired up.
+ */
+export function getAgentIntegrationState(wsRoot: string): AgentIntegrationState {
+  const agentsFilePath = path.join(wsRoot, 'CLAUDINE.AGENTS.md');
+  if (!fs.existsSync(agentsFilePath)) {
+    return 'missing';
+  }
+  const filesToCheck = ['AGENTS.md', 'CLAUDE.md'];
+  for (const name of filesToCheck) {
+    const filePath = path.join(wsRoot, name);
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      if (content.includes('CLAUDINE.AGENTS.md')) {
+        return 'ok';
+      }
+    }
+  }
+  return 'unreferenced';
+}
+
 export async function activate(context: vscode.ExtensionContext) {
   console.log('Claudine extension is now active');
 
@@ -440,23 +466,67 @@ export async function activate(context: vscode.ExtensionContext) {
     });
   }
 
-  // Prompt to set up agent integration if board has tasks but no CLAUDINE.AGENTS.md
-  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (workspaceRoot && stateManager.getConversations().length > 0) {
-    const agentsFile = path.join(workspaceRoot, 'CLAUDINE.AGENTS.md');
-    if (!fs.existsSync(agentsFile)) {
-      const scaffold = vscode.l10n.t('Create CLAUDINE.AGENTS.md');
-      const later = vscode.l10n.t('Maybe later');
-      vscode.window.showInformationMessage(
-        vscode.l10n.t('Enable Claude Code agents to control the Claudine board? This creates a CLAUDINE.AGENTS.md file you can reference from CLAUDE.md.'),
-        scaffold, later
-      ).then(selection => {
-        if (selection === scaffold) {
-          vscode.commands.executeCommand('claudine.setupAgentIntegration');
-        }
-      });
+  // --- Status bar button: agent integration setup / reference reminder ---
+  const agentStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 50);
+  context.subscriptions.push(agentStatusBar);
+
+  // Command for the "not referenced" reminder — opens the file and shows a popup
+  context.subscriptions.push(
+    vscode.commands.registerCommand('claudine.remindAgentReference', async () => {
+      const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!wsRoot) return;
+      const targetPath = path.join(wsRoot, 'CLAUDINE.AGENTS.md');
+      if (fs.existsSync(targetPath)) {
+        const doc = await vscode.workspace.openTextDocument(targetPath);
+        await vscode.window.showTextDocument(doc);
+      }
+      vscode.window.showWarningMessage(
+        vscode.l10n.t('CLAUDINE.AGENTS.md is not referenced in AGENTS.md or CLAUDE.md. Add a reference so Claude Code agents can discover it.')
+      );
+    })
+  );
+
+  /** Check workspace files and update the status bar item accordingly. */
+  function refreshAgentStatusBar() {
+    const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!wsRoot) {
+      agentStatusBar.hide();
+      return;
     }
+
+    const state = getAgentIntegrationState(wsRoot);
+
+    if (state === 'missing') {
+      agentStatusBar.text = '$(plug) Claudine Agents';
+      agentStatusBar.tooltip = vscode.l10n.t('Set up CLAUDINE.AGENTS.md so Claude Code agents can control the board');
+      agentStatusBar.command = 'claudine.setupAgentIntegration';
+      agentStatusBar.show();
+      return;
+    }
+
+    if (state === 'unreferenced') {
+      agentStatusBar.text = '$(warning) Claudine Agents';
+      agentStatusBar.tooltip = vscode.l10n.t('CLAUDINE.AGENTS.md is not referenced in AGENTS.md or CLAUDE.md — click to fix');
+      agentStatusBar.command = 'claudine.remindAgentReference';
+      agentStatusBar.show();
+      return;
+    }
+
+    // 'ok' — nothing to nudge about
+    agentStatusBar.hide();
   }
+
+  // Initial evaluation
+  refreshAgentStatusBar();
+
+  // Re-evaluate whenever relevant markdown files change
+  const agentFileWatcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(vscode.workspace.workspaceFolders?.[0] ?? '', '{CLAUDINE.AGENTS.md,AGENTS.md,CLAUDE.md}')
+  );
+  agentFileWatcher.onDidCreate(() => refreshAgentStatusBar());
+  agentFileWatcher.onDidChange(() => refreshAgentStatusBar());
+  agentFileWatcher.onDidDelete(() => refreshAgentStatusBar());
+  context.subscriptions.push(agentFileWatcher);
 
   // Notify when conversations need user input
   context.subscriptions.push(

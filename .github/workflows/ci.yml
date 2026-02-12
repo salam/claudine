@@ -44,7 +44,7 @@ jobs:
         run: npm run build:webview
 
       - name: Package VSIX
-        run: npx @vscode/vsce package --no-dependencies
+        run: ./tools/package-vsix.sh
         if: matrix.node-version == 22
 
       - name: Upload VSIX artifact

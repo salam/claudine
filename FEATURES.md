@@ -46,3 +46,30 @@
 - [x] Update `package.json` version automatically before packaging
 - [x] Package the VSIX with the resolved release version (`claudine-x.y.z.vsix`)
 - [x] Add unit tests for changelog version extraction and latest-vsix selection
+
+## Website Newsletter + Footer Attribution
+
+- [x] Add a "Stay in the Loop" section with descriptive copy
+- [x] Add email input with `your@email.com` placeholder and subscribe button
+- [x] Add footer attribution linking Matthias Sala and community
+
+## Website Newsletter Backend (PHP)
+
+- [x] Add a server-side PHP endpoint to accept newsletter form submissions
+- [x] Validate the submitted email address and reject invalid input
+- [x] Persist successful submissions to a server-side SQLite database file
+
+## Agent Integration Status Bar Button
+
+- [x] Show a status bar button (right-aligned) when `CLAUDINE.AGENTS.md` is missing — clicking runs the setup scaffold command
+- [x] Show a warning status bar button when `CLAUDINE.AGENTS.md` exists but is not referenced in `AGENTS.md` or `CLAUDE.md` — clicking opens the file and shows a reminder popup
+- [x] Hide the button when everything is wired up correctly
+- [x] File watcher reacts to create/change/delete of `CLAUDINE.AGENTS.md`, `AGENTS.md`, and `CLAUDE.md`
+- [x] Extracted pure `getAgentIntegrationState()` helper with unit tests
+
+## Multiline Quick Idea Input
+
+- [x] Replace single-line `<input>` with a `<textarea>` in the To Do column's "Quick idea" field
+- [x] Auto-grow the textarea height as the user types (up to a max height)
+- [x] Reset height back to single-line after submitting
+- [x] Keep Enter to submit, Shift+Enter for new lines

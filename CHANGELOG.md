@@ -5,6 +5,35 @@ All notable changes to the Claudine extension will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Updated `README.md` with current feature list, screenshots, and setup instructions
+- VSIX packaging switched to whitelist `.vscodeignore` — only `out/`, `resources/`, `l10n/`, `webview/dist/`, and essential metadata are included (8019 → 75 files)
+- Build script (`tools/build-vsix.sh`) now auto-bumps the version when `CHANGELOG.md` contains an `[Unreleased]` section, and only upgrades — never downgrades — `package.json`
+
+## [1.1.1] - 2026-02-12
+
+### Added
+
+- Agent integration status bar button — shows in VS Code when `CLAUDINE.AGENTS.md` is missing or not referenced; auto-hides once configured
+- Multiline quick idea input — the "Quick idea" field auto-grows as you type; Enter to submit, Shift+Enter for new lines
+- Newsletter subscription backend (`subscribe.php`) with email validation, honeypot spam guard, and SQLite persistence
+- Website "Stay in the Loop" newsletter section with email signup form
+
+### Changed
+
+- Redesigned About window with gradient branding, grid background, and clickable links (website, GitHub, Marketplace, Sponsor)
+- Cleaner task cards — removed redundant "Respond" button; prompt input appears only on hover/focus
+- Standalone settings persistence — UI changes (summarization, display options, image API) now save to `~/.claudine/config.json`
+
+### Fixed
+
+- Live file monitoring in standalone mode — board now updates in real-time (fixed chokidar v4 glob-pattern watcher regression)
+- AI summarization toggle in standalone mode no longer a no-op; config changes are properly persisted
+- Stale rate-limit banner no longer appears when the limit has already expired from a prior conversation
+
 ## [1.1.0] - 2026-02-09
 
 ### Added
@@ -20,12 +49,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Marketplace helper scripts:
   - `tools/build-vsix.sh` now reads the latest version from `CHANGELOG.md`, updates `package.json`, and packages a versioned VSIX
   - `tools/deploy-to-vscmarketplace.sh` publishes the latest `claudine-x.y.z.vsix` to the VS Code Marketplace
+- Project website built with Astro + Tailwind CSS (dark theme, responsive)
+- Quick Start guide (`QUICK_START.md`)
+- Auto-exclude macOS temp directories from standalone project scanning
+- Full title bar parity — all 13 toolbar buttons available in both sidebar and title bar
 
 ### Changed
 
 - View placement is now fully managed by VS Code (removed the custom panel/sidebar placement setting and toggle command)
 - Board orientation (horizontal vs vertical) now follows live view geometry so rendering matches the current dock placement
 - Default toolbar behavior updated so controls can appear in both the webview sidebar and the VS Code title bar
+- Consistent codicon SVG icons across sidebar and title bar
 
 ### Fixed
 
@@ -33,6 +67,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Moving the Claudine view between docks no longer leaves the board in the wrong column orientation
 - Placement changes no longer race and snap back after drag-and-drop view moves
 - Reduced false "needs input" detection while the agent is actively working; tightened question detection edge cases
+- Sidebar toolbar icons rendering as broken rectangles in webview iframe (replaced CSS font icons with inline SVGs)
 
 ## [1.0.6] - 2026-02-08
 

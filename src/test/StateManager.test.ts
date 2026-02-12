@@ -22,6 +22,7 @@ function createMockPlatform(): IPlatformAdapter {
     },
     watchFiles: () => ({ dispose: () => {} }),
     getConfig: (_k: string, d: unknown) => d as never,
+    setConfig: async () => {},
     ensureDirectory: async () => {},
     writeFile: async () => {},
     readFile: async () => new Uint8Array(),
@@ -310,6 +311,79 @@ describe('StateManager', () => {
       });
       stateManager.setConversations([finished]);
       expect(stateManager.getConversation('conv-1')!.status).toBe('done');
+    });
+
+    // BUG10: Done/Cancelled/Archived tasks must not bounce back on trailing JSONL output
+    it('preserves done status when new content arrives but agent is inactive', () => {
+      const now = Date.now();
+      const t0 = new Date(now - 30 * 60 * 1000);
+      const t1 = new Date(now - 20 * 60 * 1000);
+
+      stateManager.setConversations([makeConversation({ status: 'in-progress', updatedAt: t0 })]);
+      stateManager.moveConversation('conv-1', 'done');
+
+      // Trailing JSONL output (later timestamp) but agent NOT active
+      const trailing = makeConversation({
+        status: 'in-review',
+        updatedAt: t1,
+        agents: [{ id: 'claude-main', name: 'Claude', avatar: '', isActive: false }],
+      });
+      stateManager.setConversations([trailing]);
+      expect(stateManager.getConversation('conv-1')!.status).toBe('done');
+    });
+
+    // BUG10
+    it('preserves cancelled status when new content arrives but agent is inactive', () => {
+      const now = Date.now();
+      const t0 = new Date(now - 30 * 60 * 1000);
+      const t1 = new Date(now - 20 * 60 * 1000);
+
+      stateManager.setConversations([makeConversation({ status: 'in-progress', updatedAt: t0 })]);
+      stateManager.moveConversation('conv-1', 'cancelled');
+
+      const trailing = makeConversation({
+        status: 'in-progress',
+        updatedAt: t1,
+        agents: [{ id: 'claude-main', name: 'Claude', avatar: '', isActive: false }],
+      });
+      stateManager.setConversations([trailing]);
+      expect(stateManager.getConversation('conv-1')!.status).toBe('cancelled');
+    });
+
+    // BUG10
+    it('preserves archived status when new content arrives but agent is inactive', () => {
+      stateManager.setConversations([makeConversation({
+        status: 'archived',
+        updatedAt: new Date('2025-01-01T10:00:00Z'),
+      })]);
+
+      const trailing = makeConversation({
+        status: 'needs-input',
+        updatedAt: new Date('2025-01-01T11:00:00Z'),
+        agents: [{ id: 'claude-main', name: 'Claude', avatar: '', isActive: false }],
+      });
+      stateManager.setConversations([trailing]);
+      expect(stateManager.getConversation('conv-1')!.status).toBe('archived');
+    });
+
+    // BUG10: Verify that genuinely resumed conversations DO move back
+    it('moves done task back to in-progress when conversation is genuinely resumed', () => {
+      const t0 = new Date(Date.now() - 30 * 60 * 1000);
+
+      stateManager.setConversations([makeConversation({ status: 'in-progress', updatedAt: t0 })]);
+      stateManager.moveConversation('conv-1', 'done');
+
+      // Advance time so the resumed conversation's timestamp is genuinely newer
+      vi.advanceTimersByTime(5 * 60 * 1000);
+
+      // User resumes conversation: agent is actively running
+      const resumed = makeConversation({
+        status: 'in-progress',
+        updatedAt: new Date(),
+        agents: [{ id: 'claude-main', name: 'Claude', avatar: '', isActive: true }],
+      });
+      stateManager.setConversations([resumed]);
+      expect(stateManager.getConversation('conv-1')!.status).toBe('in-progress');
     });
 
     it('removes conversations that no longer have JSONL files', () => {

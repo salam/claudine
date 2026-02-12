@@ -10,4 +10,4 @@ npm run compile:check
 npm test
 npm run compile
 npm run build:webview
-npx @vscode/vsce package --no-dependencies
+# tools/package-vsix.sh

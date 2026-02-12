@@ -171,6 +171,17 @@ export class StateManager {
         conv.updatedAt = existing.updatedAt;
         return;
       }
+
+      // BUG10: New content arrived but the conversation is not actively running.
+      // Trailing agent output (e.g. final tool results, closing messages) must not
+      // bump a manually-closed task back into an active column. Only allow
+      // re-activation when the conversation is genuinely resumed (isActive means
+      // recent messages within RECENTLY_ACTIVE_WINDOW_MS).
+      if (!conv.agents.some(a => a.isActive)) {
+        conv.status = existing.status;
+        conv.previousStatus = existing.previousStatus;
+        return;
+      }
     }
 
     const wasActive = existing.agents.some(a => a.isActive);

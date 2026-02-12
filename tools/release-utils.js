@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CHANGELOG_VERSION_REGEX = /^## \[(\d+)\.(\d+)\.(\d+)\]/m;
+const UNRELEASED_REGEX = /^## \[Unreleased\]/im;
 const VSIX_NAME_REGEX = /^claudine-(\d+)\.(\d+)\.(\d+)\.vsix$/;
 
 function compareSemverParts(a, b) {
@@ -16,10 +17,22 @@ function compareSemverParts(a, b) {
 }
 
 function extractLatestChangelogVersion(changelogContent) {
+  const hasUnreleased = UNRELEASED_REGEX.test(changelogContent);
   const match = CHANGELOG_VERSION_REGEX.exec(changelogContent);
-  if (!match) {
-    throw new Error('Could not find a changelog version heading like "## [1.2.3]"');
+
+  if (!match && !hasUnreleased) {
+    throw new Error('Could not find a changelog version heading like "## [1.2.3]" or "## [Unreleased]"');
   }
+
+  if (hasUnreleased) {
+    if (!match) {
+      // Only an Unreleased section, no prior version — start at 0.0.1
+      return '0.0.1';
+    }
+    // Bump patch of the highest existing versioned entry
+    return `${match[1]}.${match[2]}.${Number(match[3]) + 1}`;
+  }
+
   return `${match[1]}.${match[2]}.${match[3]}`;
 }
 

@@ -8,3 +8,6 @@ webview/dist/
 .claudine/
 .env*
 .vscode/settings.json
+
+.GIT_NEXT_COMMIT_MESSAGE.md
+

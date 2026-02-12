@@ -303,6 +303,13 @@ describe('ConversationParser', () => {
       expect(result!.rateLimitResetDisplay).toBeUndefined();
       expect(result!.rateLimitResetTime).toBeUndefined();
     });
+
+    // BUG7: stale rate limit from old conversation should be expired
+    it('does not flag stale rate limits from old conversations', async () => {
+      const result = await parseContent(fixtures.rateLimitStaleConversation);
+      expect(result).not.toBeNull();
+      expect(result!.isRateLimited).toBe(false);
+    });
   });
 
   describe('parseResetTime', () => {
@@ -329,6 +336,29 @@ describe('ConversationParser', () => {
     it('returns undefined for invalid timezone', () => {
       const result = ConversationParser.parseResetTime('10am', 'Not/A/Timezone');
       expect(result).toBeUndefined();
+    });
+
+    // BUG7: parseResetTime with referenceDate anchors to message time, not now
+    it('anchors reset time to referenceDate when provided', () => {
+      // Reference: Jan 15 2025 at 8am UTC — "resets 10am" in UTC should give Jan 15 10am UTC
+      const ref = new Date('2025-01-15T08:00:00Z');
+      const result = ConversationParser.parseResetTime('10am', 'UTC', ref);
+      expect(result).toBeDefined();
+      const d = new Date(result!);
+      expect(d.getUTCFullYear()).toBe(2025);
+      expect(d.getUTCMonth()).toBe(0); // January
+      expect(d.getUTCDate()).toBe(15);
+      expect(d.getUTCHours()).toBe(10);
+    });
+
+    it('advances to next day when referenceDate is past the stated time', () => {
+      // Reference: Jan 15 2025 at 11am UTC — "resets 10am" in UTC should give Jan 16 10am UTC
+      const ref = new Date('2025-01-15T11:00:00Z');
+      const result = ConversationParser.parseResetTime('10am', 'UTC', ref);
+      expect(result).toBeDefined();
+      const d = new Date(result!);
+      expect(d.getUTCDate()).toBe(16);
+      expect(d.getUTCHours()).toBe(10);
     });
   });
 

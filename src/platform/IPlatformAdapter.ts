@@ -64,6 +64,12 @@ export interface IPlatformAdapter {
    */
   getConfig<T>(key: string, defaultValue: T): T;
 
+  /**
+   * Write a Claudine configuration value.
+   * Replaces `vscode.workspace.getConfiguration('claudine').update(key, value, Global)`.
+   */
+  setConfig<T>(key: string, value: T): Promise<void>;
+
   // ── File system ──────────────────────────────────────────────────
 
   /** Ensure a directory exists (create recursively if needed). */

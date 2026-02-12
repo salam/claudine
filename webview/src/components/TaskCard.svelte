@@ -18,6 +18,9 @@
 
   $: categoryDetails = getCategoryDetails(conversation.category);
   $: needsInteraction = conversation.status === 'needs-input' && !conversation.isInterrupted;
+  $: hasMetaContent = ($settings.showTaskGitBranch && conversation.gitBranch)
+    || conversation.sidechainSteps?.length
+    || conversation.agents.some(a => a.isActive);
 
   // When summarization is ON, show summarized text (tooltip = original).
   // When OFF, show original text (tooltip = summary).
@@ -325,6 +328,12 @@
       <div class="focused-indicator" class:has-badge={conversation.hasError || conversation.isInterrupted || conversation.hasQuestion} title="Currently viewing this conversation">👀</div>
     {/if}
 
+    {#if isFirst}
+      <div class="first-badge-banner">
+        <span class="first-badge" title="This is were it all started for this project">Genesis</span>
+      </div>
+    {/if}
+
     <!-- Header (click title to open conversation) -->
     <div class="card-header">
       <div class="drag-handle" title="Drag to move">
@@ -359,9 +368,6 @@
           </div>
         {/if}
       </div>
-      {#if isFirst}
-        <span class="first-badge" title="This is were it all started for this project">Genesis</span>
-      {/if}
       {#if showTimer}
         <span class="activity-timer" class:paused={!isActive}>{timerDisplay}</span>
       {/if}
@@ -400,6 +406,7 @@
     {/if}
 
     <!-- Git branch + Agents on same line (#10) -->
+    {#if hasMetaContent}
     <div class="meta-row">
       {#if $settings.showTaskGitBranch && conversation.gitBranch}
         <button class="git-branch" on:click={handleGitBranchClick} title="Open in source control">
@@ -424,18 +431,11 @@
         </div>
       {/if}
     </div>
-
-    <!-- Respond button for needs-input -->
-    {#if needsInteraction}
-      <button class="action-btn" on:click={handleOpenConversation}>
-        <svg viewBox="0 0 16 16" fill="currentColor">
-          <path d="M1.5 8a6.5 6.5 0 1 1 13 0 6.5 6.5 0 0 1-13 0zM8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zm.5 4.75a.75.75 0 0 0-1.5 0v3.5a.75.75 0 0 0 .471.696l2 .75a.75.75 0 1 0 .558-1.392L8.5 7.648V4.75z"/>
-        </svg>
-        Respond
-      </button>
     {/if}
 
-    <PromptInput on:submit={handleSendPrompt} />
+    <div class="prompt-wrap">
+      <PromptInput on:submit={handleSendPrompt} />
+    </div>
   </div>
 {/if}
 
@@ -621,14 +621,10 @@
   .branch-name { font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace; font-size: 9px; }
   .agents-row { display: flex; margin-left: auto; }
 
-  .action-btn {
-    display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
-    padding: 6px 10px; background: var(--vscode-button-background, #0e639c);
-    color: var(--vscode-button-foreground, #ffffff); border: none; border-radius: 4px;
-    font-size: 10px; font-weight: 500; cursor: pointer; transition: background-color 0.15s; margin-bottom: 6px;
-  }
-  .action-btn:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
-  .action-btn svg { width: 13px; height: 13px; }
+  /* Hide prompt input by default; reveal on hover or when user is typing */
+  .prompt-wrap { display: none; }
+  .task-card:hover > .prompt-wrap,
+  .task-card:focus-within > .prompt-wrap { display: block; }
 
   .icon-badge {
     flex-shrink: 0; width: 22px; height: 22px;
@@ -715,8 +711,11 @@
   .activity-timer-inline.paused { color: var(--vscode-disabledForeground, #6b6b6b); opacity: 0.6; }
 
   /* ---- First conversation badge ---- */
+  .first-badge-banner {
+    margin-bottom: 6px;
+  }
   .first-badge {
-    flex-shrink: 0;
+    display: inline-block;
     font-size: 8px;
     font-weight: 600;
     text-transform: uppercase;

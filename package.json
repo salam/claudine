@@ -2,7 +2,7 @@
   "name": "claudine",
   "displayName": "Claudine",
   "description": "%extension.description%",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "publisher": "claudine",
   "license": "MIT",
   "icon": "resources/icons/claudine-activitybar.png",
@@ -194,6 +194,12 @@
         "title": "%command.toggleAbout%",
         "category": "Claudine",
         "icon": "$(info)"
+      },
+      {
+        "command": "claudine.setupAgentIntegration",
+        "title": "%command.setupAgentIntegration%",
+        "category": "Claudine",
+        "icon": "$(plug)"
       }
     ],
     "viewsContainers": {

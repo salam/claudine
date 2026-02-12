@@ -117,6 +117,7 @@ export type WebviewToExtensionMessage =
   | { type: 'toggleAutoRestart' }
   | { type: 'setProjectEnabled'; projectPath: string; enabled: boolean }
   | { type: 'setAllProjectsEnabled'; enabled: boolean }
+  | { type: 'openExternal'; url: string }
   | { type: 'ready' };
 
 export type ToolbarAction = 'toggleSearch' | 'toggleFilter' | 'toggleCompactView' | 'toggleExpandAll' | 'toggleArchive' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'toggleSettingsPanel' | 'toggleAbout';

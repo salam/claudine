@@ -82,6 +82,15 @@ class VSCodeAPIWrapper {
     return !!this.vscode;
   }
 
+  /** Open a URL in the system browser (VS Code) or a new tab (standalone). */
+  public openLink(url: string): void {
+    if (this.vscode) {
+      this.postMessage({ type: 'openExternal', url });
+    } else {
+      window.open(url, '_blank', 'noopener');
+    }
+  }
+
   public get isStandalone(): boolean {
     return !this.vscode && !!window.__CLAUDINE_STANDALONE__;
   }

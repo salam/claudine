@@ -27,6 +27,7 @@
   "command.zoomReset": "Zoom zurücksetzen",
   "command.toggleSettingsPanel": "Einstellungen umschalten",
   "command.toggleAbout": "Über Claudine",
+  "command.setupAgentIntegration": "Agenten-Integration einrichten",
   "viewContainer.panel.title": "🐘 Claudine",
   "view.panel.name": "🐘 Claudine",
   "config.title": "Claudine",

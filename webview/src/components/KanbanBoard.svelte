@@ -48,12 +48,16 @@
 
   // Quick idea input
   let quickIdeaText = '';
+  let quickIdeaEl: HTMLTextAreaElement;
 
   function submitQuickIdea() {
     const text = quickIdeaText.trim();
     if (!text) return;
     addDraft(text);
     quickIdeaText = '';
+    if (quickIdeaEl) {
+      quickIdeaEl.style.height = 'auto';
+    }
   }
 
   function handleQuickIdeaKey(e: KeyboardEvent) {
@@ -61,6 +65,12 @@
       e.preventDefault();
       submitQuickIdea();
     }
+  }
+
+  function resizeQuickIdea(e: Event) {
+    const ta = e.currentTarget as HTMLTextAreaElement;
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
   }
 
   function sendDraft(draftId: string) {
@@ -239,12 +249,15 @@
       <KanbanColumn title={column.title} color={column.color} count={boardItems[column.id].filter(c => !c.isDraft).length} activeCount={boardItems[column.id].filter(c => c.agents.some(a => a.isActive)).length} narrow={narrowColumns[column.id] || false} onToggleNarrow={column.id === 'done' ? () => toggleColumnNarrow(column.id) : null}>
         {#if column.id === 'todo'}
           <div class="quick-idea">
-            <input
-              type="text"
+            <textarea
               class="quick-idea-input"
+              rows="1"
               placeholder="Quick idea..."
               bind:value={quickIdeaText}
+              bind:this={quickIdeaEl}
               on:keydown={handleQuickIdeaKey}
+              on:input={resizeQuickIdea}
+              on:focus={resizeQuickIdea}
             />
             <button class="quick-idea-send" on:click={submitQuickIdea} disabled={!quickIdeaText.trim()} title="Add idea">
               <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l.7.7L4.4 6H14v1H4.4l4.3 4.3-.7.7L2.7 6.7 2 6l6-5z" transform="rotate(90 8 8)"/></svg>
@@ -361,7 +374,7 @@
 
   /* Quick idea input */
   .quick-idea {
-    display: flex; align-items: center; gap: 4px;
+    display: flex; align-items: flex-start; gap: 4px;
     padding: 4px 6px; margin-bottom: 6px;
   }
   .quick-idea-input {
@@ -374,6 +387,10 @@
     font-size: 10px;
     font-family: inherit;
     outline: none;
+    resize: none;
+    overflow: hidden;
+    max-height: 120px;
+    line-height: 1.4;
   }
   .quick-idea-input:focus { border-color: var(--vscode-focusBorder, #007acc); }
   .quick-idea-input::placeholder { color: var(--vscode-input-placeholderForeground, #888); }

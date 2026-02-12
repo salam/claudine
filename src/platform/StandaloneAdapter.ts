@@ -81,17 +81,33 @@ export class StandaloneAdapter implements IPlatformAdapter {
       throw new Error('Call initAsync() before watchFiles() in standalone mode');
     }
 
-    const fullPattern = path.join(basePath, globPattern);
-    const watcher = this._chokidar.watch(fullPattern, {
+    // BUG9: chokidar v4 does not fire `change` events when watching glob
+    // patterns (e.g. "**/*.jsonl"). Watching the base directory directly
+    // works reliably, so we watch the directory and filter by extension.
+    const ext = globPattern.match(/\*\.(\w+)$/)?.[1];
+    const matchesGlob = ext
+      ? (filePath: string) => filePath.endsWith(`.${ext}`)
+      : () => true;
+
+    const watcher = this._chokidar.watch(basePath, {
       persistent: true,
       ignoreInitial: true,
       depth: 3,
       awaitWriteFinish: { stabilityThreshold: 200 }
     });
 
-    if (callbacks.onCreate) { watcher.on('add', callbacks.onCreate); }
-    if (callbacks.onChange) { watcher.on('change', callbacks.onChange); }
-    if (callbacks.onDelete) { watcher.on('unlink', callbacks.onDelete); }
+    if (callbacks.onCreate) {
+      const cb = callbacks.onCreate;
+      watcher.on('add', (p: string) => { if (matchesGlob(p)) cb(p); });
+    }
+    if (callbacks.onChange) {
+      const cb = callbacks.onChange;
+      watcher.on('change', (p: string) => { if (matchesGlob(p)) cb(p); });
+    }
+    if (callbacks.onDelete) {
+      const cb = callbacks.onDelete;
+      watcher.on('unlink', (p: string) => { if (matchesGlob(p)) cb(p); });
+    }
 
     return { dispose: () => { watcher.close(); } };
   }
@@ -106,6 +122,15 @@ export class StandaloneAdapter implements IPlatformAdapter {
   getConfig<T>(key: string, defaultValue: T): T {
     const value = this._config[key];
     return value !== undefined ? value as T : defaultValue;
+  }
+
+  async setConfig<T>(key: string, value: T): Promise<void> {
+    this._config[key] = value;
+    await this.ensureDirectory(CLAUDINE_HOME);
+    await fs.promises.writeFile(
+      this._configPath,
+      JSON.stringify(this._config, null, 2)
+    );
   }
 
   // ── File system ──────────────────────────────────────────────────

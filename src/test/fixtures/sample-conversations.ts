@@ -362,6 +362,13 @@ export const rateLimitResolvedConversation = [
   assistantMessage("I've built the API. All done!", 28),
 ].join('\n');
 
+/** BUG7 — Stale rate limit from an old conversation (>24h ago) — should NOT be flagged. */
+export const rateLimitStaleConversation = [
+  userMessage('Implement the search feature', 1500),  // ~25 hours ago
+  assistantMessage('Working on the search feature...', 1498, [{ name: 'Bash' }]),
+  assistantMessage("You've hit your limit \u00b7 resets 10am (Europe/Zurich)", 1497),
+].join('\n');
+
 // ── BUG5 — False "needs input" while agent is working ────────────────
 
 /** BUG5 — Recently active conversation where Claude dispatched a tool (e.g. Read)

@@ -5437,21 +5437,31 @@ var StandaloneAdapter = class {
     if (!this._chokidar) {
       throw new Error("Call initAsync() before watchFiles() in standalone mode");
     }
-    const fullPattern = path.join(basePath, globPattern);
-    const watcher = this._chokidar.watch(fullPattern, {
+    const ext = globPattern.match(/\*\.(\w+)$/)?.[1];
+    const matchesGlob = ext ? (filePath) => filePath.endsWith(`.${ext}`) : () => true;
+    const watcher = this._chokidar.watch(basePath, {
       persistent: true,
       ignoreInitial: true,
       depth: 3,
       awaitWriteFinish: { stabilityThreshold: 200 }
     });
     if (callbacks.onCreate) {
-      watcher.on("add", callbacks.onCreate);
+      const cb = callbacks.onCreate;
+      watcher.on("add", (p) => {
+        if (matchesGlob(p)) cb(p);
+      });
     }
     if (callbacks.onChange) {
-      watcher.on("change", callbacks.onChange);
+      const cb = callbacks.onChange;
+      watcher.on("change", (p) => {
+        if (matchesGlob(p)) cb(p);
+      });
     }
     if (callbacks.onDelete) {
-      watcher.on("unlink", callbacks.onDelete);
+      const cb = callbacks.onDelete;
+      watcher.on("unlink", (p) => {
+        if (matchesGlob(p)) cb(p);
+      });
     }
     return { dispose: () => {
       watcher.close();
@@ -5465,6 +5475,14 @@ var StandaloneAdapter = class {
   getConfig(key, defaultValue) {
     const value = this._config[key];
     return value !== void 0 ? value : defaultValue;
+  }
+  async setConfig(key, value) {
+    this._config[key] = value;
+    await this.ensureDirectory(CLAUDINE_HOME);
+    await fs.promises.writeFile(
+      this._configPath,
+      JSON.stringify(this._config, null, 2)
+    );
   }
   // ── File system ──────────────────────────────────────────────────
   async ensureDirectory(dirPath) {
@@ -6491,6 +6509,7 @@ var ConversationParser = class _ConversationParser {
     let isRateLimited = false;
     let rateLimitResetDisplay;
     let rateLimitResetTime;
+    const messageDate = entry.timestamp ? new Date(entry.timestamp) : void 0;
     for (const block of contentBlocks) {
       if (block.type === "text" && block.text) {
         textParts.push(block.text);
@@ -6500,7 +6519,7 @@ var ConversationParser = class _ConversationParser {
           const timeStr = rlMatch[1];
           const tz = rlMatch[2];
           rateLimitResetDisplay = `${timeStr} (${tz})`;
-          rateLimitResetTime = _ConversationParser.parseResetTime(timeStr, tz);
+          rateLimitResetTime = _ConversationParser.parseResetTime(timeStr, tz, messageDate);
         }
       } else if (block.type === "tool_use" && block.name) {
         toolUses.push({
@@ -6524,7 +6543,7 @@ var ConversationParser = class _ConversationParser {
           const timeStr = rlMatch[1];
           const tz = rlMatch[2];
           rateLimitResetDisplay = `${timeStr} (${tz})`;
-          rateLimitResetTime = _ConversationParser.parseResetTime(timeStr, tz);
+          rateLimitResetTime = _ConversationParser.parseResetTime(timeStr, tz, messageDate);
         }
       }
     }
@@ -6746,7 +6765,7 @@ var ConversationParser = class _ConversationParser {
     if (lastAssistant.hasQuestion) return true;
     return false;
   }
-  /** Check if any recent message carries a rate limit notice. */
+  /** Check if any recent message carries a rate limit notice that hasn't expired yet. */
   hasRecentRateLimit(messages) {
     let lastUserIdx = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -6756,7 +6775,17 @@ var ConversationParser = class _ConversationParser {
       }
     }
     if (lastUserIdx === -1) return false;
-    return messages.slice(lastUserIdx).some((m) => m.isRateLimited);
+    const now = Date.now();
+    return messages.slice(lastUserIdx).some((m) => {
+      if (!m.isRateLimited) return false;
+      if (m.rateLimitResetTime) {
+        return new Date(m.rateLimitResetTime).getTime() > now;
+      }
+      if (m.timestamp) {
+        return now - new Date(m.timestamp).getTime() < 6 * 60 * 60 * 1e3;
+      }
+      return true;
+    });
   }
   /** Extract rate limit reset info from the most recent rate-limited message. */
   extractRateLimitInfo(messages) {
@@ -6769,9 +6798,13 @@ var ConversationParser = class _ConversationParser {
   }
   /**
    * Parse a human-readable reset time (e.g. "10am", "2:30pm") in a given timezone
-   * into the next occurrence as an ISO 8601 string.
+   * into the next occurrence after `referenceDate` as an ISO 8601 string.
+   *
+   * When `referenceDate` is provided (e.g. the message timestamp), the result is
+   * anchored to that moment — so a stale rate-limit message from yesterday produces
+   * a past date that callers can compare against `now` to detect expiry.
    */
-  static parseResetTime(timeStr, timezone) {
+  static parseResetTime(timeStr, timezone, referenceDate) {
     try {
       const match = timeStr.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i);
       if (!match) return void 0;
@@ -6780,7 +6813,7 @@ var ConversationParser = class _ConversationParser {
       const meridiem = match[3].toLowerCase();
       if (meridiem === "pm" && hours < 12) hours += 12;
       if (meridiem === "am" && hours === 12) hours = 0;
-      const now = /* @__PURE__ */ new Date();
+      const ref = referenceDate || /* @__PURE__ */ new Date();
       const formatter = new Intl.DateTimeFormat("en-US", {
         timeZone: timezone,
         year: "numeric",
@@ -6790,7 +6823,7 @@ var ConversationParser = class _ConversationParser {
         minute: "2-digit",
         hour12: false
       });
-      const parts = formatter.formatToParts(now);
+      const parts = formatter.formatToParts(ref);
       const get = (type) => parts.find((p) => p.type === type)?.value || "0";
       const currentYear = parseInt(get("year"), 10);
       const currentMonth = parseInt(get("month"), 10);
@@ -6821,7 +6854,7 @@ var ConversationParser = class _ConversationParser {
       const gotMinutes = localHour * 60 + localMinute;
       const offsetMs = (gotMinutes - wantedMinutes) * 60 * 1e3;
       const corrected = new Date(tzDate.getTime() - offsetMs);
-      if (corrected.getTime() <= now.getTime()) {
+      if (corrected.getTime() <= ref.getTime()) {
         corrected.setTime(corrected.getTime() + 24 * 60 * 60 * 1e3);
       }
       return corrected.toISOString();
@@ -7837,15 +7870,30 @@ var StandaloneMessageHandler = class {
       }
       case "toggleSummarization": {
         const current = this._platform.getConfig("enableSummarization", false);
-        this.sendSettings();
-        if (!current) {
-          this.progressiveRefresh();
-        }
+        this._platform.setConfig("enableSummarization", !current).then(() => {
+          this.sendSettings();
+          if (!current) {
+            this.progressiveRefresh();
+          }
+        });
         break;
       }
       case "updateSetting": {
+        const ALLOWED_SETTING_KEYS = [
+          "imageGenerationApi",
+          "enableSummarization",
+          "autoRestartAfterRateLimit",
+          "showTaskIcon",
+          "showTaskDescription",
+          "showTaskLatest",
+          "showTaskGitBranch"
+        ];
         if (message.key === "imageGenerationApiKey") {
           this._platform.setSecret("imageGenerationApiKey", String(message.value ?? "")).then(() => {
+            this.sendSettings();
+          });
+        } else if (ALLOWED_SETTING_KEYS.includes(message.key)) {
+          this._platform.setConfig(message.key, message.value).then(() => {
             this.sendSettings();
           });
         }
@@ -7979,7 +8027,6 @@ var StandaloneMessageHandler = class {
       claudeCodePath: this._platform.getConfig("claudeCodePath", "~/.claude"),
       enableSummarization: this._platform.getConfig("enableSummarization", false),
       hasApiKey: !!apiKey,
-      viewLocation: "panel",
       toolbarLocation: "sidebar",
       autoRestartAfterRateLimit: this._platform.getConfig("autoRestartAfterRateLimit", false),
       showTaskIcon: this._platform.getConfig("showTaskIcon", true),

@@ -5,11 +5,19 @@ cd "$(dirname "$0")/.."
 release_version="$(node tools/release-utils.js changelog-version CHANGELOG.md)"
 current_version="$(node -p "require('./package.json').version")"
 
-if [[ "$current_version" != "$release_version" ]]; then
+if node -e "
+  var c = '$current_version'.split('.').map(Number);
+  var r = '$release_version'.split('.').map(Number);
+  for (var i = 0; i < 3; i++) {
+    if (r[i] > c[i]) process.exit(0);
+    if (r[i] < c[i]) process.exit(1);
+  }
+  process.exit(1);
+"; then
   echo "Updating package version: $current_version -> $release_version"
   npm version "$release_version" --no-git-tag-version >/dev/null
 else
-  echo "Package version already matches changelog: $release_version"
+  echo "Package version $current_version is already >= changelog version $release_version — skipping"
 fi
 
 npm ci
@@ -17,10 +25,5 @@ npm ci
 npm run compile
 npm run build:webview
 
-# Swap in the marketplace README for the VSIX package
-cp README.md README.md.bak
-cp README.marketplace.md README.md
-trap 'mv README.md.bak README.md' EXIT
-
-npx @vscode/vsce package --no-dependencies "$release_version"
+tools/package-vsix.sh "$release_version"
 echo "Built claudine-$release_version.vsix"

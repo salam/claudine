@@ -1,5 +1,44 @@
 # Release Notes
 
+## Version 1.1.1 (Feb 11 2026, 17:38)
+
+* **Agent integration status bar button** — a small right-aligned button now appears in the VSCode status bar when `CLAUDINE.AGENTS.md` is missing or not yet referenced in your `AGENTS.md` / `CLAUDE.md`; click to scaffold the file or get a reminder to add the reference
+* **Auto-updating** — the button reacts to file changes and hides itself once everything is wired up
+
+## Version 1.1.0 (Feb 11 2026, 17:20)
+
+* **Fixed live monitoring in standalone mode** — the kanban board now updates in real-time when Claude Code sessions write new activity; previously the board showed only a static snapshot from startup because chokidar v4 silently dropped file-change events for glob-pattern watchers
+* **Fixed AI summarization toggle** — the toolbar button now properly toggles summarized titles/descriptions on and off; previously the toggle was a no-op in standalone mode because config changes were never persisted
+* **Standalone settings persistence** — settings changed via the UI (summarization, display options, image API) are now saved to `~/.claudine/config.json` instead of being read-only
+
+## Version 1.1.0 (Feb 11 2026, 17:04)
+
+* **Fixed stale rate-limit banner** — the "You've hit your limit" banner no longer shows when the limit has already expired from an old conversation
+
+## Version 1.1.0 (Feb 11 2026, 16:59)
+
+* **Redesigned About window** — the About popup now features the Claudine logo with gradient branding, a subtle grid background, and the website's purple/blue color scheme
+* **Clickable links in About** — links to the website, GitHub, VS Code Marketplace, and Sponsor page now open properly in your system browser (or VS Code Simple Browser) instead of being trapped in the webview
+* **Author & community credit** — the About window now shows "Built by Matthias Sala & community" with clickable links
+
+## Version 1.1.0 (Feb 11 2026, 14:38)
+
+* **Multiline quick idea input** — the "Quick idea" field in the To Do column now auto-grows as you type, supporting multi-line text; press Enter to submit, Shift+Enter for new lines
+* **Cleaner task cards** — removed the "Respond" button from task cards that need input; clicking the title already opens the conversation
+* **Subtler prompt input** — the "Send a message..." placeholder now only appears on hover or focus, keeping the card minimal by default
+
+## Version 1.1.0 (Feb 9 2026, 11:34)
+
+* **Newsletter backend endpoint** — added `website/public/subscribe.php` to accept email subscriptions from the website form
+* **Input validation + spam guard** — subscription endpoint now validates email format and includes a hidden honeypot field
+* **Server-side persistence** — successful signups are stored in `website/data/newsletter-subscribers.sqlite` (SQLite) with deduplication by email
+* **Hosting compatibility fix** — newsletter SQLite storage now auto-selects a writable directory fallback and explicitly creates the DB file before inserts
+
+## Version 1.1.0 (Feb 9 2026, 11:20)
+
+* **Website newsletter CTA** — added a new “Stay in the Loop” section with subscription copy, email field, and subscribe button
+* **Footer attribution** — website footer now credits **Matthias Sala** and **community** with direct links
+
 ## Version 1.1.0 (Feb 9 2026, 08:32)
 
 * **New deploy script** — `tools/deploy-to-vscmarketplace.sh` now publishes the latest `claudine-x.y.z.vsix` to the VS Code Marketplace
