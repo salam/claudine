@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { vscode, type Conversation } from '../lib/vscode';
-  import { getCategoryDetails, toggleCardCollapsed, settings } from '../stores/conversations';
+  import { vscode, type Conversation, type ConversationStatus } from '../lib/vscode';
+  import { getCategoryDetails, toggleCardCollapsed, settings, columns, archiveColumn, updateConversationStatus, acknowledgeReview } from '../stores/conversations';
   import AgentAvatar from './AgentAvatar.svelte';
   import PromptInput from './PromptInput.svelte';
 
@@ -15,12 +15,26 @@
   export let focused: boolean = false;
   export let searchQuery: string = '';
   export let isFirst: boolean = false;
+  /** Optional project name shown above the title in compact mode (Smart Board). */
+  export let projectLabel: string | undefined = undefined;
 
   $: categoryDetails = getCategoryDetails(conversation.category);
   $: needsInteraction = conversation.status === 'needs-input' && !conversation.isInterrupted;
   $: hasMetaContent = ($settings.showTaskGitBranch && conversation.gitBranch)
     || conversation.sidechainSteps?.length
     || conversation.agents.some(a => a.isActive);
+
+  // Status dot color: green (active/ok), red (error/interrupted), gray (idle)
+  $: dotColor = conversation.hasError || conversation.isInterrupted
+    ? 'red'
+    : (conversation.agents.some(a => a.isActive) || conversation.lastActivity?.status === 'running')
+      ? 'green'
+      : conversation.lastActivity?.status === 'completed'
+        ? 'green'
+        : conversation.lastActivity?.status === 'failed'
+          ? 'red'
+          : 'gray';
+  $: hasLatestContent = conversation.lastMessage || conversation.lastActivity || conversation.lastStatusText;
 
   // When summarization is ON, show summarized text (tooltip = original).
   // When OFF, show original text (tooltip = summary).
@@ -42,6 +56,17 @@
   let latestExpanded = false;
   let openMenuVisible = false;
   let openMenuEl: HTMLDivElement;
+  let contextMenuVisible = false;
+  let contextMenuX = 0;
+  let contextMenuY = 0;
+  let contextMenuEl: HTMLDivElement;
+
+  $: contextMoveTargets = conversation.isDraft
+    ? []
+    : [
+        ...$columns.filter(c => c.id !== conversation.status),
+        ...($archiveColumn.id !== conversation.status ? [$archiveColumn] : [])
+      ];
 
   // Activity timer — counts while agents are actively working, pauses when awaiting user input.
   // Uses a single shared 1s tick (activityTick store) instead of per-card setInterval.
@@ -142,6 +167,40 @@
     if (openMenuVisible && openMenuEl && !openMenuEl.contains(e.target as Node)) {
       openMenuVisible = false;
     }
+    if (contextMenuVisible && contextMenuEl && !contextMenuEl.contains(e.target as Node)) {
+      contextMenuVisible = false;
+    }
+  }
+
+  function handleContextMenu(e: MouseEvent) {
+    e.preventDefault();
+    openMenuVisible = false;
+    contextMenuVisible = true;
+    contextMenuX = e.clientX;
+    contextMenuY = e.clientY;
+    requestAnimationFrame(() => {
+      if (!contextMenuEl) return;
+      const rect = contextMenuEl.getBoundingClientRect();
+      if (rect.right > window.innerWidth) {
+        contextMenuX = window.innerWidth - rect.width - 4;
+      }
+      if (rect.bottom > window.innerHeight) {
+        contextMenuY = window.innerHeight - rect.height - 4;
+      }
+    });
+  }
+
+  function handleContextMenuClose() {
+    contextMenuVisible = false;
+  }
+
+  function handleContextMenuMove(targetStatus: ConversationStatus) {
+    contextMenuVisible = false;
+    if (conversation.status === 'in-review' && targetStatus !== 'in-review') {
+      acknowledgeReview(conversation.id);
+    }
+    vscode.postMessage({ type: 'moveConversation', conversationId: conversation.id, newStatus: targetStatus });
+    updateConversationStatus(conversation.id, targetStatus);
   }
 
   function handleSendPrompt(event: CustomEvent<string>) {
@@ -162,11 +221,11 @@
   }
 </script>
 
-<svelte:window on:click={handleClickOutsideMenu} />
+<svelte:window on:click={handleClickOutsideMenu} on:keydown={(e) => e.key === 'Escape' && handleContextMenuClose()} />
 
 {#if conversation.isDraft}
   <!-- Draft view: just the prompt text + send button -->
-  <div class="task-card draft">
+  <div class="task-card draft" on:contextmenu={handleContextMenu}>
     <div class="drag-handle" title="Drag to move">
       <svg viewBox="0 0 6 10" fill="currentColor"><circle cx="1.5" cy="1.5" r="1"/><circle cx="4.5" cy="1.5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="4.5" cy="5" r="1"/><circle cx="1.5" cy="8.5" r="1"/><circle cx="4.5" cy="8.5" r="1"/></svg>
     </div>
@@ -199,6 +258,7 @@
     class:focused
     style="--category-color: {categoryDetails.color}"
     title={cleanTitle(displayTitle)}
+    on:contextmenu={handleContextMenu}
   >
     <div class="drag-handle narrow-drag" title="Drag to move">
       <svg viewBox="0 0 6 10" fill="currentColor"><circle cx="1.5" cy="1.5" r="1"/><circle cx="4.5" cy="1.5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="4.5" cy="5" r="1"/><circle cx="1.5" cy="8.5" r="1"/><circle cx="4.5" cy="8.5" r="1"/></svg>
@@ -237,6 +297,7 @@
     class:has-error={conversation.hasError}
     class:focused
     style="--category-color: {categoryDetails.color}"
+    on:contextmenu={handleContextMenu}
   >
     <div class="drag-handle" title="Drag to move">
       <svg viewBox="0 0 6 10" fill="currentColor"><circle cx="1.5" cy="1.5" r="1"/><circle cx="4.5" cy="1.5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="4.5" cy="5" r="1"/><circle cx="1.5" cy="8.5" r="1"/><circle cx="4.5" cy="8.5" r="1"/></svg>
@@ -262,10 +323,13 @@
       {:else}
         <span class="compact-badge" style="background:{categoryDetails.color}">{categoryDetails.icon}</span>
       {/if}
-      {#if showTimer}
-        <span class="activity-timer-inline" class:paused={!isActive}>{timerDisplay}</span>
-      {/if}
     </div>
+    {#if showTimer}
+      <span class="activity-timer-overlay" class:paused={!isActive}>{timerDisplay}</span>
+    {/if}
+    {#if projectLabel}
+      <span class="project-label" title={projectLabel}>{projectLabel}</span>
+    {/if}
     <div class="title-wrap compact-title-wrap">
       <button class="compact-title-btn" on:click={handleOpenConversation} title={titleTooltip}>{@html highlight(cleanTitle(displayTitle))}</button>
       {#if openMenuVisible}
@@ -313,6 +377,7 @@
     class:needs-input={needsInteraction}
     class:focused
     style="--category-color: {categoryDetails.color}"
+    on:contextmenu={handleContextMenu}
   >
     {#if conversation.hasError}
       <div class="error-badge" title={conversation.errorMessage || 'Error occurred'}>!</div>
@@ -328,9 +393,14 @@
       <div class="focused-indicator" class:has-badge={conversation.hasError || conversation.isInterrupted || conversation.hasQuestion} title="Currently viewing this conversation">👀</div>
     {/if}
 
-    {#if isFirst}
+    {#if isFirst || showTimer}
       <div class="first-badge-banner">
-        <span class="first-badge" title="This is were it all started for this project">Genesis</span>
+        {#if isFirst}
+          <span class="first-badge" title="This is were it all started for this project">Genesis</span>
+        {/if}
+        {#if showTimer}
+          <span class="activity-timer" class:paused={!isActive}>{timerDisplay}</span>
+        {/if}
       </div>
     {/if}
 
@@ -368,9 +438,6 @@
           </div>
         {/if}
       </div>
-      {#if showTimer}
-        <span class="activity-timer" class:paused={!isActive}>{timerDisplay}</span>
-      {/if}
       <button class="collapse-toggle" on:click={handleToggleCollapse} title="Collapse card">
         <svg viewBox="0 0 16 16" fill="currentColor"><path d="M10.3 2.3L11 3 6.4 7.6 11 12.3l-.7.7L5 7.7l5.3-5.4z"/></svg>
       </button>
@@ -390,8 +457,8 @@
       >{@html highlight(displayDescription)}</p>
     {/if}
 
-    <!-- Latest message (click to expand) -->
-    {#if $settings.showTaskLatest && conversation.lastMessage}
+    <!-- Latest activity / message -->
+    {#if $settings.showTaskLatest && hasLatestContent}
       <div
         class="last-message"
         class:expanded={latestExpanded}
@@ -400,8 +467,26 @@
         role="button"
         tabindex="0"
       >
-        <span class="message-label">Latest:</span>
-        <span class="message-text">{@html highlight(conversation.lastMessage)}</span>
+        <span class="status-dot status-dot-{dotColor}"></span>
+        <div class="latest-content">
+          {#if conversation.lastActivity}
+            <div class="latest-activity">
+              <span class="tool-name">{conversation.lastActivity.toolName}</span>
+              {#if conversation.lastActivity.summary}
+                <span class="tool-summary">{conversation.lastActivity.summary}</span>
+              {/if}
+            </div>
+            {#if conversation.lastActivity.outputHint}
+              <div class="latest-output">{conversation.lastActivity.outputHint}</div>
+            {/if}
+          {/if}
+          {#if conversation.lastMessage}
+            <div class="message-text">{@html highlight(conversation.lastMessage)}</div>
+          {/if}
+          {#if conversation.lastStatusText}
+            <div class="latest-status">{conversation.lastStatusText}</div>
+          {/if}
+        </div>
       </div>
     {/if}
 
@@ -436,6 +521,45 @@
     <div class="prompt-wrap">
       <PromptInput on:submit={handleSendPrompt} />
     </div>
+  </div>
+{/if}
+
+{#if contextMenuVisible}
+  <div
+    class="context-menu"
+    bind:this={contextMenuEl}
+    style="left: {contextMenuX}px; top: {contextMenuY}px;"
+  >
+    {#if conversation.isDraft}
+      <button class="context-menu-item context-menu-default" on:click={() => { contextMenuVisible = false; dispatch('sendDraft', conversation.id); }}>
+        Send idea
+      </button>
+      <div class="context-menu-separator"></div>
+      <button class="context-menu-item context-menu-danger" on:click={() => { contextMenuVisible = false; dispatch('deleteDraft', conversation.id); }}>
+        Delete idea
+      </button>
+    {:else}
+      <button class="context-menu-item context-menu-default" on:click={() => { contextMenuVisible = false; handleOpenConversation(); }}>
+        Open conversation
+      </button>
+      {#if contextMoveTargets.length > 0}
+        <div class="context-menu-separator"></div>
+        {#each contextMoveTargets as target (target.id)}
+          {#if target.id === 'archived'}
+            <div class="context-menu-separator"></div>
+            <button class="context-menu-item" on:click={() => handleContextMenuMove(target.id)}>
+              <span class="context-menu-dot" style="background:{target.color}"></span>
+              Archive immediately
+            </button>
+          {:else}
+            <button class="context-menu-item" on:click={() => handleContextMenuMove(target.id)}>
+              <span class="context-menu-dot" style="background:{target.color}"></span>
+              Move to {target.title}
+            </button>
+          {/if}
+        {/each}
+      {/if}
+    {/if}
   </div>
 {/if}
 
@@ -499,7 +623,6 @@
     margin-bottom: 6px;
     transition: all 0.15s ease;
     user-select: text;
-    border-left: 3px solid var(--category-color);
   }
   .task-card:hover { border-color: var(--vscode-focusBorder, #007acc); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
   .task-card.has-error { border-color: #ef4444; background: rgba(239,68,68,0.05); }
@@ -598,15 +721,46 @@
   .last-message {
     background: var(--vscode-textBlockQuote-background, #2a2a2a);
     border-radius: 4px; padding: 5px 7px; margin-bottom: 6px; font-size: 10px;
-    display: flex; flex-direction: row; align-items: baseline; gap: 4px; cursor: pointer;
+    display: flex; flex-direction: row; align-items: flex-start; gap: 6px; cursor: pointer;
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 3px;
+  }
+  .status-dot-green { background: #10b981; }
+  .status-dot-red   { background: #ef4444; }
+  .status-dot-gray  { background: #6b7280; }
+  .latest-content {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+  }
+  .latest-activity {
+    display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap;
+  }
+  .tool-name {
+    font-weight: 700; color: var(--vscode-foreground, #cccccc);
+  }
+  .tool-summary {
+    color: var(--vscode-descriptionForeground, #8c8c8c);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .latest-output {
+    color: var(--vscode-descriptionForeground, #8c8c8c);
+    font-size: 9px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .last-message .message-text {
     color: var(--vscode-foreground, #cccccc);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    flex: 1; min-width: 0;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; min-width: 0;
+    white-space: pre-wrap;
   }
-  .last-message.expanded .message-text { white-space: pre-wrap; overflow: visible; }
-  .message-label { color: var(--vscode-descriptionForeground, #8c8c8c); font-size: 10px; font-weight: 600; flex-shrink: 0; }
+  .last-message.expanded .message-text {
+    -webkit-line-clamp: unset; overflow: visible;
+  }
+  .latest-status {
+    color: var(--vscode-descriptionForeground, #8c8c8c);
+    font-style: italic; font-size: 9px;
+  }
 
   /* Git branch + agents on same row (#10) */
   .meta-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; min-height: 24px; }
@@ -657,12 +811,24 @@
   .task-card.compact {
     display: flex; align-items: center; gap: 6px;
     padding: 5px 8px; margin-bottom: 4px; border-radius: 6px;
-    border-left-width: 2px; min-height: 30px;
+    min-height: 30px;
   }
   .compact-thumb { width: 20px; height: 20px; border-radius: 3px; object-fit: cover; flex-shrink: 0; }
   .compact-badge {
     width: 20px; height: 20px; border-radius: 3px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center; font-size: 10px;
+  }
+  .project-label {
+    flex-shrink: 0;
+    font-size: 8px;
+    color: var(--vscode-descriptionForeground, #8c8c8c);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
   }
   .compact-title-btn {
     flex: 1; font-size: 10px; font-weight: 500; min-width: 0;
@@ -703,16 +869,19 @@
     color: #22c55e; opacity: 0.9;
   }
   .activity-timer.paused { color: var(--vscode-disabledForeground, #6b6b6b); opacity: 0.6; }
-  .activity-timer-inline {
-    flex-shrink: 0; font-size: 8px; white-space: nowrap;
+  .activity-timer-overlay {
+    position: absolute; top: 2px; right: 24px;
+    font-size: 8px; white-space: nowrap;
     font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
-    color: #22c55e; opacity: 0.9;
+    color: #22c55e; opacity: 0.85;
+    pointer-events: none; z-index: 2;
   }
-  .activity-timer-inline.paused { color: var(--vscode-disabledForeground, #6b6b6b); opacity: 0.6; }
+  .activity-timer-overlay.paused { color: var(--vscode-disabledForeground, #6b6b6b); opacity: 0.5; }
 
-  /* ---- First conversation badge ---- */
+  /* ---- First conversation badge / timer banner ---- */
   .first-badge-banner {
-    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 4px;
   }
   .first-badge {
     display: inline-block;
@@ -748,7 +917,6 @@
     padding: 5px 4px;
     margin-bottom: 3px;
     border-radius: 5px;
-    border-left-width: 2px;
     min-height: 34px;
   }
   .task-card.narrow-card .narrow-drag {
@@ -823,5 +991,57 @@
   .narrow-sc-completed { background: #10b981; }
   .narrow-sc-failed    { background: #ef4444; }
   .narrow-sc-running   { background: #f59e0b; animation: count-pulse 2s ease-in-out infinite; }
+
+  /* ---- Context menu (right-click) ---- */
+  .context-menu {
+    position: fixed;
+    z-index: 100;
+    min-width: 180px;
+    background: var(--vscode-menu-background, #252526);
+    border: 1px solid var(--vscode-menu-border, #454545);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+  }
+  .context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-family: inherit;
+    color: var(--vscode-menu-foreground, #cccccc);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .context-menu-item:hover {
+    background: var(--vscode-menu-selectionBackground, #094771);
+    color: var(--vscode-menu-selectionForeground, #ffffff);
+  }
+  .context-menu-default {
+    font-weight: 600;
+  }
+  .context-menu-danger {
+    color: #ef4444;
+  }
+  .context-menu-danger:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+  }
+  .context-menu-separator {
+    height: 1px;
+    background: var(--vscode-menu-separatorBackground, #454545);
+    margin: 4px 0;
+  }
+  .context-menu-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
 
 </style>
