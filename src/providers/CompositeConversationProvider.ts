@@ -86,6 +86,16 @@ export class CompositeConversationProvider implements IConversationProvider {
     onProgress: (progress: { scannedProjects: number; totalProjects: number; scannedFiles: number; totalFiles: number; currentProject: string }) => void,
     onProjectScanned: (projectPath: string, conversations: Conversation[]) => void
   ): Promise<Conversation[]> {
-    return this._children[0].scanProjectsProgressively(enabledProjects, onProgress, onProjectScanned);
+    // Primary child handles project-based progressive scanning
+    const primary = await this._children[0].scanProjectsProgressively(enabledProjects, onProgress, onProjectScanned);
+
+    // Non-primary children (e.g. Codex) use their own scan logic via refresh()
+    const secondary: Conversation[] = [];
+    for (const child of this._children.slice(1)) {
+      const convs = await child.refresh();
+      secondary.push(...convs);
+    }
+
+    return [...primary, ...secondary];
   }
 }

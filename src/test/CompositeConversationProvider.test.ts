@@ -32,7 +32,7 @@ function mockProvider(id: string, overrides: Partial<IConversationProvider> = {}
     startWatching: vi.fn(),
     setupFileWatcher: vi.fn(),
     stopWatching: vi.fn(),
-    refresh: vi.fn().mockResolvedValue(undefined),
+    refresh: vi.fn().mockResolvedValue([]),
     searchConversations: vi.fn().mockReturnValue([]),
     clearPendingIcons: vi.fn(),
     discoverProjects: vi.fn().mockReturnValue([]),
@@ -156,13 +156,24 @@ describe('CompositeConversationProvider', () => {
     expect(b.discoverProjects).not.toHaveBeenCalled();
   });
 
-  it('scanProjectsProgressively delegates to first child only', async () => {
-    const a = mockProvider('a');
-    const b = mockProvider('b');
+  it('scanProjectsProgressively uses primary child for projects and refresh() for non-primary', async () => {
+    const claudeConv = makeConversation('claude-1', 'claude-code');
+    const codexConv = makeConversation('codex-1', 'codex');
+    const a = mockProvider('claude-code', {
+      scanProjectsProgressively: vi.fn().mockResolvedValue([claudeConv]),
+    });
+    const b = mockProvider('codex', {
+      refresh: vi.fn().mockResolvedValue([codexConv]),
+    });
     const c = new CompositeConversationProvider([a, b]);
-    await c.scanProjectsProgressively([], vi.fn(), vi.fn());
+    const result = await c.scanProjectsProgressively([], vi.fn(), vi.fn());
+
     expect(a.scanProjectsProgressively).toHaveBeenCalled();
     expect(b.scanProjectsProgressively).not.toHaveBeenCalled();
+    expect(b.refresh).toHaveBeenCalled();
+    expect(result).toHaveLength(2);
+    expect(result.find(r => r.id === 'claude-1')).toBeDefined();
+    expect(result.find(r => r.id === 'codex-1')).toBeDefined();
   });
 
   // ── getChild ───────────────────────────────────────────────────────
