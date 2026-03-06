@@ -1,5 +1,23 @@
 # Features
 
+## Text-Based Question Detection
+
+- [x] Detect when last assistant text response ends with "?" (not just AskUserQuestion tool use)
+- [x] Show "?" badge and move task to "Needs Input" column
+- [x] Respect manual overrides (done/cancelled/archived not re-opened)
+- [x] Auto-clear when agent resumes activity (existing merge logic)
+
+## Smart Board (Cross-Project Overview)
+
+- [x] Show a collapsible "Smart Board" section at the top of the board
+- [x] Three lanes: Running (in-progress), Needs Input, In Review (unacknowledged)
+- [x] Compact task cards with project name label
+- [x] Dismiss button on In Review cards to acknowledge
+- [x] Auto-acknowledge when user drags card out of in-review column
+- [x] Persist collapsed state and acknowledged IDs via webview state
+- [x] Cleanup acknowledged IDs when conversation leaves in-review
+- [x] Auto-hide when all lanes are empty
+
 ## Rate Limit Detection & Auto-Restart
 
 - [x] Detect "You've hit your limit" messages in Claude Code assistant output
@@ -73,3 +91,28 @@
 - [x] Auto-grow the textarea height as the user types (up to a max height)
 - [x] Reset height back to single-line after submitting
 - [x] Keep Enter to submit, Shift+Enter for new lines
+
+## OpenAI Codex Provider (Phase 1)
+
+- [x] Codex JSONL types (`CodexJsonlEnvelope`, `CodexSessionMetaPayload`, `CodexEventMsgPayload`)
+- [x] `CodexSessionParser` with LRU cache and incremental parsing (same pattern as `ConversationParser`)
+- [x] Handles standard envelope format and legacy bare-object format
+- [x] Status detection from event types (task_complete, error, turn_aborted, rate_limit)
+- [x] Conversation IDs prefixed with `codex-` to prevent collision with Claude IDs
+- [x] Provider-scoped deletion in `StateManager.setConversations(convs, providerTag?)` — prevents two providers from clobbering each other
+- [x] `CodexWatcher` implementing `IConversationProvider` — auto-detects `~/.codex/sessions/`
+- [x] Workspace filtering: matches `session_meta.cwd` against open workspace folders
+- [x] Recursive date-tree walker for `sessions/YYYY/MM/DD/*.jsonl`
+- [x] `CodexEditorCommands` stub (Codex VS Code extension API not yet documented)
+- [x] `CompositeConversationProvider` wrapping N children behind single interface
+- [x] Conditional wiring in `extension.ts` and `standalone/server.ts`
+- [x] `codexPath` setting with localized descriptions (EN/DE/FR/ES/IT)
+
+## Task Card Context Menu
+
+- [ ] Right-click context menu on all card modes (full, compact, narrow, draft)
+- [ ] "Open conversation" as bold default action
+- [ ] "Move to X" items for each column (current column omitted, with color dots)
+- [ ] "Archive immediately" action
+- [ ] Draft cards: only "Open conversation" + "Delete idea" (no move options)
+- [ ] Viewport edge clamping, Escape to close, click-outside to close
