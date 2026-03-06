@@ -1,5 +1,12 @@
 # Release Notes
 
+## Version 1.2.6 (Mar 6 2026, 20:00)
+
+* **Codex summarization** — Codex conversations now get AI-summarized titles and descriptions for compact kanban cards, using Claude CLI or Codex CLI as fallback
+* **Codex icon generation** — Codex conversations now show AI-generated or placeholder icons, matching Claude Code conversations
+* **Fix: Codex titles** — titles no longer show system instructions; IDE context preamble is stripped to show the actual user request
+* **Fix: Codex search** — full-text search now finds Codex conversations (was silently failing due to wrong JSON path for ID extraction)
+
 ## Version 1.2.5 (Mar 6 2026, 12:30)
 
 * **Enhanced filter bar** — filter conversations by AI service (Claude Code, Codex) and by problem state (Needs Attention, Question, Interrupted, Error, Rate Limited); chips are multi-select and auto-hide when not applicable

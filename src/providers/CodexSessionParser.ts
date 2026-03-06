@@ -206,9 +206,11 @@ export class CodexSessionParser {
         const item = envelope.payload as CodexResponseItemPayload;
         if (item.content && Array.isArray(item.content)) {
           for (const block of item.content) {
-            if (block.type === 'input_text' && block.text) {
-              cache.userMessages.push(block.text);
-            } else if (block.type === 'output_text' && block.text) {
+            // BUG16a: input_text blocks contain system instructions (permissions,
+            // AGENTS.md, environment context) mixed with user messages. User messages
+            // are reliably captured via event_msg/user_message, so skip input_text
+            // entirely to avoid system text becoming the title.
+            if (block.type === 'output_text' && block.text) {
               cache.agentMessages.push(block.text);
             }
           }
@@ -325,11 +327,34 @@ export class CodexSessionParser {
   private extractTitle(cache: ParseCache): string {
     const first = cache.userMessages[0];
     if (!first) return 'Untitled Session';
-    const firstLine = first.split('\n')[0].trim();
+
+    // BUG16c: Codex VSCode wraps user messages in IDE context. Extract the
+    // actual request from after the "## My request for Codex:" header.
+    const text = this.stripIDEContext(first);
+
+    const firstLine = text.split('\n')[0].trim();
     if (!firstLine) return 'Untitled Session';
     return firstLine.length > MAX_TITLE_LENGTH
       ? firstLine.slice(0, MAX_TITLE_LENGTH - 3) + '...'
       : firstLine;
+  }
+
+  /**
+   * Strip IDE context preamble from Codex VSCode user messages.
+   * Codex VSCode wraps user messages like:
+   *   # Context from my IDE setup:
+   *   ## Open tabs: ...
+   *   ## My request for Codex:
+   *   <actual user request>
+   */
+  private stripIDEContext(text: string): string {
+    const marker = /^##\s+My request for Codex:\s*$/m;
+    const match = marker.exec(text);
+    if (match) {
+      const afterMarker = text.slice(match.index + match[0].length).trim();
+      if (afterMarker) return afterMarker;
+    }
+    return text;
   }
 
   private extractDescription(cache: ParseCache): string {

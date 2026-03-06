@@ -4,6 +4,8 @@ import * as fs from 'fs';
 import { IPlatformAdapter, Disposable } from '../platform/IPlatformAdapter';
 import { CodexSessionParser } from './CodexSessionParser';
 import { StateManager } from '../services/StateManager';
+import { SummaryService } from '../services/SummaryService';
+import { ImageGenerator } from '../services/ImageGenerator';
 import { Conversation, ProjectManifestEntry } from '../types';
 import { IConversationProvider } from './IConversationProvider';
 
@@ -20,13 +22,20 @@ export class CodexWatcher implements IConversationProvider {
 
   private _watcherDisposable: Disposable | undefined;
   private _parser: CodexSessionParser;
+  private _summaryService: SummaryService | undefined;
+  private _imageGenerator: ImageGenerator | undefined;
+  private _iconPending = new Set<string>();
   private _codexPath: string;
 
   constructor(
     private readonly _stateManager: StateManager,
-    private readonly _platform: IPlatformAdapter
+    private readonly _platform: IPlatformAdapter,
+    summaryService?: SummaryService,
+    imageGenerator?: ImageGenerator
   ) {
     this._parser = new CodexSessionParser();
+    this._summaryService = summaryService;
+    this._imageGenerator = imageGenerator;
     this._codexPath = this.getCodexPath();
   }
 
@@ -96,7 +105,36 @@ export class CodexWatcher implements IConversationProvider {
     try {
       const conversations = await this.scanForConversations();
       console.log(`Claudine: Codex — found ${conversations.length} conversations`);
+
+      // Apply cached summaries before setting state
+      if (this._summaryService) {
+        for (const conv of conversations) {
+          this._summaryService.applyCached(conv);
+        }
+      }
+
       this._stateManager.setConversations(conversations, 'codex');
+
+      // Kick off async summarization for uncached conversations (non-blocking)
+      if (this._summaryService) {
+        this._summaryService.summarizeUncached(conversations, (id, summary) => {
+          const existing = this._stateManager.getConversation(id);
+          if (existing) {
+            this._stateManager.updateConversation({
+              ...existing,
+              originalTitle: existing.originalTitle || existing.title,
+              originalDescription: existing.originalDescription || existing.description,
+              title: summary.title,
+              description: summary.description,
+              lastMessage: summary.lastMessage
+            });
+          }
+        });
+      }
+
+      // Kick off async icon generation for conversations without icons
+      this.generateIcons(conversations);
+
       return conversations;
     } catch (error) {
       console.error('Claudine: Codex — error refreshing conversations', error);
@@ -163,7 +201,27 @@ export class CodexWatcher implements IConversationProvider {
     try {
       const conv = await this._parser.parseFile(filePath);
       if (conv && this.matchesWorkspace(conv, workspaceFolders)) {
+        if (this._summaryService) {
+          this._summaryService.applyCached(conv);
+        }
         this._stateManager.updateConversation(conv);
+
+        // Kick off async summarization if not cached
+        if (this._summaryService && !this._summaryService.hasCached(conv.id)) {
+          this._summaryService.summarizeUncached([conv], (id, summary) => {
+            const existing = this._stateManager.getConversation(id);
+            if (existing) {
+              this._stateManager.updateConversation({
+                ...existing,
+                originalTitle: existing.originalTitle || existing.title,
+                originalDescription: existing.originalDescription || existing.description,
+                title: summary.title,
+                description: summary.description,
+                lastMessage: summary.lastMessage
+              });
+            }
+          });
+        }
       }
     } catch (error) {
       console.error(`Claudine: Codex — error parsing file ${filePath}`, error);
@@ -203,8 +261,9 @@ export class CodexWatcher implements IConversationProvider {
           const firstLine = content.split('\n')[0];
           try {
             const obj = JSON.parse(firstLine);
-            if (obj.payload?.meta?.id) {
-              matchingIds.push(`codex-${obj.payload.meta.id}`);
+            // BUG16b: Standard format has payload.id, legacy has meta.id
+            if (obj.payload?.id) {
+              matchingIds.push(`codex-${obj.payload.id}`);
             } else if (obj.meta?.id) {
               matchingIds.push(`codex-${obj.meta.id}`);
             }
@@ -220,10 +279,44 @@ export class CodexWatcher implements IConversationProvider {
     return matchingIds;
   }
 
-  // ── Icons (stub) ─────────────────────────────────────────────────
+  // ── Icons ────────────────────────────────────────────────────────
 
   public clearPendingIcons() {
-    // No icon generation for Codex yet
+    this._iconPending.clear();
+  }
+
+  /**
+   * Generate icons for conversations that don't have one yet.
+   * Falls back to AI generation, then to deterministic placeholder.
+   */
+  private async generateIcons(conversations: Conversation[]): Promise<void> {
+    const needsIcon = conversations.filter(c => !c.icon && !this._iconPending.has(c.id));
+    if (needsIcon.length === 0) return;
+
+    for (const conv of needsIcon) {
+      this._iconPending.add(conv.id);
+      try {
+        let icon: string | undefined;
+
+        // 1. AI-generated icon
+        if (!icon && this._imageGenerator) {
+          icon = await this._imageGenerator.generateIcon(conv.id, conv.title, conv.description);
+        }
+
+        // 2. Deterministic placeholder pattern
+        if (!icon && this._imageGenerator) {
+          icon = this._imageGenerator.generatePlaceholderIcon(conv.id, conv.category);
+        }
+
+        if (icon) {
+          this._stateManager.setConversationIcon(conv.id, icon);
+        }
+      } catch (error) {
+        console.error(`Claudine: Codex — error generating icon for ${conv.id}`, error);
+      } finally {
+        this._iconPending.delete(conv.id);
+      }
+    }
   }
 
   // ── Project discovery (stub — not applicable for date-based layout) ──

@@ -446,3 +446,30 @@ export const textQuestionAnsweredConversation = [
   userMessage('Use Redis', 16),
   assistantMessage('Done! I\'ve added Redis caching.', 14),
 ].join('\n');
+
+// ── BUG9: Multi-line markup tag stripping ──────────────────────────────
+
+/** User message is entirely a multi-line XML block — should be treated as metadata-only. */
+export const multiLineMarkupOnlyConversation = [
+  userMessage('<permissions instructions>\n\nSource: https://www.boat24.ch/chen/service/temperaturen/\nIf you meant **Lake Zurich, Illinois**, say so and I\'ll look...\n\n</permissions>', 10),
+  assistantMessage('▸ I see the permissions context.', 9),
+].join('\n');
+
+/** User message has real text after multi-line markup tags. */
+export const multiLineMarkupWithRealTextConversation = [
+  userMessage('<system-reminder>\nSessionStart:startup hook success: Success\n</system-reminder>\nFix the login page', 10),
+  assistantMessage('▸ I\'ll fix the login page now.', 9),
+].join('\n');
+
+/** Assistant description contains markup tags that should be stripped. */
+export const markupInDescriptionConversation = [
+  userMessage('Refactor the API', 10),
+  assistantMessage('<system-reminder>hook output</system-reminder>▸ I\'ll refactor the API endpoints.', 9),
+].join('\n');
+
+/** Assistant last message contains markup tags that should be stripped. */
+export const markupInLastMessageConversation = [
+  userMessage('Add dark mode', 10),
+  assistantMessage('Starting work...', 9),
+  assistantMessage('<system-reminder>hook output</system-reminder>Done! Dark mode is now available.', 8),
+].join('\n');

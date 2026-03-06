@@ -1,4 +1,6 @@
 import * as os from 'os';
+import * as fs from 'fs';
+import * as path from 'path';
 import { spawn, execFile } from 'child_process';
 import { IPlatformAdapter } from '../platform/IPlatformAdapter';
 import { Conversation } from '../types';
@@ -25,11 +27,14 @@ const CHILD_ENV: NodeJS.ProcessEnv = {
   TERM: process.env.TERM
 };
 
+/** Which CLI backend is being used for summarization. */
+type CliBackend = { kind: 'claude'; path: string } | { kind: 'codex'; path: string };
+
 export class SummaryService {
   private _cache: Record<string, CachedSummary> = {};
   private _pending = new Set<string>();
-  private _claudeAvailable: boolean | undefined;
-  private _claudePath: string | undefined;
+  private _cliChecked = false;
+  private _cliBackend: CliBackend | undefined;
   private _platform: IPlatformAdapter | undefined;
 
   public init(platform: IPlatformAdapter) {
@@ -97,10 +102,11 @@ export class SummaryService {
     conversations: Conversation[],
     onUpdate: (id: string, summary: CachedSummary) => void
   ): Promise<void> {
-    if (this._claudeAvailable === undefined) {
-      this._claudeAvailable = await this.checkClaudeAvailable();
+    if (!this._cliChecked) {
+      this._cliBackend = await this.discoverCliBackend();
+      this._cliChecked = true;
     }
-    if (!this._claudeAvailable) {
+    if (!this._cliBackend) {
       for (const c of conversations) this._pending.delete(c.id);
       return;
     }
@@ -108,7 +114,7 @@ export class SummaryService {
     for (let i = 0; i < conversations.length; i += SUMMARIZATION_BATCH_SIZE) {
       const batch = conversations.slice(i, i + SUMMARIZATION_BATCH_SIZE);
       try {
-        const summaries = await this.callClaude(batch);
+        const summaries = await this.callCli(batch);
         for (let j = 0; j < batch.length && j < summaries.length; j++) {
           const conv = batch[j];
           const raw = summaries[j];
@@ -131,7 +137,7 @@ export class SummaryService {
     }
   }
 
-  private callClaude(
+  private callCli(
     conversations: Conversation[]
   ): Promise<Array<{ title?: string; description?: string; lastMessage?: string }>> {
     return new Promise((resolve, reject) => {
@@ -149,11 +155,15 @@ ${entries}
 
 Return ONLY a JSON array in the same order: [{"title":"...","description":"...","lastMessage":"..."}]`;
 
+      const backend = this._cliBackend!;
+      const args = backend.kind === 'claude'
+        ? ['-p']
+        : ['exec', '--ephemeral', '--skip-git-repo-check', '-'];
+
       let stdout = '';
       let stderr = '';
 
-      const claudePath = this._claudePath!;
-      const child = spawn(claudePath, ['-p'], {
+      const child = spawn(backend.path, args, {
         cwd: os.tmpdir(),
         timeout: CLI_TIMEOUT_MS,
         env: CHILD_ENV
@@ -166,13 +176,13 @@ Return ONLY a JSON array in the same order: [{"title":"...","description":"...",
 
       child.on('close', (code) => {
         if (code !== 0) {
-          return reject(new Error(`claude exited with code ${code}`));
+          return reject(new Error(`${backend.kind} exited with code ${code}`));
         }
         try {
           const match = stdout.match(/\[[\s\S]*\]/);
-          if (!match) return reject(new Error('No JSON array in Claude response'));
+          if (!match) return reject(new Error(`No JSON array in ${backend.kind} response`));
           const results = JSON.parse(match[0]);
-          if (!Array.isArray(results)) return reject(new Error('Claude response is not an array'));
+          if (!Array.isArray(results)) return reject(new Error(`${backend.kind} response is not an array`));
           resolve(results.map((r: Record<string, unknown>) => ({
             title: typeof r.title === 'string' ? r.title : undefined,
             description: typeof r.description === 'string' ? r.description : undefined,
@@ -188,28 +198,81 @@ Return ONLY a JSON array in the same order: [{"title":"...","description":"...",
     });
   }
 
-  private checkClaudeAvailable(): Promise<boolean> {
+  /**
+   * Discover a CLI backend for summarization.
+   * Tries Claude CLI first, then Codex CLI (including VSCode extension bundled binary).
+   */
+  private async discoverCliBackend(): Promise<CliBackend | undefined> {
+    // 1. Try Claude CLI
+    const claudePath = await this.resolveExecutable('claude');
+    if (claudePath) {
+      console.log(`Claudine: Using Claude CLI for summarization: ${claudePath}`);
+      return { kind: 'claude', path: claudePath };
+    }
+
+    // 2. Try Codex CLI in PATH
+    const codexPath = await this.resolveExecutable('codex');
+    if (codexPath) {
+      console.log(`Claudine: Using Codex CLI for summarization: ${codexPath}`);
+      return { kind: 'codex', path: codexPath };
+    }
+
+    // 3. Try Codex CLI bundled with VSCode extension
+    const bundledCodex = this.findBundledCodexCli();
+    if (bundledCodex) {
+      console.log(`Claudine: Using bundled Codex CLI for summarization: ${bundledCodex}`);
+      return { kind: 'codex', path: bundledCodex };
+    }
+
+    console.log('Claudine: No CLI found (claude or codex), skipping summarization');
+    return undefined;
+  }
+
+  /** Resolve an executable name to an absolute path via `which`. */
+  private resolveExecutable(name: string): Promise<string | undefined> {
     return new Promise((resolve) => {
-      // Resolve the absolute path to `claude` via `which` to avoid shell: true
-      execFile('which', ['claude'], { timeout: CLI_CHECK_TIMEOUT_MS, env: CHILD_ENV }, (err, stdout) => {
-        if (err || !stdout.trim()) {
-          console.log('Claudine: Claude CLI not found in PATH, skipping summarization');
-          return resolve(false);
-        }
-        this._claudePath = stdout.trim();
-        const child = spawn(this._claudePath, ['--version'], { timeout: CLI_CHECK_TIMEOUT_MS, env: CHILD_ENV });
-        child.on('error', () => {
-          console.log('Claudine: Claude CLI not available, skipping summarization');
-          resolve(false);
-        });
-        child.on('close', (code) => {
-          if (code !== 0) {
-            console.log('Claudine: Claude CLI not available, skipping summarization');
-          }
-          resolve(code === 0);
-        });
+      execFile('which', [name], { timeout: CLI_CHECK_TIMEOUT_MS, env: CHILD_ENV }, (err, stdout) => {
+        if (err || !stdout.trim()) return resolve(undefined);
+        const binPath = stdout.trim();
+        const child = spawn(binPath, ['--version'], { timeout: CLI_CHECK_TIMEOUT_MS, env: CHILD_ENV });
+        child.on('error', () => resolve(undefined));
+        child.on('close', (code) => resolve(code === 0 ? binPath : undefined));
       });
     });
+  }
+
+  /**
+   * Search for Codex CLI binary bundled inside VSCode extensions.
+   * The OpenAI ChatGPT extension ships a platform-specific binary under bin/.
+   */
+  private findBundledCodexCli(): string | undefined {
+    const extensionDirs = [
+      path.join(os.homedir(), '.vscode', 'extensions'),
+      path.join(os.homedir(), '.cursor', 'extensions'),
+      path.join(os.homedir(), '.vscode-insiders', 'extensions'),
+    ];
+
+    const arch = process.arch === 'arm64' ? 'aarch64' : 'x86_64';
+    const platformDir = process.platform === 'darwin' ? `macos-${arch}`
+      : process.platform === 'linux' ? `linux-${arch}`
+      : process.platform === 'win32' ? `windows-${arch}` : null;
+    if (!platformDir) return undefined;
+
+    for (const extDir of extensionDirs) {
+      try {
+        if (!fs.existsSync(extDir)) continue;
+        const entries = fs.readdirSync(extDir).filter(e => e.startsWith('openai.'));
+        // Sort descending to prefer latest version
+        entries.sort().reverse();
+        for (const entry of entries) {
+          const binPath = path.join(extDir, entry, 'bin', platformDir, 'codex');
+          if (fs.existsSync(binPath)) return binPath;
+        }
+      } catch {
+        // Skip unreadable dirs
+      }
+    }
+    return undefined;
   }
 
   private saveCache() {

@@ -160,6 +160,42 @@ describe('CodexWatcher', () => {
       const watcher = new CodexWatcher(mockSM as never, platform);
       expect(watcher.searchConversations('test')).toEqual([]);
     });
+
+    // BUG16b: search ID extraction used payload.meta.id but actual format is payload.id
+    it('BUG16b: extracts conversation ID from standard session_meta format (payload.id)', () => {
+      const sessionsDir = path.join(os.homedir(), '.codex', 'sessions');
+      const sessionFile = path.join(sessionsDir, '2026', '03', '06', 'rollout-test.jsonl');
+
+      // Mock fs calls for search
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        const ps = String(p);
+        return ps === sessionsDir || ps.startsWith(sessionsDir);
+      });
+
+      // Mock directory traversal
+      vi.mocked(fs.readdirSync).mockImplementation((dir) => {
+        const d = String(dir);
+        if (d === sessionsDir) return [{ name: '2026', isDirectory: () => true, isFile: () => false }] as never;
+        if (d.endsWith('2026')) return [{ name: '03', isDirectory: () => true, isFile: () => false }] as never;
+        if (d.endsWith('03')) return [{ name: '06', isDirectory: () => true, isFile: () => false }] as never;
+        if (d.endsWith('06')) return [{ name: 'rollout-test.jsonl', isDirectory: () => false, isFile: () => true }] as never;
+        return [];
+      });
+
+      // Mock file content — standard Codex format with payload.id (NOT payload.meta.id)
+      const sessionContent = [
+        JSON.stringify({ timestamp: '2026-03-06T10:00:00Z', type: 'session_meta', payload: { id: 'test-search-id-123' } }),
+        JSON.stringify({ timestamp: '2026-03-06T10:01:00Z', type: 'event_msg', payload: { type: 'user_message', message: 'Fix the football player bug' } }),
+      ].join('\n');
+      vi.mocked(fs.readFileSync).mockReturnValue(sessionContent);
+
+      const mockSM = createMockStateManager();
+      const platform = createMockPlatform();
+      const watcher = new CodexWatcher(mockSM as never, platform);
+
+      const results = watcher.searchConversations('football');
+      expect(results).toContain('codex-test-search-id-123');
+    });
   });
 
   describe('project discovery stubs', () => {

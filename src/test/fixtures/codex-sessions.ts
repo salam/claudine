@@ -208,6 +208,75 @@ export const failedCommandSession = [
   errorEvent('Lint errors found', 13),
 ].join('\n');
 
+/** Response item with input_text content (system context sent to model). */
+export function responseItemInputText(text: string, minutesAgo = 10): string {
+  return line({
+    timestamp: ts(minutesAgo),
+    type: 'response_item',
+    payload: {
+      type: 'message',
+      role: 'user',
+      content: [{ type: 'input_text', text }],
+    },
+  });
+}
+
+/** Response item with output_text content (agent response). */
+export function responseItemOutputText(text: string, minutesAgo = 9): string {
+  return line({
+    timestamp: ts(minutesAgo),
+    type: 'response_item',
+    payload: {
+      type: 'message',
+      role: 'assistant',
+      content: [{ type: 'output_text', text }],
+    },
+  });
+}
+
+/**
+ * BUG16a: Session with system instructions in response_item/input_text
+ * before the actual user message. The title should be the user's request,
+ * not the system instructions.
+ */
+export const sessionWithSystemInputText = [
+  sessionMeta('sess-sys-input', '/Users/dev/my-project', 30),
+  responseItemInputText('<permissions instructions>\nFilesystem sandboxing defines which files can be read or written.\n</permissions instructions>', 29),
+  responseItemInputText('# AGENTS.md instructions for /Users/dev/my-project\n\n<INSTRUCTIONS>\n## Skills\nA skill is...', 29),
+  responseItemInputText('<environment_context>\n  <cwd>/Users/dev/my-project</cwd>\n  <shell>zsh</shell>\n</environment_context>', 29),
+  taskStarted(28),
+  responseItemInputText('<permissions instructions>\nFilesystem sandboxing again.\n</permissions instructions>', 28),
+  responseItemInputText('<collaboration_mode># Collaboration Mode: Default\n\nYou are now in Default mode.</collaboration_mode>', 28),
+  responseItemInputText('Fix the login bug in auth.ts', 27),
+  userMsg('Fix the login bug in auth.ts', 27),
+  agentMsg('I found and fixed the login bug.', 25),
+  responseItemOutputText('I found and fixed the login bug.', 25),
+  taskComplete(24),
+].join('\n');
+
+/**
+ * BUG16c: Session from Codex VSCode where the user message is wrapped
+ * in IDE context. The title should be the actual request, not the IDE preamble.
+ */
+export const sessionWithIDEContext = [
+  sessionMeta('sess-ide-ctx', '/Users/dev/my-project', 30),
+  responseItemInputText('<permissions instructions>\nSandbox stuff.\n</permissions instructions>', 29),
+  responseItemInputText('# Context from my IDE setup:\n\n## Open tabs:\n- auth.ts: src/auth.ts\n\n## My request for Codex:\nFix the login bug in auth.ts\n', 27),
+  userMsg('# Context from my IDE setup:\n\n## Open tabs:\n- auth.ts: src/auth.ts\n\n## My request for Codex:\nFix the login bug in auth.ts\n', 27),
+  agentMsg('I found and fixed the login bug.', 25),
+  taskComplete(24),
+].join('\n');
+
+/**
+ * BUG16c variant: IDE context with multi-line request.
+ */
+export const sessionWithIDEContextMultiLine = [
+  sessionMeta('sess-ide-ctx-multi', '/Users/dev/my-project', 30),
+  userMsg('# Context from my IDE setup:\n\n## Active file: auth.ts\n\n## Open tabs:\n- auth.ts: src/auth.ts\n- config.ts: src/config.ts\n\n## My request for Codex:\nStudy the concept file at ./concept/Konzept.md.\n\nThen convert the screenshots to descriptions.', 27),
+  agentMsg('Working on it.', 25),
+  taskComplete(24),
+].join('\n');
+
 /** Completely empty content. */
 export const emptyContent = '';
 

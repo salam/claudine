@@ -220,4 +220,31 @@ describe('CodexSessionParser', () => {
     const result = await parseContent(fixtures.completedSession);
     expect(result!.hasQuestion).toBe(false);
   });
+
+  // ── BUG16a: System input_text should not become title ──────────────
+
+  it('BUG16a: ignores system instructions in response_item/input_text for title', async () => {
+    const result = await parseContent(fixtures.sessionWithSystemInputText);
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe('Fix the login bug in auth.ts');
+    expect(result!.title).not.toContain('permissions');
+    expect(result!.title).not.toContain('AGENTS.md');
+    expect(result!.title).not.toContain('environment_context');
+  });
+
+  // ── BUG16c: IDE context wrapper should be stripped from title ──────
+
+  it('BUG16c: extracts actual request from Codex VSCode IDE context wrapper', async () => {
+    const result = await parseContent(fixtures.sessionWithIDEContext);
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe('Fix the login bug in auth.ts');
+    expect(result!.title).not.toContain('Context from my IDE setup');
+  });
+
+  it('BUG16c: extracts multi-line request from IDE context wrapper', async () => {
+    const result = await parseContent(fixtures.sessionWithIDEContextMultiLine);
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe('Study the concept file at ./concept/Konzept.md.');
+    expect(result!.title).not.toContain('Context from my IDE setup');
+  });
 });

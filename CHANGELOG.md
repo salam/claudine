@@ -5,7 +5,25 @@ All notable changes to the Claudine extension will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.1.4]
+
+### Added
+
+- Codex conversations now support AI summarization — compact kanban-friendly titles and descriptions via Claude CLI (or Codex CLI as fallback)
+- Codex conversations now get generated icons (AI-generated or deterministic placeholder) like Claude Code conversations
+- SummaryService auto-discovers available CLI backend: tries `claude` first, then `codex` in PATH, then Codex binary bundled in VSCode extensions
+
+### Fixed
+
+- Codex conversations now show the actual user request as the title instead of system instructions (permissions, AGENTS.md, environment context)
+- Codex VSCode conversations strip the IDE context preamble (`# Context from my IDE setup:`) and show the real request from `## My request for Codex:`
+- Codex full-text search now returns results — ID extraction was looking at the wrong JSON path (`payload.meta.id` instead of `payload.id`)
+
+## [1.1.3]
+
+### Added
+
+- Text-based question detection — tasks show the "?" badge and move to "Needs Input" when the agent's last response ends with a question mark, not only when using the `AskUserQuestion` tool
 
 ### Changed
 

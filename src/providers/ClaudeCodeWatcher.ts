@@ -39,12 +39,13 @@ export class ClaudeCodeWatcher implements IConversationProvider {
   constructor(
     private readonly _stateManager: StateManager,
     private readonly _platform: IPlatformAdapter,
-    imageGenerator?: ImageGenerator
+    imageGenerator?: ImageGenerator,
+    summaryService?: SummaryService
   ) {
     this._parser = new ConversationParser();
-    this._summaryService = new SummaryService();
+    this._summaryService = summaryService ?? new SummaryService();
     this._imageGenerator = imageGenerator;
-    this._summaryService.init(_platform);
+    if (!summaryService) this._summaryService.init(_platform);
     this._claudePath = this.getClaudePath();
 
     // When running in Extension Development Host, exclude the extension's own

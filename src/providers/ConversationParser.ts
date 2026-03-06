@@ -382,8 +382,10 @@ export class ConversationParser {
     const description = this.extractDescription(messages);
     const lastMessage = this.extractLastMessage(messages);
 
-    // BUG3: Skip empty/meaningless conversations that have no real content.
-    if (title === 'Untitled Conversation' && !description && !lastMessage) {
+    // BUG3/BUG9: Skip empty/meaningless conversations that have no real user content.
+    // If the title is "Untitled" it means the first user message was entirely markup/metadata,
+    // so the conversation itself is not meaningful (even if the assistant responded to it).
+    if (title === 'Untitled Conversation' && !this.hasRealUserContent(messages)) {
       return null;
     }
 
@@ -429,6 +431,13 @@ export class ConversationParser {
     };
   }
 
+  /** Check if any user message has real content (not just markup tags). */
+  private hasRealUserContent(messages: ParsedMessage[]): boolean {
+    return messages
+      .filter(m => m.role === 'user' && m.textContent.trim())
+      .some(m => this.stripMarkupTags(m.textContent.trim()).length > 0);
+  }
+
   private extractSessionId(filePath: string): string {
     return path.basename(filePath, '.jsonl');
   }
@@ -443,18 +452,20 @@ export class ConversationParser {
     return firstLine.length > MAX_TITLE_LENGTH ? firstLine.slice(0, MAX_TITLE_LENGTH - 3) + '...' : firstLine;
   }
 
-  /** Strip XML-like tags and their content (ide_opened_file, system-reminder, etc.) */
+  /** Strip XML-like tags and their content (ide_opened_file, system-reminder, permissions, etc.) */
   private stripMarkupTags(text: string): string {
     // Limit input length to prevent ReDoS on crafted JSONL data
     const capped = text.length > MAX_MARKUP_STRIP_LENGTH ? text.slice(0, MAX_MARKUP_STRIP_LENGTH) : text;
-    return capped.replace(/<[^>]+>[^<]*<\/[^>]+>/g, '').trim();
+    // Match both single-line and multi-line XML-like blocks (BUG9)
+    return capped.replace(/<([a-zA-Z][\w-]*)[\s>][^]*?<\/\1>/g, '').trim();
   }
 
   private extractDescription(messages: ParsedMessage[]): string {
     const firstAssistant = messages.find(m => m.role === 'assistant' && m.textContent.trim());
     if (!firstAssistant) return '';
 
-    const content = firstAssistant.textContent.trim();
+    const content = this.stripMarkupTags(firstAssistant.textContent.trim());
+    if (!content) return '';
     const firstPara = content.split('\n\n')[0];
     return firstPara.length > MAX_DESCRIPTION_LENGTH ? firstPara.slice(0, MAX_DESCRIPTION_LENGTH - 3) + '...' : firstPara;
   }
@@ -464,7 +475,8 @@ export class ConversationParser {
     const lastAssistant = reversed.find(m => m.role === 'assistant' && m.textContent.trim());
     if (!lastAssistant) return '';
 
-    const content = lastAssistant.textContent.trim();
+    const content = this.stripMarkupTags(lastAssistant.textContent.trim());
+    if (!content) return '';
     const lines = content.split('\n').filter(l => l.trim());
     // Return the last 2 lines, cropped from the beginning (left) when too long
     const lastTwo = lines.slice(-2);

@@ -94,14 +94,13 @@ describe('ConversationParser', () => {
       expect(result!.title).not.toContain('ide_opened_file');
     });
 
-    it('returns "Untitled Conversation" when no user text', async () => {
+    it('returns null when no user text (BUG9: no real user content)', async () => {
       const content = [
         fixtures.assistantMessage('Hello!', 10),
       ].join('\n');
-      // Assistant-only won't produce a conversation (no user message with text)
-      // But an assistant message still counts as a message
+      // Assistant-only conversation has no real user content → filtered out
       const result = await parseContent(content);
-      expect(result!.title).toBe('Untitled Conversation');
+      expect(result).toBeNull();
     });
   });
 
@@ -462,6 +461,34 @@ describe('ConversationParser', () => {
       const result = await parseContent(fixtures.completedConversation);
       expect(result).not.toBeNull();
       expect(result!.sidechainSteps).toBeUndefined();
+    });
+  });
+
+  describe('BUG9 — multi-line markup tag stripping', () => {
+    it('returns null for conversations where user message is entirely a multi-line markup block', async () => {
+      const result = await parseContent(fixtures.multiLineMarkupOnlyConversation);
+      expect(result).toBeNull();
+    });
+
+    it('extracts real text from user message that has multi-line markup prefix', async () => {
+      const result = await parseContent(fixtures.multiLineMarkupWithRealTextConversation);
+      expect(result).not.toBeNull();
+      expect(result!.title).toBe('Fix the login page');
+      expect(result!.title).not.toContain('system-reminder');
+    });
+
+    it('strips markup tags from description', async () => {
+      const result = await parseContent(fixtures.markupInDescriptionConversation);
+      expect(result).not.toBeNull();
+      expect(result!.description).not.toContain('system-reminder');
+      expect(result!.description).toContain('refactor the API');
+    });
+
+    it('strips markup tags from lastMessage', async () => {
+      const result = await parseContent(fixtures.markupInLastMessageConversation);
+      expect(result).not.toBeNull();
+      expect(result!.lastMessage).not.toContain('system-reminder');
+      expect(result!.lastMessage).toContain('Dark mode is now available');
     });
   });
 });

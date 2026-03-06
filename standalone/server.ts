@@ -7,6 +7,7 @@ import { StandaloneAdapter } from '../src/platform/StandaloneAdapter';
 import { StateManager } from '../src/services/StateManager';
 import { StorageService } from '../src/services/StorageService';
 import { ImageGenerator } from '../src/services/ImageGenerator';
+import { SummaryService } from '../src/services/SummaryService';
 import { ClaudeCodeWatcher } from '../src/providers/ClaudeCodeWatcher';
 import { CodexWatcher } from '../src/providers/CodexWatcher';
 import { CompositeConversationProvider } from '../src/providers/CompositeConversationProvider';
@@ -66,9 +67,11 @@ export class ClaudineServer {
     this._storageService = new StorageService(this._platform);
     this._stateManager = new StateManager(this._storageService, this._platform);
     this._imageGenerator = new ImageGenerator(this._storageService, this._platform);
-    this._claudeCodeWatcher = new ClaudeCodeWatcher(this._stateManager, this._platform, this._imageGenerator);
+    const summaryService = new SummaryService();
+    summaryService.init(this._platform);
+    this._claudeCodeWatcher = new ClaudeCodeWatcher(this._stateManager, this._platform, this._imageGenerator, summaryService);
     if (CodexWatcher.isAvailable(this._platform)) {
-      const codexWatcher = new CodexWatcher(this._stateManager, this._platform);
+      const codexWatcher = new CodexWatcher(this._stateManager, this._platform, summaryService, this._imageGenerator);
       this._provider = new CompositeConversationProvider([this._claudeCodeWatcher, codexWatcher]);
       console.log('Claudine: Codex sessions detected — multi-provider mode');
     } else {

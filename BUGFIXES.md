@@ -135,3 +135,31 @@
 - **Symptom:** After running for a while, Claude Code editor tabs start rapidly stealing focus from each other, flipping back and forth between views.
 - **Root cause:** Same `_replacingStaleTab` race condition as BUG14. Each loop iteration opens a new tab → `onDidChangeTabs` fires → `scheduleFocusDetection` → `detectFocusedConversation` re-enters `replaceRestoredTab` → rapid tab switching. Additionally, the `onOpenConversation` callback does not call `suppressFocus()`, so focus-detection cascades have no debounce protection. CLAUDINE.AGENTS.md may also contribute by instructing agents to poll the board, triggering repeated state changes.
 - [✔️] Fixed — same fix as BUG14; additionally updated CLAUDINE.AGENTS.md with explicit warnings against polling/looping, explaining that Claudine handles status transitions automatically
+
+## BUG15 — Metadata/system messages appear as kanban tasks
+
+- **Reported:** 2026-03-06
+- **Symptom:** Kanban board shows tasks containing system metadata (`<permissions instructions>`, `<system-reminder>`, hook outputs) instead of real conversation content. Multi-line XML blocks survive tag stripping and leak into titles, descriptions, and last messages.
+- **Root cause:** Two issues: (1) `stripMarkupTags()` regex only matched single-line XML blocks, failing on multi-line tags like `<permissions>\n...\n</permissions>`; (2) `stripMarkupTags()` was only applied in `extractTitle()`, not in `extractDescription()` or `extractLastMessage()`.
+- [✔️] Fixed — upgraded regex to `/<([a-zA-Z][\w-]*)[\s>][^]*?<\/\1>/g` for multi-line matching; applied `stripMarkupTags()` consistently in all three extraction methods; added `hasRealUserContent()` check so conversations where all user messages are pure metadata are filtered out entirely
+
+## BUG16a — Codex conversations show cryptic/system-text titles
+
+- **Reported:** 2026-03-06
+- **Symptom:** Codex conversations appear on the kanban board but with cryptic titles like `<permissions instructions>` or system metadata instead of the actual user request.
+- **Root cause:** `CodexSessionParser.processEntry()` treats ALL `response_item` blocks with `input_text` content type as user messages, pushing them into `userMessages[]`. However, Codex JSONL files include system instructions (permissions, AGENTS.md, environment context, collaboration mode) as `response_item/input_text` blocks BEFORE the actual user message. Since the title is derived from `userMessages[0]`, it picks up the first system instruction instead of the real user prompt. The actual user message is reliably available via `event_msg/user_message` events.
+- [✔️] Fixed — removed `input_text` from `userMessages` collection; user messages are now exclusively sourced from `event_msg/user_message` events
+
+## BUG16b — Codex full-text search fails to return results
+
+- **Reported:** 2026-03-06
+- **Symptom:** Searching for text that appears in Codex conversations returns no results, even though the raw JSONL file contains the search term.
+- **Root cause:** `CodexWatcher.searchConversations()` correctly finds matching files via `content.toLowerCase().includes(q)`, but then fails to extract the conversation ID. It looks for `obj.payload.meta.id` or `obj.meta.id` in the first line, but the actual Codex `session_meta` format stores the ID at `obj.payload.id`. The ID extraction silently fails in a try/catch, so the match is dropped.
+- [✔️] Fixed — changed ID extraction to check `obj.payload.id` (standard format) before `obj.meta.id` (legacy format)
+
+## BUG16c — Codex VSCode user messages include IDE context preamble in title
+
+- **Reported:** 2026-03-06
+- **Symptom:** When using Codex from VSCode, conversation titles show `# Context from my IDE setup:` instead of the actual user request, because VSCode wraps user messages with IDE context (open tabs, active file) before the `## My request for Codex:` section.
+- **Root cause:** Even after fixing BUG16a, the `event_msg/user_message` text includes the full IDE context wrapper. The title extractor takes the first line, which is `# Context from my IDE setup:`. The actual user request is buried after a `## My request for Codex:` header.
+- [✔️] Fixed — added `stripIDEContext()` method that extracts text after the `## My request for Codex:` marker

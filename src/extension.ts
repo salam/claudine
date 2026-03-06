@@ -11,6 +11,7 @@ import { IConversationProvider } from './providers/IConversationProvider';
 import { StateManager } from './services/StateManager';
 import { StorageService } from './services/StorageService';
 import { ImageGenerator } from './services/ImageGenerator';
+import { SummaryService } from './services/SummaryService';
 import { CommandProcessor } from './services/CommandProcessor';
 import { promptExport, promptImport } from './services/BoardExporter';
 import { ConversationStatus } from './types';
@@ -58,11 +59,13 @@ export async function activate(context: vscode.ExtensionContext) {
   storageService = new StorageService(platform);
   stateManager = new StateManager(storageService, platform);
   imageGenerator = new ImageGenerator(storageService, platform);
+  const summaryService = new SummaryService();
+  summaryService.init(platform);
 
   // Build provider: Claude Code is always present; Codex is conditional.
-  const claudeProvider = new ClaudeCodeWatcher(stateManager, platform, imageGenerator);
+  const claudeProvider = new ClaudeCodeWatcher(stateManager, platform, imageGenerator, summaryService);
   if (CodexWatcher.isAvailable(platform)) {
-    const codexProvider = new CodexWatcher(stateManager, platform);
+    const codexProvider = new CodexWatcher(stateManager, platform, summaryService, imageGenerator);
     provider = new CompositeConversationProvider([claudeProvider, codexProvider]);
     console.log('Claudine: Codex sessions detected — multi-provider mode');
   } else {
