@@ -90,14 +90,25 @@ export class StateManager {
     return this._conversations.get(id);
   }
 
-  public setConversations(conversations: Conversation[]) {
+  /**
+   * Replace conversations from a scan.
+   *
+   * When `providerTag` is given, only conversations whose `provider` matches
+   * the tag are eligible for deletion — this prevents two providers from
+   * clobbering each other's entries. Without a tag the original behaviour
+   * (delete anything missing from the scan) is preserved for backward compat.
+   */
+  public setConversations(conversations: Conversation[], providerTag?: string) {
     // Build the new set of IDs from the scan results
     const scannedIds = new Set(conversations.map(c => c.id));
 
-    // Remove conversations that no longer have a JSONL file on disk
-    for (const id of this._conversations.keys()) {
+    // Remove conversations that no longer have a JSONL file on disk.
+    // When a providerTag is specified, only remove entries from that provider.
+    for (const [id, existing] of this._conversations.entries()) {
       if (!scannedIds.has(id)) {
-        this._conversations.delete(id);
+        if (!providerTag || existing.provider === providerTag) {
+          this._conversations.delete(id);
+        }
       }
     }
 

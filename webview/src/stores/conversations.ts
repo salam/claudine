@@ -69,6 +69,65 @@ export function clearCategoryFilter() {
   activeCategories.set(new Set());
 }
 
+// ── Smart Board ───────────────────────────────────────────────────────
+
+/** IDs of in-review conversations the user has acknowledged (dismissed from Smart Board). */
+export const acknowledgedReviewIds = writable<Set<string>>(new Set());
+
+export function acknowledgeReview(id: string) {
+  acknowledgedReviewIds.update(set => {
+    const next = new Set(set);
+    next.add(id);
+    return next;
+  });
+  vscode.mergeState({ acknowledgedReviewIds: Array.from(get(acknowledgedReviewIds)) });
+}
+
+export function restoreAcknowledgedReviews() {
+  const state = vscode.getState<{ acknowledgedReviewIds?: string[] }>();
+  if (state?.acknowledgedReviewIds) {
+    acknowledgedReviewIds.set(new Set(state.acknowledgedReviewIds));
+  }
+}
+
+/** Collapsed state of the Smart Board section. */
+export const smartBoardCollapsed = writable(false);
+
+export function toggleSmartBoard() {
+  smartBoardCollapsed.update(v => {
+    const next = !v;
+    vscode.mergeState({ smartBoardCollapsed: next });
+    return next;
+  });
+}
+
+export function restoreSmartBoardState() {
+  const state = vscode.getState<{ smartBoardCollapsed?: boolean }>();
+  if (state?.smartBoardCollapsed !== undefined) {
+    smartBoardCollapsed.set(state.smartBoardCollapsed);
+  }
+}
+
+// Cleanup: remove acknowledged IDs when the conversation leaves in-review
+// (so it reappears on the smart board if it returns to in-review later).
+conversations.subscribe($conversations => {
+  const inReviewIds = new Set($conversations.filter(c => c.status === 'in-review').map(c => c.id));
+  acknowledgedReviewIds.update(set => {
+    let changed = false;
+    const next = new Set(set);
+    for (const id of set) {
+      if (!inReviewIds.has(id)) {
+        next.delete(id);
+        changed = true;
+      }
+    }
+    if (changed) {
+      vscode.mergeState({ acknowledgedReviewIds: Array.from(next) });
+    }
+    return changed ? next : set;
+  });
+});
+
 export function toggleCardCollapsed(id: string) {
   collapsedCardIds.update(set => {
     const next = new Set(set);
@@ -331,6 +390,38 @@ export const archiveColumn = derived(t, ($t) => ({
   title: $t('column.archived', 'Archived'),
   color: '#4b5563',
 }));
+
+// ── Smart Board derived stores ────────────────────────────────────────
+
+export interface SmartBoardLanes {
+  running: Conversation[];
+  needsInput: Conversation[];
+  inReview: Conversation[];
+}
+
+/** Conversations bucketed into the three Smart Board lanes. */
+export const smartBoardLanes = derived(
+  [conversations, acknowledgedReviewIds],
+  ([$conversations, $acked]) => {
+    const running: Conversation[] = [];
+    const needsInput: Conversation[] = [];
+    const inReview: Conversation[] = [];
+    for (const c of $conversations) {
+      if (c.status === 'in-progress') running.push(c);
+      else if (c.status === 'needs-input') needsInput.push(c);
+      else if (c.status === 'in-review' && !$acked.has(c.id)) inReview.push(c);
+    }
+    return { running, needsInput, inReview } as SmartBoardLanes;
+  }
+);
+
+/** True when the Smart Board has at least one item to show. */
+export const smartBoardHasContent = derived(smartBoardLanes, ($lanes) =>
+  $lanes.running.length > 0 || $lanes.needsInput.length > 0 || $lanes.inReview.length > 0
+);
+
+/** Extract a short display name from a workspace path (exported for Smart Board). */
+export { projectDisplayName };
 
 // Helper function to get category details
 export function getCategoryDetails(category: Conversation['category']): {

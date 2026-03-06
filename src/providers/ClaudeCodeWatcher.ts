@@ -7,6 +7,7 @@ import { StateManager } from '../services/StateManager';
 import { SummaryService } from '../services/SummaryService';
 import { ImageGenerator } from '../services/ImageGenerator';
 import { Conversation, ProjectManifestEntry } from '../types';
+import { IConversationProvider } from './IConversationProvider';
 import { MAX_IMAGE_FILE_SIZE_BYTES } from '../constants';
 
 /** Patterns that identify OS temp/system directories to auto-exclude in standalone mode. */
@@ -18,7 +19,10 @@ const EXCLUDED_PATH_PATTERNS = [
   /\\Recycle\.Bin\\/i,      // Windows Recycle Bin
 ];
 
-export class ClaudeCodeWatcher {
+export class ClaudeCodeWatcher implements IConversationProvider {
+  readonly id = 'claude-code';
+  readonly displayName = 'Claude Code';
+
   private _watcherDisposable: Disposable | undefined;
   private _parser: ConversationParser;
   private _summaryService: SummaryService;
@@ -55,6 +59,11 @@ export class ClaudeCodeWatcher {
 
   /** Resolved path to the Claude Code data directory. */
   public get claudePath(): string {
+    return this._claudePath;
+  }
+
+  /** Alias for IConversationProvider. */
+  public get dataPath(): string {
     return this._claudePath;
   }
 
@@ -108,7 +117,7 @@ export class ClaudeCodeWatcher {
     try {
       const conversations = await this.scanForConversations();
       console.log(`Claudine: Found ${conversations.length} conversations`);
-      this._stateManager.setConversations(conversations);
+      this._stateManager.setConversations(conversations, 'claude-code');
 
       // Kick off async summarization for uncached conversations (non-blocking)
       this._summaryService.summarizeUncached(conversations, (id, summary) => {
@@ -302,9 +311,10 @@ export class ClaudeCodeWatcher {
   /**
    * Encode a workspace path the same way Claude Code does.
    * /Users/matthias/Development/foo → -Users-matthias-Development-foo
+   * /Users/matthias/Development/molts.club → -Users-matthias-Development-molts-club
    */
   private encodeWorkspacePath(workspacePath: string): string {
-    return workspacePath.replace(/\//g, '-');
+    return workspacePath.replace(/[/.]/g, '-');
   }
 
   // ── Project discovery & progressive scanning (standalone) ─────────

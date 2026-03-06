@@ -1,21 +1,27 @@
 import { ClaudineServer } from './server';
 
+declare const CLAUDINE_VERSION: string;
+const VERSION = CLAUDINE_VERSION;
+
 const DEFAULT_PORT = 5147;
 const DEFAULT_HOST = '127.0.0.1';
 
-function parseArgs(argv: string[]): { port: number; host: string; open: boolean; help: boolean } {
+// ── Standalone subcommand ────────────────────────────────────────────
+
+interface StandaloneArgs {
+  port: number;
+  host: string;
+  open: boolean;
+}
+
+function parseStandaloneArgs(argv: string[]): StandaloneArgs {
   let port = DEFAULT_PORT;
   let host = DEFAULT_HOST;
   let open = true;
-  let help = false;
 
-  for (let i = 2; i < argv.length; i++) {
+  for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--help' || arg === '-h') {
-      help = true;
-    } else if (arg === '--no-open') {
-      open = false;
-    } else if (arg === '--port' || arg === '-p') {
+    if (arg === '--port' || arg === '-p') {
       const next = argv[++i];
       const parsed = parseInt(next, 10);
       if (isNaN(parsed) || parsed < 1 || parsed > 65535) {
@@ -25,33 +31,31 @@ function parseArgs(argv: string[]): { port: number; host: string; open: boolean;
       port = parsed;
     } else if (arg === '--host') {
       host = argv[++i] || DEFAULT_HOST;
-    } else if (arg === 'standalone') {
-      // Ignored — for compatibility with `claudine standalone`
+    } else if (arg === '--no-open') {
+      open = false;
+    } else if (arg === '--help' || arg === '-h') {
+      printStandaloneHelp();
+      process.exit(0);
     } else {
-      console.error(`Unknown argument: ${arg}`);
+      console.error(`Unknown option: ${arg}`);
       process.exit(1);
     }
   }
 
-  return { port, host, open, help };
+  return { port, host, open };
 }
 
-function printHelp() {
+function printStandaloneHelp() {
   console.log(`
-Claudine — Kanban board for Claude Code conversations
+Usage: claudine standalone [options]
 
-Usage: claudine [options]
+Start the Claudine web server and open the kanban board in your browser.
 
 Options:
   -p, --port <number>   Port to listen on (default: ${DEFAULT_PORT})
   --host <address>      Host to bind to (default: ${DEFAULT_HOST})
-  --no-open             Don't auto-open browser
+  --no-open             Don't auto-open the browser
   -h, --help            Show this help
-
-Examples:
-  claudine                    Start server and open browser
-  claudine --port 8080        Use custom port
-  claudine --no-open          Start without opening browser
 `);
 }
 
@@ -68,17 +72,10 @@ async function openBrowser(url: string) {
   }
 }
 
-async function main() {
-  const args = parseArgs(process.argv);
-
-  if (args.help) {
-    printHelp();
-    process.exit(0);
-  }
-
+async function runStandalone(argv: string[]) {
+  const args = parseStandaloneArgs(argv);
   const server = new ClaudineServer();
 
-  // Graceful shutdown
   const shutdown = async () => {
     console.log('\nClaudine: Shutting down...');
     await server.stop();
@@ -97,6 +94,49 @@ async function main() {
 
   console.log(`\nOpen ${url} in your browser`);
   console.log('Press Ctrl+C to stop\n');
+}
+
+// ── Top-level CLI ────────────────────────────────────────────────────
+
+function printHelp() {
+  console.log(`
+Claudine v${VERSION} — Kanban board for Claude Code conversations
+
+Usage: claudine <command> [options]
+
+Commands:
+  standalone    Start the web server (browser-based board)
+
+Options:
+  -v, --version   Show version
+  -h, --help      Show this help
+
+Run claudine <command> --help for command-specific options.
+`);
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const command = args[0];
+
+  if (!command || command === '--help' || command === '-h') {
+    printHelp();
+    process.exit(0);
+  }
+
+  if (command === '--version' || command === '-v') {
+    console.log(VERSION);
+    process.exit(0);
+  }
+
+  if (command === 'standalone') {
+    await runStandalone(args.slice(1));
+    return;
+  }
+
+  console.error(`Unknown command: ${command}\n`);
+  printHelp();
+  process.exit(1);
 }
 
 main().catch((err) => {

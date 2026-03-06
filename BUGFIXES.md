@@ -93,3 +93,45 @@
 - **Symptom:** Submitting the website newsletter form succeeds/fails inconsistently, but `newsletter-subscribers.sqlite` is not created on disk.
 - **Root cause:** Storage path resolution only targeted `dirname(__DIR__) . '/data'`, which can be blocked by hosting layout/open_basedir restrictions or unwritable parent directories. The script also relied on implicit SQLite file creation only.
 - [✔️] Fixed — endpoint now resolves the first writable storage directory (custom env dir/file, project data dir, public data dir, or system temp dir) and explicitly creates/verifies the SQLite file before writing
+
+## BUG11 — Standalone multi-pane: some kanban boards incorrectly use vertical layout on wide windows
+
+- **Reported:** 2026-02-12
+- **Symptom:** In standalone mode with multiple projects expanded, some kanban boards render columns stacked vertically (sidebar layout) even though the window is wide enough for horizontal layout. Boards with more cards are more likely to be affected.
+- **Root cause:** `.pane-content` in `ProjectPane.svelte` lacks `display: flex`, breaking the flex height chain. `.zoom-wrapper`'s `flex: 1` is inert (parent is not a flex container), so `.kanban-board`'s `height: 100%` resolves against content height instead of the constrained pane height. Boards with more cards have taller natural content, producing a lower aspect ratio that `inferPlacement()` misclassifies as sidebar geometry. This creates a self-reinforcing feedback loop: vertical layout → even taller content → confirming the wrong decision.
+- [✔️] Fixed — added `display: flex; flex-direction: column` to `.pane-content` in `ProjectPane.svelte`, completing the flex height chain so `inferPlacement()` receives the constrained pane geometry
+
+## BUG11b — Vertical (sidebar) layout columns don't resize to full width
+
+- **Reported:** 2026-03-02
+- **Symptom:** When the board is in vertical/sidebar layout, columns don't stretch to the full available width. Instead they retain their panel-mode widths (custom pixel widths or constrained flex sizing).
+- **Root cause:** In vertical mode, `.column-wrapper` CSS sets `flex: none` and unsets min/max-width, but doesn't set `width: 100%`. Worse, columns with custom widths get inline `style:width` (fixed px) and `style:flex` (`0 0 auto`) that override the vertical CSS rules entirely, since inline styles have higher specificity.
+- [✔️] Fixed — added `width: 100%` to vertical `.column-wrapper` CSS, and gated inline custom-width/flex styles behind `!isVertical` so they're ignored in sidebar layout
+
+## BUG12 — Projects with dots in their name not found
+
+- **Reported:** 2026-02-24
+- **Symptom:** Conversations from workspace directories containing dots (e.g. `molts.club`) don't appear on the Kanban board. The extension logs "No project dir found for workspace" because the encoded path doesn't match the directory Claude Code created.
+- **Root cause:** `encodeWorkspacePath()` only replaced `/` with `-`, but Claude Code also replaces `.` with `-`. A workspace like `/Users/matthias/Development/molts.club` was encoded as `-Users-matthias-Development-molts.club` but the actual directory on disk is `-Users-matthias-Development-molts-club`.
+- [✔️] Fixed — changed `encodeWorkspacePath()` regex from `/\//g` to `/[/.]/g` to also replace dots with hyphens
+
+## BUG13 — "Webview is disposed" errors during tab restoration
+
+- **Reported:** 2026-02-24
+- **Symptom:** On EDH startup, repeated `Error: Webview is disposed` errors appear in the Developer Console. The errors fire from `ClaudeCodeEditorCommands.focusEditor` inside a `setTimeout`.
+- **Root cause:** When `replaceRestoredTab` closes a stale shell-rendered tab and re-opens it via `onOpenConversation`, the full `openConversation` flow fires — including `focusEditorOnce` which calls `claude-vscode.focus` after a delay. By the time the timer fires, the old webview is disposed and the new one may not be ready, causing `reveal()` to throw inside the Claude Code extension.
+- [✔️] Fixed — `onOpenConversation` callback now opens the editor directly (via `editorCommands.openConversation`) without the follow-up `focusEditorOnce` call; the new editor focuses itself on creation
+
+## BUG14 — Opening a Claude Code conversation spawns dozens of duplicate views
+
+- **Reported:** 2026-03-02
+- **Symptom:** Sometimes when opening a new Claude Code conversation in the IDE view, dozens of editor views are created instead of one.
+- **Root cause:** Race condition in `TabManager.replaceRestoredTab()`. The `_replacingStaleTab` guard flag is reset at the end of the async method, but `recordActiveTabMapping()` runs 500 ms later. During that window the new tab exists but is unmapped, `_tabToConversation.size === 0`, and `_replacingStaleTab === false` — so `detectFocusedConversation()` re-enters `replaceRestoredTab`, creating an infinite open/close/open loop.
+- [✔️] Fixed — `_replacingStaleTab` guard now stays held until `recordActiveTabMapping()` records the new tab (with a 3 s safety timeout fallback); `replaceRestoredTab` also calls `suppressFocus()` to block focus-detection cascades during the replacement window
+
+## BUG14b — Claude Code views frantically demand focus in an infinite loop
+
+- **Reported:** 2026-03-02
+- **Symptom:** After running for a while, Claude Code editor tabs start rapidly stealing focus from each other, flipping back and forth between views.
+- **Root cause:** Same `_replacingStaleTab` race condition as BUG14. Each loop iteration opens a new tab → `onDidChangeTabs` fires → `scheduleFocusDetection` → `detectFocusedConversation` re-enters `replaceRestoredTab` → rapid tab switching. Additionally, the `onOpenConversation` callback does not call `suppressFocus()`, so focus-detection cascades have no debounce protection. CLAUDINE.AGENTS.md may also contribute by instructing agents to poll the board, triggering repeated state changes.
+- [✔️] Fixed — same fix as BUG14; additionally updated CLAUDINE.AGENTS.md with explicit warnings against polling/looping, explaining that Claudine handles status transitions automatically

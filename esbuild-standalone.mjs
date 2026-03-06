@@ -4,6 +4,7 @@ import * as path from 'path';
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
 // Copy theme CSS files to output directory
 function copyThemes() {
@@ -31,6 +32,9 @@ const ctx = await esbuild.context({
     // Native modules that shouldn't be bundled
     'fsevents',
   ],
+  define: {
+    CLAUDINE_VERSION: JSON.stringify(pkg.version),
+  },
   banner: {
     js: '#!/usr/bin/env node',
   },

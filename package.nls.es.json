@@ -33,6 +33,7 @@
   "config.title": "Claudine",
   "config.imageGenerationApi.description": "API para generar iconos de tareas",
   "config.claudeCodePath.description": "Ruta al directorio de datos de Claude Code",
+  "config.codexPath.description": "Ruta al directorio de datos de OpenAI Codex (detectado automáticamente en ~/.codex)",
   "config.enableSummarization.description": "Usar Claude Code CLI para generar resúmenes breves para las tarjetas de conversación",
   "config.toolbarLocation.description": "Dónde mostrar la barra de herramientas: dentro de la barra lateral del webview, en la barra de título del panel de VS Code, o en ambos",
   "config.autoRestartAfterRateLimit.description": "Reiniciar automáticamente tareas pausadas cuando se restablezca el límite de la API de Claude",

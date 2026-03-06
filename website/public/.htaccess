@@ -1,0 +1,20 @@
+# Deny access to SQLite database files
+<FilesMatch "\.sqlite$">
+    Require all denied
+</FilesMatch>
+
+# Deny access to PHP source (except subscribe.php which handles POST)
+<FilesMatch "^(?!subscribe\.php$).+\.php$">
+    Require all denied
+</FilesMatch>
+
+# Deny access to hidden files (e.g. .env, .git)
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Deny access to data directory
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^data/ - [F,L]
+</IfModule>

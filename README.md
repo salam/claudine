@@ -5,7 +5,7 @@
 <h1 align="center">Claudine</h1>
 
 <p align="center">
-  <strong>A kanban board for managing Claude Code conversations</strong>
+  <strong>A kanban board for managing Claude Code and OpenAI Codex conversations</strong>
 </p>
 
 <p align="center">
@@ -18,13 +18,15 @@
   <a href="https://claudine.pro">Website</a> &bull;
   <a href="#installation">Installation</a> &bull;
   <a href="#features">Features</a> &bull;
+  <a href="#standalone-mode">Standalone</a> &bull;
   <a href="#configuration">Configuration</a> &bull;
-  <a href="#development">Development</a>
+  <a href="#development">Development</a> &bull;
+  <a href="#contributing">Contributing</a>
 </p>
 
 ---
 
-Claudine is a Visual Studio Code extension that gives you a kanban-style overview of all your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) conversations. It reads Claude Code's native JSONL session files, auto-detects status and category, and renders an interactive board directly in the VS Code panel area.
+Claudine is a Visual Studio Code extension that gives you a kanban-style overview of all your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [OpenAI Codex](https://openai.com/index/codex/) conversations. It reads native JSONL session files, auto-detects status and category, and renders an interactive board directly in VS Code — or as a standalone web app in your browser.
 
 ![Claudine kanban board screenshot](resources/screenshot.png)
 
@@ -32,72 +34,90 @@ Claudine is a Visual Studio Code extension that gives you a kanban-style overvie
 
 ### Board & Cards
 
-- **Kanban board** — Conversations organized into columns: To Do, Needs Input, In Progress, In Review, and Done
-- **Auto-status detection** — Conversation state is inferred from message content (questions, completions, errors, tool use)
+- **Kanban board** — Seven columns: To Do, Needs Input, In Progress, In Review, Done, Cancelled, Archived
+- **Auto-status detection** — Conversation state inferred from message content (questions, completions, errors, tool use, text ending with "?")
 - **Category classification** — Automatically tagged as Bug, Feature, User Story, Improvement, or Task
-- **Category filtering** — Filter the board by category to focus on specific types of work
-- **Drag and drop** — Move conversations between columns; manual overrides are preserved until new activity
+- **Category filtering** — Filter the board by category with multi-select chip buttons
+- **Drag and drop** — Move conversations between columns; manual overrides preserved until new activity
 - **Compact view** — Toggle between full and compact card layouts, individually or globally
-- **Conversation focus tracking** — Detects which Claude Code editor is active and highlights the corresponding card
-- **Active agent indicators** — Pulsating badges when Claude is actively working
+- **Resizable columns** — Drag handles between columns to adjust widths; double-click to reset
+- **Zoom controls** — Zoom in/out (50%–200%) via toolbar buttons or `Ctrl+=/Ctrl+-/Ctrl+0`
+- **Auto-archive** — Done/cancelled conversations automatically archived after 4 hours
 
-### Full-Text Search
+### Task Cards
+
+- **Activity timer** — Live counter showing how long the agent has been actively working
+- **Agent avatars** — Pulsating badges when Claude is actively working, with active/idle state
+- **Sidechain activity dots** — Last 3 subagent steps shown as colored dots (green/yellow/red/gray)
+- **Last tool activity** — Shows what the agent is doing right now (e.g. `Read "src/app.ts"`, `Bash "npm test"`)
+- **Git branch badge** — Clickable badge linking to Source Control view
+- **AI-generated icons** — Optional task icons via OpenAI or Stability AI, with deterministic SVG placeholders
+- **Status badges** — Error, interruption, question, and rate-limit indicators
+- **Configurable display** — Toggle icon, description, latest message, and git branch visibility per card
+
+### Smart Board (Cross-Project Overview)
+
+- **Actionable overview** — A collapsible section showing only tasks that need attention across all projects
+- **Three lanes** — Needs Input, In Progress, In Review
+- **Project labels** — Each card shows which project it belongs to
+- **Acknowledge & dismiss** — Mark In Review items as seen without changing their status
+
+### Rate Limit Detection & Auto-Restart
+
+- **Automatic detection** — Detects "You've hit your limit" messages in Claude Code output
+- **Reset time display** — Amber banner at the top of the board showing when the limit resets
+- **Auto-restart** — Optionally sends "continue" to all paused conversations 30 seconds after the limit lifts
+
+### Multi-Provider Support
+
+- **Claude Code** — Watches `~/.claude/projects/**/*.jsonl`
+- **OpenAI Codex** — Auto-detects sessions in `~/.codex/sessions/` and displays them alongside Claude Code conversations
+
+### Search
 
 - **Full-text search** — Search across visible card text and full JSONL conversation content
-- **Search highlighting** — Matched terms are highlighted in card fields
 - **Fade / Hide modes** — Toggle between dimming and hiding non-matching cards
+- **Matching cards auto-expand** in compact view
 
 ### Conversation Actions
 
-- **Click to open** — Click a card title to open the conversation in the Claude Code visual editor
+- **Click to open** — Open conversations in the Claude Code visual editor
 - **Inline prompts** — Send follow-up messages directly from the kanban card
-- **Quick ideas** — Draft conversation ideas in the To Do column and send them when ready
-- **Git branch display** — Shows the branch associated with each conversation
+- **Quick ideas** — Multi-line draft area in the To Do column; send drafts as new conversations when ready
+- **Conversation focus tracking** — Active Claude Code editor tab highlights the corresponding card
 
 ### AI Features
 
-- **AI-generated icons** — Optional task icons via OpenAI DALL-E or Stability AI
-- **Conversation summarization** — Optional AI-powered title and description summaries
+- **Task icon generation** — OpenAI (gpt-image-1) or Stability AI (SDXL), with SVG placeholder fallback
+- **Conversation summarization** — AI-powered title and description summaries via local `claude` CLI
 - **API key validation** — Test Connection button to verify your API key works
-
-### Command Palette
-
-- **18 commands** — Full command palette integration for all major actions (see [Commands](#commands))
-- **Keyboard shortcuts** — Default keybindings for the most common operations
-
-### Notifications & Status
-
-- **Needs Input alerts** — Desktop notification when a conversation transitions to "Needs Input"
-- **File system watcher** — Board updates in real time as JSONL files change
-- **Workspace scoping** — Only shows conversations belonging to the current workspace
-
-### Placement & Layout
-
-- **Panel or sidebar** — Choose where the board lives: bottom panel (default) or activity bar sidebar
-- **Toggle placement** — Switch between panel and sidebar via command palette
-
-### Data Portability
-
-- **Export board** — Save your board as CSV, JSON, or Trello-compatible format
-- **Import board** — Restore conversations from a Claudine JSON export
-
-Import and export are available from the **Command Palette** (`Cmd+Shift+P` / `Ctrl+Shift+P`):
-
-- **Export Board...** — Choose a format (CSV, JSON, or Trello JSON), then pick a save location. The JSON format is re-importable; CSV and Trello are one-way exports.
-- **Import Board...** — Select a Claudine JSON file previously exported with the JSON option. Imported conversations are merged into the current board.
 
 ### Agent Integration
 
-- **Agent board control** — Claude Code agents can move tasks on the board automatically via `CLAUDINE.AGENTS.md`
-- **Extension API** — Other extensions can query conversations, move cards, and listen for status changes
+- **Board control from agents** — Claude Code agents can move tasks, update titles, and set categories via `.claudine/commands.jsonl`
+- **Status bar button** — Shows when `CLAUDINE.AGENTS.md` needs setup or referencing; click to scaffold
+- **Extension API** — Other extensions can query conversations, move cards, and listen for changes
 
-### Diagnostics
+### Data Portability
 
-- **Show Diagnostics** — View extension health info: watched paths, parse cache stats, conversation counts, API configuration
+- **Export** — Save your board as CSV, JSON (re-importable), or Trello-compatible JSON
+- **Import** — Restore conversations from a Claudine JSON export
+
+### Notifications
+
+- **VS Code notifications** — Desktop alert when a conversation transitions to "Needs Input"
+- **Browser notifications** — In standalone mode, browser Notification API alerts for conversations needing input
 
 ### Internationalization
 
-- **Localization-ready** — All UI strings use `vscode.l10n` for translation support
+- **5 languages** — English, German, French, Spanish, and Italian
+- **Full coverage** — Extension metadata, commands, settings, and runtime UI all translated
+
+### Security
+
+- **Content Security Policy** — Strict CSP with per-load nonce for scripts
+- **Auth tokens** — Per-session token on all webview↔extension messages
+- **Encrypted key storage** — API keys stored via VS Code SecretStorage, never in plaintext settings
 
 ## Prerequisites
 
@@ -116,28 +136,108 @@ Import and export are available from the **Command Palette** (`Cmd+Shift+P` / `C
 ### From VSIX
 
 ```bash
-code --install-extension claudine-0.1.0.vsix
+code --install-extension claudine-x.y.z.vsix
 ```
 
 ### From source
 
 See [Development](#development) below.
 
+## Standalone Mode
+
+Claudine can also run as a standalone web application outside VS Code. It starts a local server and opens the kanban board in your browser, monitoring all Claude Code and Codex projects on your machine.
+
+### Quick Start
+
+```bash
+# Install the CLI globally
+npm run build:standalone && npm run build:webview && npm link
+
+# Start the standalone server
+claudine standalone
+```
+
+The board is served at `http://127.0.0.1:5147` by default.
+
+### CLI
+
+```
+claudine <command> [options]
+
+Commands:
+  standalone    Start the web server (browser-based board)
+
+Options:
+  -v, --version   Show version
+  -h, --help      Show help
+```
+
+#### `claudine standalone`
+
+```
+  -p, --port <number>   Port to listen on (default: 5147)
+  --host <address>      Host to bind to (default: 127.0.0.1)
+  --no-open             Don't auto-open the browser
+  -h, --help            Show this help
+```
+
+Examples:
+
+```bash
+claudine standalone                     # Default (port 5147, opens browser)
+claudine standalone --port 8080         # Custom port
+claudine standalone --no-open           # Don't open browser
+```
+
+### Development Shortcut
+
+```bash
+# Build and run in one step (without global install)
+npm run standalone
+```
+
+### Standalone-Specific Features
+
+- **Multi-project view** — Conversations grouped by project with collapsible, resizable panes
+- **Smart Board** — Cross-project overview of actionable tasks
+- **Progressive loading** — Projects discovered instantly, conversations load incrementally with a progress bar
+- **Auto-exclude temp directories** — macOS/Windows/Linux system paths excluded from scanning
+- **Theme toggle** — Cycle between system, dark, and light themes
+- **Desktop notifications** — Browser notifications for conversations needing input
+
+### Standalone Configuration
+
+Standalone mode stores its configuration in `~/.claudine/`:
+
+| File | Purpose |
+|------|---------|
+| `config.json` | User settings (image API, Claude Code path, UI toggles) |
+| `global-state.json` | Board state (column positions, manual overrides) |
+| `.secrets.json` | API keys (OpenAI, Stability AI) |
+| `storage/` | Persistent data |
+
 ## Usage
 
-After installation, Claudine appears as a panel tab (alongside Terminal, Problems, etc.) labeled **🐘 Claudine**.
+After installation, Claudine appears as a panel tab (alongside Terminal, Problems, etc.) labeled **Claudine**.
+
+A **Getting Started walkthrough** guides you through initial setup (also available via `Help > Get Started`).
 
 ### Sidebar Controls
 
 | Icon | Action |
 |------|--------|
-| 🔍 | Toggle full-text search |
-| 🔽 | Filter by category (Bug, Feature, etc.) |
-| ☐/☰ | Toggle compact/expanded view |
-| ★ | Toggle AI summarization |
-| ⟳ | Refresh conversations |
-| ⚙ | Settings |
-| ⓘ | About |
+| Search | Toggle full-text search |
+| Filter | Filter by category (Bug, Feature, etc.) |
+| Compact | Toggle compact/expanded card view |
+| Expand | Expand or collapse all cards |
+| Archive | Show/hide archived conversations |
+| Summarize | Toggle AI summarization |
+| Refresh | Refresh conversations |
+| Zoom +/−/Reset | Board zoom controls |
+| Settings | Open settings panel |
+| About | About Claudine |
+
+Toolbar location is configurable: **sidebar** (vertical strip, default) or **title bar** (VS Code panel header).
 
 ### Card Interactions
 
@@ -146,14 +246,7 @@ After installation, Claudine appears as a panel tab (alongside Terminal, Problem
 - **Chevron** — Collapse/expand individual cards
 - **Description / Latest** — Click to expand truncated text
 - **Git branch** — Click to open Source Control view
-- **Respond button** — Appears on cards needing input; opens a prompt field
-
-### Search Tips
-
-- Search matches across card titles, descriptions, last messages, git branches, agent names, and **full JSONL conversation content**
-- Toggle between **Fade** (dim non-matches) and **Hide** (remove non-matches) modes
-- Matching cards auto-expand when in compact view
-- Press `Escape` to close search
+- **Respond input** — Appears on cards needing input; type and press Enter to send
 
 ### Status Detection
 
@@ -162,7 +255,7 @@ Claudine infers conversation status from message patterns:
 | Status | Detection |
 |--------|-----------|
 | **To Do** | No assistant response yet |
-| **Needs Input** | Contains `AskUserQuestion`, question patterns, or recent errors |
+| **Needs Input** | `AskUserQuestion` tool, question patterns, text ending with "?", or recent errors |
 | **In Progress** | Last message is from user, or assistant is using tools |
 | **In Review** | Assistant indicates completion ("all done", "completed", etc.) |
 | **Done** | Manually set via drag-and-drop (preserved until new activity) |
@@ -175,8 +268,15 @@ Open VS Code Settings (`Ctrl+,` / `Cmd+,`) and search for **Claudine**.
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `claudine.claudeCodePath` | `string` | `~/.claude` | Path to the Claude Code data directory |
+| `claudine.codexPath` | `string` | `~/.codex` | Path to the OpenAI Codex data directory |
 | `claudine.imageGenerationApi` | `string` | `none` | API for task icons: `openai`, `stability`, or `none` |
 | `claudine.enableSummarization` | `boolean` | `false` | Generate short summaries for card titles and descriptions |
+| `claudine.toolbarLocation` | `string` | `sidebar` | Toolbar placement: `sidebar` or `titlebar` |
+| `claudine.autoRestartAfterRateLimit` | `boolean` | `false` | Auto-send "continue" after rate limit resets |
+| `claudine.showTaskIcon` | `boolean` | `true` | Show task icon on cards |
+| `claudine.showTaskDescription` | `boolean` | `true` | Show description on cards |
+| `claudine.showTaskLatest` | `boolean` | `true` | Show last message preview on cards |
+| `claudine.showTaskGitBranch` | `boolean` | `true` | Show git branch badge on cards |
 
 API keys are stored securely via VS Code's `SecretStorage` and configured through the in-app settings panel.
 
@@ -184,9 +284,9 @@ API keys are stored securely via VS Code's `SecretStorage` and configured throug
 
 When `imageGenerationApi` is set to `openai` or `stability`, Claudine generates a small icon for each conversation card using the conversation's title and description as a prompt.
 
-- **OpenAI** — Uses DALL-E 3 (requires an OpenAI API key)
-- **Stability** — Uses Stability AI (requires a Stability API key)
-- **None** — Shows emoji category badges instead
+- **OpenAI** — Uses gpt-image-1 (requires an OpenAI API key)
+- **Stability** — Uses Stability AI SDXL (requires a Stability API key)
+- **None** — Shows deterministic SVG placeholders with category-colored backgrounds
 
 ### Summarization
 
@@ -215,6 +315,17 @@ Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and type "Claudine":
 | Import Board... | | Load conversations from a Claudine JSON export |
 | Show Diagnostics | | Display extension health info (paths, watcher, counts) |
 | Open Settings | | Jump to Claudine settings in VS Code |
+| Setup Agent Integration | | Scaffold `CLAUDINE.AGENTS.md` into workspace |
+| Toggle Search | | Show/hide the in-board search bar |
+| Toggle Filter | | Show/hide the category filter bar |
+| Toggle Compact View | | Switch between compact and full card layouts |
+| Toggle Expand/Collapse All | | Expand or collapse all cards at once |
+| Toggle Archive | | Show/hide the archived conversations column |
+| Zoom In | `Cmd+=` | Increase board zoom level |
+| Zoom Out | `Cmd+-` | Decrease board zoom level |
+| Zoom Reset | `Cmd+0` | Reset board zoom to 100% |
+| Toggle Settings Panel | | Open/close the in-board settings panel |
+| Toggle About | | Open/close the About dialog |
 
 Keybindings shown are macOS defaults. On Windows/Linux, replace `Cmd` with `Ctrl`.
 
@@ -226,61 +337,81 @@ claudine/
 │   ├── extension.ts                # Activation, command registration, service wiring
 │   ├── constants.ts                # Named constants (thresholds, delays)
 │   ├── providers/
-│   │   ├── KanbanViewProvider.ts   # Webview host, message routing
+│   │   ├── KanbanViewProvider.ts   # Webview host, message routing, auto-archive
 │   │   ├── TabManager.ts          # Claude tab tracking, focus detection
-│   │   ├── ClaudeCodeWatcher.ts   # File system watcher, JSONL search
-│   │   └── ConversationParser.ts  # JSONL → Conversation parsing
+│   │   ├── ClaudeCodeWatcher.ts   # Claude Code file watcher, JSONL search
+│   │   ├── ConversationParser.ts  # Claude Code JSONL → Conversation parsing
+│   │   ├── CodexWatcher.ts        # OpenAI Codex file watcher
+│   │   ├── CodexSessionParser.ts  # Codex JSONL → Conversation parsing
+│   │   ├── CompositeConversationProvider.ts  # Multi-provider wrapper
+│   │   ├── ClaudeCodeEditorCommands.ts       # claude-vscode command bridge
+│   │   └── IConversationProvider.ts          # Provider interface
 │   ├── services/
 │   │   ├── StateManager.ts        # In-memory state, merge logic, events
 │   │   ├── StorageService.ts      # Persistent storage (global + workspace)
-│   │   ├── ImageGenerator.ts      # Icon generation (OpenAI / Stability)
+│   │   ├── ImageGenerator.ts      # Icon generation (OpenAI / Stability / SVG)
 │   │   ├── SummaryService.ts      # AI summarization via Claude CLI
 │   │   ├── CategoryClassifier.ts  # Rule-based category detection
 │   │   ├── CommandProcessor.ts    # Agent command file watcher
 │   │   └── BoardExporter.ts      # CSV / JSON / Trello export & import
+│   ├── platform/
+│   │   ├── IPlatformAdapter.ts    # Platform abstraction interface
+│   │   ├── VsCodeAdapter.ts       # VS Code implementation
+│   │   └── StandaloneAdapter.ts   # Node.js/chokidar implementation
 │   ├── types/
 │   │   └── index.ts               # Shared TypeScript interfaces
-│   └── test/                      # Unit tests (vitest)
+│   └── test/                      # Unit tests (vitest, 279 tests)
 ├── webview/                        # Frontend (Svelte + Vite)
 │   └── src/
-│       ├── App.svelte              # Root component, toolbar, search
+│       ├── App.svelte              # Root component, toolbar, search, about
 │       ├── components/
-│       │   ├── KanbanBoard.svelte  # Board layout, DnD zones
+│       │   ├── KanbanBoard.svelte  # Board layout, DnD, column resizing, drafts
 │       │   ├── KanbanColumn.svelte # Column header, active counts
-│       │   ├── TaskCard.svelte     # Card rendering, highlights
-│       │   ├── AgentAvatar.svelte  # Agent circles with pulse
-│       │   ├── PromptInput.svelte  # Inline message input
+│       │   ├── TaskCard.svelte     # Card rendering, timer, dots, inline prompt
+│       │   ├── SmartBoard.svelte   # Cross-project action overview
+│       │   ├── ProjectPane.svelte  # Collapsible per-project pane (standalone)
 │       │   └── SettingsPanel.svelte# Settings UI
 │       ├── stores/
-│       │   └── conversations.ts   # Svelte stores, derived search
+│       │   └── conversations.ts   # Svelte stores, derived search, zoom
 │       └── lib/
 │           └── vscode.ts          # VS Code webview API bridge
+├── standalone/                     # Standalone server (Node.js)
+│   ├── cli.ts                     # CLI entry point, arg parsing
+│   ├── server.ts                  # HTTP + WebSocket server
+│   └── StandaloneMessageHandler.ts # Message routing for standalone
 ├── resources/
 │   ├── icons/                     # Extension icons (PNG + SVG)
+│   ├── walkthrough/               # Getting Started walkthrough steps
 │   └── CLAUDINE.AGENTS.md        # Template for agent integration
+├── l10n/                          # Runtime translation bundles
 ├── package.nls.json               # English i18n strings
+├── package.nls.{de,fr,es,it}.json # Translated i18n strings
 └── package.json
 ```
 
 ### Data Flow
 
 ```
-~/.claude/projects/**/*.jsonl
-        │
-        ▼
-  ClaudeCodeWatcher (fs.watch)
-        │
-        ▼
-  ConversationParser (JSONL → Conversation)
-        │
-        ▼
-  StateManager (merge, persist)
-        │
-        ▼
-  KanbanViewProvider (postMessage)
-        │
-        ▼
-  Svelte Webview (render board)
+~/.claude/projects/**/*.jsonl     ~/.codex/sessions/**/*.jsonl
+        │                                  │
+        ▼                                  ▼
+  ClaudeCodeWatcher                  CodexWatcher
+        │                                  │
+        ▼                                  ▼
+  ConversationParser             CodexSessionParser
+        │                                  │
+        └──────────┬───────────────────────┘
+                   ▼
+        CompositeConversationProvider
+                   │
+                   ▼
+            StateManager (merge, persist)
+                   │
+                   ▼
+        KanbanViewProvider (postMessage)
+                   │
+                   ▼
+         Svelte Webview (render board)
 ```
 
 The extension and webview communicate via `postMessage`. All message types are defined in `src/types/index.ts`.
@@ -321,6 +452,14 @@ npm run watch
 npm run dev:webview
 ```
 
+### Test
+
+```bash
+npm test
+```
+
+279 tests across 20 test files (vitest).
+
 ### Debug
 
 1. Open the project in VS Code
@@ -356,18 +495,14 @@ The `ConversationParser` extracts:
 - **Agents** — Detected from `Task` tool invocations (subagents)
 - **Git branch** — From entry metadata or message content
 - **Error state** — From API errors or tool failures in the latest exchange
+- **Sidechain steps** — From subagent tool calls (`isSidechain: true`)
+- **Last tool activity** — Most recent tool call name and arguments
 
-Parsing is incremental — on file changes, only newly appended bytes are read and parsed, with previous results cached in memory.
+Parsing is incremental — on file changes, only newly appended bytes are read and parsed, with previous results cached in an LRU cache (200 entries max).
 
 The `StateManager` merges parsed data with saved state, preserving manual overrides (like marking a conversation as "Done") until new activity is detected.
 
-## Roadmap
-
-- Add virtual scrolling for large boards (100+ conversations)
-- Add webview origin validation for message security
-- Add walkthrough (`contributes.walkthroughs`) for onboarding
-- Resizable column widths
-- Board zoom controls
+For OpenAI Codex, the `CodexSessionParser` reads sessions from the date-tree layout (`~/.codex/sessions/YYYY/MM/DD/*.jsonl`) and maps Codex event types to Claudine statuses.
 
 ## Contributing
 
@@ -375,13 +510,15 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for developmen
 
 For security issues, please see [SECURITY.md](SECURITY.md) for responsible disclosure.
 
+Please note that this project follows a [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## License
 
-See [LICENSE](LICENSE) for details.
+[MIT](LICENSE)
 
 ## Credits
 
-Developed by [@salam](https://github.com/salam)
+Developed by [@salam](https://github.com/salam) and contributors.
 
 ---
 

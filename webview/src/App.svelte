@@ -3,6 +3,7 @@
   import KanbanBoard from './components/KanbanBoard.svelte';
   import MultiProjectView from './components/MultiProjectView.svelte';
   import SettingsPanel from './components/SettingsPanel.svelte';
+  import SmartBoard from './components/SmartBoard.svelte';
   import { vscode, type ExtensionMessage } from './lib/vscode';
   import {
     settings, addError, setConversations, upsertConversation, removeConversations,
@@ -15,7 +16,10 @@
     indexingProgress, projectManifest,
     zoomLevel, zoomIn, zoomOut, zoomReset, restoreZoom, ZOOM_MIN, ZOOM_MAX,
     restoreColumnWidths,
-    restorePaneHeights
+    restorePaneHeights,
+    smartBoardHasContent,
+    restoreAcknowledgedReviews,
+    restoreSmartBoardState
   } from './stores/conversations';
   import type { Conversation, ConversationCategory } from './lib/vscode';
   import { localeStrings, t } from './stores/locale';
@@ -56,6 +60,8 @@
     restoreZoom();
     restoreColumnWidths();
     restorePaneHeights();
+    restoreAcknowledgedReviews();
+    restoreSmartBoardState();
     requestNotificationPermission();
     vscode.postMessage({ type: 'ready' });
     return () => {
@@ -359,6 +365,9 @@
       </div>
     {/if}
     <SettingsPanel visible={settingsOpen} />
+    {#if vscode.isStandalone && $smartBoardHasContent}
+      <SmartBoard />
+    {/if}
     {#if vscode.isStandalone}
       <MultiProjectView {showArchive} />
     {:else}
@@ -387,6 +396,9 @@
         </svg>
       </div>
       <div class="about-title">Claudine</div>
+      {#if window.__CLAUDINE_VERSION__}
+        <div class="about-version">v{window.__CLAUDINE_VERSION__}</div>
+      {/if}
       <div class="about-subtitle">A kanban board for Claude Code</div>
       <div class="about-nav-links">
         <button class="about-link" on:click={() => vscode.openLink('https://claudine.pro')}>
@@ -672,6 +684,11 @@
     background: linear-gradient(135deg, #c4b5fd, #a78bfa, #60a5fa);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+  .about-version {
+    position: relative;
+    font-size: 10px; color: #71717a; margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
   }
   .about-subtitle {
     position: relative;

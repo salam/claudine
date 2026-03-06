@@ -160,7 +160,13 @@
     box-shadow: 0 0 4px #f59e0b;
   }
 
+  /* BUG11: display:flex ensures .zoom-wrapper's flex:1 takes effect,
+     so .kanban-board height resolves against the constrained pane height
+     instead of its own content height (which caused incorrect vertical
+     layout on wide windows). */
   .pane-content {
+    display: flex;
+    flex-direction: column;
     flex: 1;
     min-height: 0;
     overflow: hidden;

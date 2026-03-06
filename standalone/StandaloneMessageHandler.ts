@@ -1,7 +1,7 @@
 import { execFile } from 'child_process';
 import { IPlatformAdapter } from '../src/platform/IPlatformAdapter';
 import { StateManager } from '../src/services/StateManager';
-import { ClaudeCodeWatcher } from '../src/providers/ClaudeCodeWatcher';
+import { IConversationProvider } from '../src/providers/IConversationProvider';
 import {
   ExtensionToWebviewMessage,
   WebviewToExtensionMessage,
@@ -79,7 +79,7 @@ export class StandaloneMessageHandler {
 
   constructor(
     private readonly _stateManager: StateManager,
-    private readonly _claudeCodeWatcher: ClaudeCodeWatcher,
+    private readonly _provider: IConversationProvider,
     private readonly _platform: IPlatformAdapter,
     private readonly _send: (msg: ExtensionToWebviewMessage) => void
   ) {}
@@ -99,7 +99,7 @@ export class StandaloneMessageHandler {
         break;
 
       case 'search': {
-        const ids = this._claudeCodeWatcher.searchConversations(message.query);
+        const ids = this._provider.searchConversations(message.query);
         this._send({ type: 'searchResults', query: message.query, ids });
         break;
       }
@@ -139,7 +139,7 @@ export class StandaloneMessageHandler {
 
       case 'regenerateIcons':
         this._stateManager.clearAllIcons().then(() => {
-          this._claudeCodeWatcher.clearPendingIcons();
+          this._provider.clearPendingIcons();
           this.progressiveRefresh();
         });
         break;
@@ -205,7 +205,7 @@ export class StandaloneMessageHandler {
     // Phase 1: Fast discovery
     this._send({ type: 'indexingProgress', phase: 'discovery', totalProjects: 0, scannedProjects: 0, totalFiles: 0, scannedFiles: 0 });
 
-    const manifest = this._claudeCodeWatcher.discoverProjects();
+    const manifest = this._provider.discoverProjects();
     this._manifest = manifest;
 
     // Merge with persisted enable/disable preferences
@@ -224,7 +224,7 @@ export class StandaloneMessageHandler {
 
     console.log(`Claudine: Discovered ${manifest.length} projects (${enabled.length} enabled, ${totalFiles} files)`);
 
-    const allConversations = await this._claudeCodeWatcher.scanProjectsProgressively(
+    const allConversations = await this._provider.scanProjectsProgressively(
       enabled,
       (progress) => {
         this._send({ type: 'indexingProgress', phase: 'scanning', ...progress });
@@ -269,7 +269,7 @@ export class StandaloneMessageHandler {
 
     // If enabling, scan just that project
     if (enabled && entry) {
-      const convs = await this._claudeCodeWatcher.scanProjectsProgressively(
+      const convs = await this._provider.scanProjectsProgressively(
         [entry],
         (progress) => {
           this._send({ type: 'indexingProgress', phase: 'scanning', ...progress });
@@ -305,6 +305,7 @@ export class StandaloneMessageHandler {
     const settings: ClaudineSettings = {
       imageGenerationApi: this._platform.getConfig('imageGenerationApi', 'none'),
       claudeCodePath: this._platform.getConfig('claudeCodePath', '~/.claude'),
+      codexPath: this._platform.getConfig('codexPath', '~/.codex'),
       enableSummarization: this._platform.getConfig('enableSummarization', false),
       hasApiKey: !!apiKey,
       toolbarLocation: 'sidebar',

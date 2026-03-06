@@ -6,6 +6,7 @@ declare global {
     __CLAUDINE_TOKEN__?: string;
     __CLAUDINE_STANDALONE__?: boolean;
     __CLAUDINE_WS_URL__?: string;
+    __CLAUDINE_VERSION__?: string;
   }
 }
 
@@ -162,6 +163,13 @@ export interface SidechainStep {
   toolName?: string;
 }
 
+export interface LastActivity {
+  toolName: string;
+  summary?: string;
+  outputHint?: string;
+  status: 'running' | 'completed' | 'failed';
+}
+
 export interface Conversation {
   id: string;
   title: string;
@@ -180,6 +188,8 @@ export interface Conversation {
   rateLimitResetDisplay?: string;
   rateLimitResetTime?: string;
   sidechainSteps?: SidechainStep[];
+  lastActivity?: LastActivity;
+  lastStatusText?: string;
   icon?: string;
   isDraft?: boolean;
   originalTitle?: string;

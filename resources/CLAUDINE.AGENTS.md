@@ -3,6 +3,16 @@
 This project uses the Claudine VS Code extension to manage tasks as a kanban board.
 Claude Code agents can read the board state and move tasks between columns.
 
+> **Important — do NOT poll, loop, or repeatedly check the board.**
+> Claudine automatically detects conversation status from JSONL output and
+> manages transitions (in-progress → needs-input → done) on its own.
+> You only need to send a command when you want to **override** the
+> automatic status (e.g. move a task to a different column than Claudine
+> would choose). A single command per action is enough — do not retry,
+> poll for results in a loop, or re-read state.json to "confirm" your
+> command worked. Repeated interactions cause event-listener cascades
+> and degrade the IDE experience.
+
 ## Reading the board
 
 The current board state is at `.claudine/state.json`. Read it to find your task:

@@ -9,7 +9,8 @@
     conversationsByStatus, columns, archiveColumn, updateConversationStatus,
     searchMatchIds, searchMode, searchQuery, compactView, collapsedCardIds, focusedConversationId,
     firstConversationId, drafts, addDraft, removeDraft, updateDraft,
-    activeCategories, zoomLevel, columnWidths, setColumnWidth, resetAllColumnWidths
+    activeCategories, zoomLevel, columnWidths, setColumnWidth, resetAllColumnWidths,
+    acknowledgeReview
   } from '../stores/conversations';
   import { vscode, type Conversation, type ConversationStatus } from '../lib/vscode';
 
@@ -113,6 +114,10 @@
         if (item.isDraft) {
           sendDraft(item.id);
         } else {
+          // Acknowledge review when user moves a card away from in-review
+          if (item.status === 'in-review' && columnId !== 'in-review') {
+            acknowledgeReview(item.id);
+          }
           vscode.postMessage({ type: 'moveConversation', conversationId: item.id, newStatus: columnId });
           updateConversationStatus(item.id, columnId);
         }
@@ -245,7 +250,7 @@
         on:resetWidths={resetAllColumnWidths}
       />
     {/if}
-    <div class="column-wrapper" class:narrow={narrowColumns[column.id]} class:custom-width={$columnWidths[column.id] != null && !narrowColumns[column.id]} data-column-id={column.id} style:width={$columnWidths[column.id] && !narrowColumns[column.id] ? `${$columnWidths[column.id]}px` : undefined} style:flex={$columnWidths[column.id] && !narrowColumns[column.id] ? '0 0 auto' : undefined}>
+    <div class="column-wrapper" class:narrow={narrowColumns[column.id]} class:custom-width={!isVertical && $columnWidths[column.id] != null && !narrowColumns[column.id]} data-column-id={column.id} style:width={!isVertical && $columnWidths[column.id] && !narrowColumns[column.id] ? `${$columnWidths[column.id]}px` : undefined} style:flex={!isVertical && $columnWidths[column.id] && !narrowColumns[column.id] ? '0 0 auto' : undefined}>
       <KanbanColumn title={column.title} color={column.color} count={boardItems[column.id].filter(c => !c.isDraft).length} activeCount={boardItems[column.id].filter(c => c.agents.some(a => a.isActive)).length} narrow={narrowColumns[column.id] || false} onToggleNarrow={column.id === 'done' ? () => toggleColumnNarrow(column.id) : null}>
         {#if column.id === 'todo'}
           <div class="quick-idea">
@@ -341,15 +346,15 @@
   /* BUG2b: zoom-wrapper isolates CSS transform from svelte-dnd-action's
      position:fixed clone so drag coordinates stay consistent. */
   .zoom-wrapper { flex: 1; min-height: 0; overflow: hidden; }
-  .kanban-board { display: flex; gap: 12px; padding: 12px; overflow-x: auto; width: 100%; height: 100%; align-items: stretch; }
+  .kanban-board { display: flex; gap: 6px; padding: 6px; overflow-x: auto; width: 100%; height: 100%; align-items: stretch; }
   .column-wrapper { flex: 1; min-width: 160px; max-width: 350px; display: flex; flex-direction: column; transition: min-width 0.25s ease, max-width 0.25s ease; }
   .column-wrapper.custom-width { max-width: unset; min-width: unset; }
   .column-wrapper.narrow { flex: 0 0 auto; min-width: 60px; max-width: 60px; }
 
   /* Vertical (sidebar) layout: stack columns top-to-bottom */
   .kanban-board.vertical { flex-direction: column; overflow-x: hidden; overflow-y: auto; }
-  .kanban-board.vertical .column-wrapper { min-width: unset; max-width: unset; flex: none; }
-  .kanban-board.vertical .column-wrapper.narrow { min-width: unset; max-width: unset; }
+  .kanban-board.vertical .column-wrapper { min-width: unset; max-width: unset; width: 100%; flex: none; }
+  .kanban-board.vertical .column-wrapper.narrow { min-width: unset; max-width: unset; width: 100%; }
   .drop-zone { min-height: 80px; padding: 6px; border-radius: 6px; }
   /* Empty-state via ::after so it is NOT a real DOM child (svelte-dnd-action
      treats every direct child element as an item — a stray child when the zone

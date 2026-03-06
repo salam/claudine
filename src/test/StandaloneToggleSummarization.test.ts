@@ -87,6 +87,7 @@ describe('BUG8 – toggleSummarization in standalone mode', () => {
       const settings: ClaudineSettings = {
         imageGenerationApi: 'none',
         claudeCodePath: '~/.claude',
+        codexPath: '~/.codex',
         enableSummarization: platform.getConfig('enableSummarization', false),
         hasApiKey: false,
         toolbarLocation: 'sidebar',

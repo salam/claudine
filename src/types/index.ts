@@ -16,6 +16,16 @@ export interface SidechainStep {
   toolName?: string;
 }
 
+export interface LastActivity {
+  toolName: string;
+  /** Brief parameter summary, e.g. '"getGridState" (in src/)' */
+  summary?: string;
+  /** Brief output hint, e.g. '147 lines of output' */
+  outputHint?: string;
+  /** Status of the last tool invocation */
+  status: 'running' | 'completed' | 'failed';
+}
+
 export interface Conversation {
   id: string;
   title: string;
@@ -38,6 +48,10 @@ export interface Conversation {
   rateLimitResetTime?: string;
   icon?: string;
   sidechainSteps?: SidechainStep[];
+  /** Last tool activity for display in the card. */
+  lastActivity?: LastActivity;
+  /** Status text like "Interrupted" or "Tool interrupted". */
+  lastStatusText?: string;
   referencedImage?: string;
   originalTitle?: string;
   originalDescription?: string;
@@ -45,6 +59,8 @@ export interface Conversation {
   updatedAt: Date;
   filePath?: string;
   workspacePath?: string;
+  /** Which conversation provider produced this conversation (e.g. 'claude-code'). */
+  provider?: string;
 }
 
 export interface KanbanColumn {
@@ -125,6 +141,7 @@ export type ToolbarAction = 'toggleSearch' | 'toggleFilter' | 'toggleCompactView
 export interface ClaudineSettings {
   imageGenerationApi: 'openai' | 'stability' | 'none';
   claudeCodePath: string;
+  codexPath: string;
   enableSummarization: boolean;
   hasApiKey: boolean;
   toolbarLocation: 'sidebar' | 'titlebar';
@@ -196,6 +213,8 @@ export interface ParsedMessage {
   rateLimitResetDisplay?: string;
   /** Absolute ISO datetime when the rate limit lifts. */
   rateLimitResetTime?: string;
+  /** Brief hint from the last tool result in this message (max ~100 chars). */
+  toolResultHint?: string;
 }
 
 export interface ClaudeCodeSession {
@@ -205,6 +224,55 @@ export interface ClaudeCodeSession {
   createdAt: string;
   updatedAt: string;
 }
+
+// ── OpenAI Codex data structures ──────────────────────────────────
+
+/** Top-level envelope for each line in a Codex session JSONL file. */
+export interface CodexJsonlEnvelope {
+  timestamp: string; // ISO 8601
+  type: string;      // e.g. 'session_meta', 'event_msg', 'response_item'
+  payload: CodexSessionMetaPayload | CodexEventMsgPayload | CodexResponseItemPayload | Record<string, unknown>;
+}
+
+/**
+ * Payload for `type: 'session_meta'` — first line of every session file.
+ * Fields are flat on the payload (not nested inside a `meta` sub-object).
+ */
+export interface CodexSessionMetaPayload {
+  id: string;        // session UUID
+  cwd: string;       // workspace path
+  timestamp: string; // ISO 8601
+}
+
+/**
+ * Payload for `type: 'response_item'` — rich message payloads containing
+ * user input (`input_text`) or assistant output (`output_text`).
+ */
+export interface CodexResponseItemPayload {
+  type: 'message' | 'reasoning' | string;
+  role?: 'user' | 'assistant';
+  content?: Array<{ type: string; text?: string }> | null;
+}
+
+/**
+ * Payload for `type: 'event_msg'` — discriminated on `payload.type`.
+ *
+ * Not every event type is modelled here; unknown types are silently ignored
+ * by the parser so the union can grow over time.
+ */
+export type CodexEventMsgPayload =
+  | { type: 'user_message';      message: string }
+  | { type: 'agent_message';     message: string }
+  | { type: 'agent_reasoning';   text: string }
+  | { type: 'task_started' }
+  | { type: 'task_complete';     last_agent_message?: string | null }
+  | { type: 'turn_aborted' }
+  | { type: 'error';             error?: string; message?: string }
+  | { type: 'exec_command_begin'; command: string }
+  | { type: 'exec_command_end';  exit_code?: number }
+  | { type: 'mcp_tool_call_begin'; tool_name?: string }
+  | { type: 'mcp_tool_call_end';  tool_name?: string }
+  | { type: 'rate_limit';        reset_at?: string; message?: string };
 
 // Agent command interface (for external Claude Code agents)
 export type AgentCommandType = 'move' | 'update' | 'set-category';

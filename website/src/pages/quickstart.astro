@@ -1,0 +1,306 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Quick Start — Claudine" description="Get up and running with Claudine in under 2 minutes.">
+  <!-- ====== NAV ====== -->
+  <nav class="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-bg/80 backdrop-blur-xl">
+    <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+      <a href="/" class="flex items-center gap-2.5 text-text font-semibold text-lg tracking-tight">
+        <span class="logo-gradient-mark w-7 h-7" aria-hidden="true"></span>
+        <span>Claudine</span>
+      </a>
+      <div class="hidden md:flex items-center gap-8 text-sm text-text-muted">
+        <a href="/#board" class="hover:text-text transition-colors">Board</a>
+        <a href="/#features" class="hover:text-text transition-colors">Features</a>
+        <a href="/#toolbar" class="hover:text-text transition-colors">Toolbar</a>
+        <a href="/#standalone" class="hover:text-text transition-colors">Standalone</a>
+        <a
+          href="https://github.com/salam/claudine"
+          target="_blank"
+          rel="noopener"
+          class="inline-flex items-center justify-center hover:text-text transition-colors"
+          title="GitHub"
+          aria-label="GitHub"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.372 0 12a12.001 12.001 0 0 0 8.207 11.387c.6.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.108-.775.418-1.305.762-1.604-2.665-.305-5.467-1.333-5.467-5.931 0-1.311.469-2.38 1.236-3.221-.124-.303-.536-1.524.117-3.176 0 0 1.009-.322 3.301 1.23.958-.266 1.984-.399 3.004-.404 1.02.005 2.046.138 3.005.404 2.292-1.552 3.301-1.23 3.301-1.23.653 1.653.241 2.874.118 3.176.768.841 1.236 1.91 1.236 3.221 0 4.609-2.807 5.625-5.479 5.921.431.372.823 1.102.823 2.223v3.293c0 .319.192.694.801.576A12.004 12.004 0 0 0 24 12C24 5.372 18.627 0 12 0z"/></svg>
+        </a>
+      </div>
+      <div class="flex items-center gap-3">
+        <a
+          href="https://github.com/sponsors/salam"
+          target="_blank"
+          rel="noopener"
+          class="inline-flex items-center gap-1.5 text-rose hover:text-rose/80 transition-colors text-sm"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A6.07 6.07 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          Sponsor
+        </a>
+        <a
+          href="https://marketplace.visualstudio.com/items?itemName=claudine.claudine"
+          target="_blank"
+          rel="noopener"
+          class="pill-btn bg-accent-dim text-white hover:bg-accent text-sm py-2 px-5"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M23.15 2.587L18.21.21a1.494 1.494 0 0 0-1.705.29l-9.46 8.63-4.12-3.128a.999.999 0 0 0-1.276.057L.327 7.261A1 1 0 0 0 .326 8.74L3.899 12 .326 15.26a1 1 0 0 0 .001 1.479L1.65 17.94a.999.999 0 0 0 1.276.057l4.12-3.128 9.46 8.63a1.492 1.492 0 0 0 1.704.29l4.942-2.377A1.5 1.5 0 0 0 24 20.06V3.939a1.5 1.5 0 0 0-.85-1.352zm-5.146 14.861L10.826 12l7.178-5.448v10.896z"/></svg>
+          Install for VS Code
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ====== CONTENT ====== -->
+  <article class="pt-32 pb-24 md:pt-40 md:pb-32">
+    <div class="mx-auto max-w-3xl px-6">
+
+      <a href="/" class="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text transition-colors mb-8">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to homepage
+      </a>
+
+      <h1 class="text-4xl md:text-5xl font-bold tracking-tight mb-4">
+        Quick Start
+      </h1>
+      <p class="text-lg text-text-muted mb-12 leading-relaxed">
+        Get up and running with Claudine in under 2 minutes.
+      </p>
+
+      <!-- Step 1 -->
+      <section class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="flex items-center justify-center w-8 h-8 rounded-full bg-accent/10 text-accent text-sm font-mono font-semibold">1</span>
+          <h2 class="text-2xl font-bold">Install</h2>
+        </div>
+        <p class="text-text-muted leading-relaxed ml-11">
+          Open VS Code, press <kbd>Cmd+Shift+X</kbd> (or <kbd>Ctrl+Shift+X</kbd>), search for <strong class="text-text font-medium">Claudine</strong>, and click <strong class="text-text font-medium">Install</strong>.
+        </p>
+        <div class="ml-11 mt-4 rounded-lg border border-border bg-bg-card/50 p-4 text-sm text-text-muted">
+          <strong class="text-amber">Note:</strong> Claudine requires the <a href="https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code" target="_blank" rel="noopener" class="text-accent hover:text-accent-bright transition-colors underline underline-offset-2">Claude Code</a> extension. Install it first if you haven't already.
+        </div>
+      </section>
+
+      <!-- Step 2 -->
+      <section class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="flex items-center justify-center w-8 h-8 rounded-full bg-accent/10 text-accent text-sm font-mono font-semibold">2</span>
+          <h2 class="text-2xl font-bold">Open the Board</h2>
+        </div>
+        <p class="text-text-muted leading-relaxed ml-11">
+          Press <kbd>Cmd+Shift+K</kbd> (or <kbd>Ctrl+Shift+K</kbd>) to open the Claudine kanban board. It appears in the bottom panel alongside Terminal and Problems.
+        </p>
+      </section>
+
+      <!-- Step 3 -->
+      <section class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="flex items-center justify-center w-8 h-8 rounded-full bg-accent/10 text-accent text-sm font-mono font-semibold">3</span>
+          <h2 class="text-2xl font-bold">Start a Conversation</h2>
+        </div>
+        <p class="text-text-muted leading-relaxed ml-11">
+          Press <kbd>Cmd+Shift+N</kbd> to start a new Claude Code conversation. It will automatically appear as a card on the board.
+        </p>
+      </section>
+
+      <!-- Step 4 -->
+      <section class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="flex items-center justify-center w-8 h-8 rounded-full bg-accent/10 text-accent text-sm font-mono font-semibold">4</span>
+          <h2 class="text-2xl font-bold">Watch It Work</h2>
+        </div>
+        <p class="text-text-muted leading-relaxed ml-11 mb-6">
+          As you and Claude talk, the card moves through columns automatically:
+        </p>
+        <div class="ml-11 overflow-x-auto">
+          <table class="w-full text-sm border border-border rounded-lg overflow-hidden">
+            <thead>
+              <tr class="bg-bg-card/60">
+                <th class="text-left px-4 py-3 font-semibold border-b border-border">Column</th>
+                <th class="text-left px-4 py-3 font-semibold border-b border-border">Meaning</th>
+              </tr>
+            </thead>
+            <tbody class="text-text-muted">
+              <tr class="border-b border-border/50">
+                <td class="px-4 py-3 font-medium text-text">To Do</td>
+                <td class="px-4 py-3">Conversation created, no response yet</td>
+              </tr>
+              <tr class="border-b border-border/50">
+                <td class="px-4 py-3 font-medium text-text">Needs Input</td>
+                <td class="px-4 py-3">Claude asked you a question</td>
+              </tr>
+              <tr class="border-b border-border/50">
+                <td class="px-4 py-3 font-medium text-text">In Progress</td>
+                <td class="px-4 py-3">Claude is working (tool use, writing code)</td>
+              </tr>
+              <tr class="border-b border-border/50">
+                <td class="px-4 py-3 font-medium text-text">In Review</td>
+                <td class="px-4 py-3">Claude says it's done &mdash; review the result</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-medium text-text">Done</td>
+                <td class="px-4 py-3">You marked it complete (drag and drop)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Step 5 -->
+      <section class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="flex items-center justify-center w-8 h-8 rounded-full bg-accent/10 text-accent text-sm font-mono font-semibold">5</span>
+          <h2 class="text-2xl font-bold">Use the Toolbar</h2>
+        </div>
+        <p class="text-text-muted leading-relaxed ml-11 mb-4">
+          The sidebar toolbar gives you quick access to everything:
+        </p>
+        <ul class="ml-11 space-y-2 text-sm text-text-muted">
+          <li class="flex items-start gap-2">
+            <span class="text-accent mt-0.5">&#8226;</span>
+            <span><strong class="text-text font-medium">Search</strong> &mdash; Full-text search across all conversations and JSONL content</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-accent mt-0.5">&#8226;</span>
+            <span><strong class="text-text font-medium">Filter</strong> &mdash; Filter by category (Bug, Feature, Task, etc.)</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-accent mt-0.5">&#8226;</span>
+            <span><strong class="text-text font-medium">Compact view</strong> &mdash; Toggle between full and compact card layouts</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-accent mt-0.5">&#8226;</span>
+            <span><strong class="text-text font-medium">Expand all</strong> &mdash; Expand or collapse all cards at once</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-accent mt-0.5">&#8226;</span>
+            <span><strong class="text-text font-medium">Summarize</strong> &mdash; AI-powered title and description summaries</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-accent mt-0.5">&#8226;</span>
+            <span><strong class="text-text font-medium">Refresh</strong> &mdash; Re-scan conversation files</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-accent mt-0.5">&#8226;</span>
+            <span><strong class="text-text font-medium">Settings</strong> &mdash; Configure API keys, view location, and more</span>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Step 6 -->
+      <section class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="flex items-center justify-center w-8 h-8 rounded-full bg-accent/10 text-accent text-sm font-mono font-semibold">6</span>
+          <h2 class="text-2xl font-bold">Keyboard Shortcuts</h2>
+        </div>
+        <div class="ml-11 overflow-x-auto">
+          <table class="w-full text-sm border border-border rounded-lg overflow-hidden">
+            <thead>
+              <tr class="bg-bg-card/60">
+                <th class="text-left px-4 py-3 font-semibold border-b border-border">Shortcut</th>
+                <th class="text-left px-4 py-3 font-semibold border-b border-border">Action</th>
+              </tr>
+            </thead>
+            <tbody class="text-text-muted">
+              <tr class="border-b border-border/50">
+                <td class="px-4 py-3"><kbd>Cmd+Shift+K</kbd></td>
+                <td class="px-4 py-3">Open kanban board</td>
+              </tr>
+              <tr class="border-b border-border/50">
+                <td class="px-4 py-3"><kbd>Cmd+Shift+N</kbd></td>
+                <td class="px-4 py-3">New conversation</td>
+              </tr>
+              <tr class="border-b border-border/50">
+                <td class="px-4 py-3"><kbd>Cmd+Shift+F</kbd></td>
+                <td class="px-4 py-3">Search conversations</td>
+              </tr>
+              <tr class="border-b border-border/50">
+                <td class="px-4 py-3"><kbd>Cmd+Shift+R</kbd></td>
+                <td class="px-4 py-3">Refresh board</td>
+              </tr>
+              <tr class="border-b border-border/50">
+                <td class="px-4 py-3"><kbd>Cmd+Shift+I</kbd></td>
+                <td class="px-4 py-3">Show conversations needing input</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3"><kbd>Cmd+Shift+C</kbd></td>
+                <td class="px-4 py-3">Focus active Claude tab</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="ml-11 mt-3 text-sm text-text-dim">
+          Replace <kbd>Cmd</kbd> with <kbd>Ctrl</kbd> on Windows/Linux.
+        </p>
+      </section>
+
+      <!-- Step 7 -->
+      <section class="mb-16">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="flex items-center justify-center w-8 h-8 rounded-full bg-accent/10 text-accent text-sm font-mono font-semibold">7</span>
+          <h2 class="text-2xl font-bold">Go Further</h2>
+        </div>
+        <ul class="ml-11 space-y-2 text-sm text-text-muted">
+          <li class="flex items-start gap-2">
+            <span class="text-accent mt-0.5">&#8226;</span>
+            <span><strong class="text-text font-medium">Standalone mode</strong> &mdash; Run <code class="text-accent text-xs font-mono bg-bg-muted px-1 py-0.5 rounded">npm run standalone</code> to use Claudine in the browser without VS Code</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-accent mt-0.5">&#8226;</span>
+            <span><strong class="text-text font-medium">Export</strong> &mdash; Save your board as CSV, JSON, or Trello format</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-accent mt-0.5">&#8226;</span>
+            <span><strong class="text-text font-medium">Agent integration</strong> &mdash; Let Claude Code agents control the board automatically via <code class="text-accent text-xs font-mono bg-bg-muted px-1 py-0.5 rounded">CLAUDINE.AGENTS.md</code></span>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Divider + CTA -->
+      <hr class="border-border mb-10" />
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <p class="text-sm text-text-muted">
+          Questions? <a href="https://github.com/salam/claudine/issues" target="_blank" rel="noopener" class="text-accent hover:text-accent-bright transition-colors underline underline-offset-2">Open an issue on GitHub</a>.
+        </p>
+        <a
+          href="https://marketplace.visualstudio.com/items?itemName=claudine.claudine"
+          target="_blank"
+          rel="noopener"
+          class="pill-btn bg-accent-dim text-white hover:bg-accent hover:scale-105 shadow-lg shadow-accent-dim/25"
+        >
+          Install for VS Code
+        </a>
+      </div>
+
+    </div>
+  </article>
+
+  <!-- ====== FOOTER ====== -->
+  <footer class="border-t border-border py-10">
+    <div class="mx-auto max-w-6xl px-6 text-center text-sm text-text-muted">
+      Built by
+      <a href="https://matthias.sala.ch" target="_blank" rel="noopener" class="text-text hover:text-accent transition-colors">Matthias Sala</a>
+      &amp;
+      <a href="https://github.com/salam/claudine#community" target="_blank" rel="noopener" class="text-text hover:text-accent transition-colors">community</a>.
+    </div>
+    <div class="mx-auto max-w-6xl px-6 mt-4 text-center text-sm text-text-dim">
+      <a href="https://github.com/salam/claudine" target="_blank" rel="noopener" class="hover:text-text-muted transition-colors">GitHub</a>
+      <span class="px-2">&middot;</span>
+      <a href="https://marketplace.visualstudio.com/items?itemName=claudine.claudine" target="_blank" rel="noopener" class="hover:text-text-muted transition-colors">VS Code Marketplace</a>
+      <span class="px-2">&middot;</span>
+      <a href="https://github.com/sponsors/salam" target="_blank" rel="noopener" class="hover:text-text-muted transition-colors">Sponsor</a>
+      <span class="px-2">&middot;</span>
+      <a href="/llms.txt" class="hover:text-text-muted transition-colors">llms.txt</a>
+    </div>
+  </footer>
+</Layout>
+
+<style>
+  kbd {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    background: var(--color-bg-muted);
+    color: var(--color-accent);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--color-border);
+  }
+</style>

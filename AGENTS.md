@@ -23,7 +23,6 @@
 
 - Keep commits atomic: commit only the files you touched and list each path explicitly. For tracked files run `git commit -m "<scoped message>" -- path/to/file1 path/to/file2`. For brand-new files, use the one-liner `git restore --staged :/ && git add "path/to/file1" "path/to/file2" && git commit -m "<scoped message>" -- path/to/file1 path/to/file2`
 
-
 # SPECS
 
 - When a new specification is given, check for contradictions and highlight them to the prompting user.
@@ -47,4 +46,7 @@ When a bug is reported, before fixing, do the following:
 - Create tests before implementing.
 - Make sure that it works with a linter program, compiles, runs, passes all tests and works before concluding the implementation of a feature.
 - Once that works, do a test in target environment, e.g. on-device testing.
-- 
+
+# MISC
+
+Don't add "Co-Authored-By" tags to git commits.

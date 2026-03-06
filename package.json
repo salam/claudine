@@ -37,9 +37,7 @@
     "color": "#1e1e1e",
     "theme": "dark"
   },
-  "extensionDependencies": [
-    "anthropic.claude-code"
-  ],
+  "extensionDependencies": [],
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -237,6 +235,11 @@
           "type": "string",
           "default": "~/.claude",
           "description": "%config.claudeCodePath.description%"
+        },
+        "claudine.codexPath": {
+          "type": "string",
+          "default": "~/.codex",
+          "description": "%config.codexPath.description%"
         },
         "claudine.enableSummarization": {
           "type": "boolean",
@@ -461,7 +464,7 @@
     "build:webview": "cd webview && npm run build",
     "dev:webview": "cd webview && npm run dev",
     "build:standalone": "node esbuild-standalone.mjs",
-    "standalone": "node esbuild-standalone.mjs && node out-standalone/claudine.js",
+    "standalone": "node esbuild-standalone.mjs && node out-standalone/claudine.js standalone",
     "dev:standalone": "node esbuild-standalone.mjs --watch",
     "lint": "eslint src --ext ts",
     "test": "vitest run",

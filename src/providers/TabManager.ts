@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { StateManager } from '../services/StateManager';
-import { FOCUS_DETECTION_DEBOUNCE_MS } from '../constants';
+import { FOCUS_DETECTION_DEBOUNCE_MS, REPLACEMENT_GUARD_TIMEOUT_MS } from '../constants';
 
 /**
  * Manages the bidirectional mapping between Claude Code editor tabs and
@@ -16,10 +16,38 @@ export class TabManager {
   private _focusDetectionTimer: ReturnType<typeof setTimeout> | undefined;
   private _suppressFocusUntil = 0;
   private _replacingStaleTab = false;
+  private _replacingStaleTabTimer: ReturnType<typeof setTimeout> | undefined;
 
   private _onFocusChanged: (conversationId: string | null) => void = () => {};
 
-  constructor(private readonly _stateManager: StateManager) {}
+  /** Pluggable tab detection — defaults to Claude Code tab detection. */
+  private _isProviderTab: (tab: vscode.Tab) => boolean;
+  /** Pluggable terminal detection — defaults to Claude Code terminal detection. */
+  private _isProviderTerminal: (terminal: vscode.Terminal) => boolean;
+
+  constructor(
+    private readonly _stateManager: StateManager,
+    isProviderTab?: (tab: vscode.Tab) => boolean,
+    isProviderTerminal?: (terminal: vscode.Terminal) => boolean
+  ) {
+    this._isProviderTab = isProviderTab ?? TabManager.defaultIsProviderTab;
+    this._isProviderTerminal = isProviderTerminal ?? TabManager.defaultIsProviderTerminal;
+  }
+
+  /** Default: matches Claude Code Visual Editor tabs (not Claudine). */
+  private static defaultIsProviderTab(tab: vscode.Tab): boolean {
+    const input = tab.input;
+    return (
+      input instanceof vscode.TabInputWebview &&
+      /claude/i.test(input.viewType) &&
+      !/claudine/i.test(input.viewType)
+    );
+  }
+
+  /** Default: matches Claude Code terminals (not Claudine). */
+  private static defaultIsProviderTerminal(terminal: vscode.Terminal): boolean {
+    return /claude/i.test(terminal.name) && !/claudine/i.test(terminal.name);
+  }
 
   /** Register a callback fired whenever the focused conversation changes. */
   set onFocusChanged(cb: (conversationId: string | null) => void) {
@@ -33,24 +61,22 @@ export class TabManager {
 
   // ── Tab identification ──────────────────────────────────────────────
 
-  /** Check if a tab is a Claude Code Visual Editor (not Claudine). */
-  isClaudeCodeTab(tab: vscode.Tab): boolean {
-    const input = tab.input;
-    return (
-      input instanceof vscode.TabInputWebview &&
-      /claude/i.test(input.viewType) &&
-      !/claudine/i.test(input.viewType)
-    );
+  /** Check if a tab belongs to the active conversation provider. */
+  isProviderTab(tab: vscode.Tab): boolean {
+    return this._isProviderTab(tab);
   }
 
   // ── Tab ↔ conversation mapping ─────────────────────────────────────
 
   /** Record a mapping between a conversation and the currently active Claude tab. */
   recordActiveTabMapping(conversationId: string) {
+    // BUG14: Clear the replacement guard — the new tab is now mapped and safe.
+    this.clearReplacementGuard();
+
     for (const group of vscode.window.tabGroups.all) {
       if (!group.isActive) continue;
       const tab = group.activeTab;
-      if (tab && this.isClaudeCodeTab(tab)) {
+      if (tab && this._isProviderTab(tab)) {
         const oldLabel = this._conversationToTab.get(conversationId);
         if (oldLabel) this._tabToConversation.delete(oldLabel);
 
@@ -67,7 +93,7 @@ export class TabManager {
     const allLabels = new Set<string>();
     for (const group of vscode.window.tabGroups.all) {
       for (const tab of group.tabs) {
-        if (this.isClaudeCodeTab(tab)) {
+        if (this._isProviderTab(tab)) {
           allLabels.add(tab.label);
         }
       }
@@ -118,7 +144,7 @@ export class TabManager {
 
     for (const group of vscode.window.tabGroups.all) {
       for (const tab of group.tabs) {
-        if (!this.isClaudeCodeTab(tab)) continue;
+        if (!this._isProviderTab(tab)) continue;
         if (tab.isDirty) continue;
 
         if (seenLabels.has(tab.label)) {
@@ -152,7 +178,7 @@ export class TabManager {
     const titleLower = title.toLowerCase().trim();
     for (const group of vscode.window.tabGroups.all) {
       for (const tab of group.tabs) {
-        if (!this.isClaudeCodeTab(tab)) continue;
+        if (!this._isProviderTab(tab)) continue;
         if (this._tabToConversation.has(tab.label)) continue;
         if (tab.label.toLowerCase().trim() === titleLower) {
           try {
@@ -170,7 +196,7 @@ export class TabManager {
     for (const group of vscode.window.tabGroups.all) {
       for (let i = 0; i < group.tabs.length; i++) {
         const tab = group.tabs[i];
-        if (tab.label === label && this.isClaudeCodeTab(tab)) {
+        if (tab.label === label && this._isProviderTab(tab)) {
           await this.focusTabAtIndex(group, i);
           return true;
         }
@@ -183,7 +209,7 @@ export class TabManager {
   async focusAnyClaudeTab(): Promise<boolean> {
     for (const group of vscode.window.tabGroups.all) {
       for (let i = 0; i < group.tabs.length; i++) {
-        if (this.isClaudeCodeTab(group.tabs[i])) {
+        if (this._isProviderTab(group.tabs[i])) {
           await this.focusTabAtIndex(group, i);
           return true;
         }
@@ -242,7 +268,7 @@ export class TabManager {
     // Fall back to terminal detection
     if (!focusedId) {
       const activeTerminal = vscode.window.activeTerminal;
-      if (activeTerminal && /claude/i.test(activeTerminal.name) && !/claudine/i.test(activeTerminal.name)) {
+      if (activeTerminal && this._isProviderTerminal(activeTerminal)) {
         const activeConv = this._stateManager.getConversations().find(c => c.status === 'in-progress');
         if (activeConv) {
           focusedId = activeConv.id;
@@ -257,7 +283,7 @@ export class TabManager {
     for (const group of vscode.window.tabGroups.all) {
       if (!group.isActive) continue;
       const tab = group.activeTab;
-      if (tab && this.isClaudeCodeTab(tab)) return tab;
+      if (tab && this._isProviderTab(tab)) return tab;
     }
     return null;
   }
@@ -291,15 +317,35 @@ export class TabManager {
   }
 
   private async replaceRestoredTab(staleTab: vscode.Tab, conversationId: string) {
+    // BUG14: Suppress focus detection during the replacement window to prevent
+    // event-listener cascades where onDidChangeTabs → detectFocusedConversation
+    // would re-enter this method before the new tab is mapped.
+    this.suppressFocus(FOCUS_DETECTION_DEBOUNCE_MS * 3);
+
     try {
       await vscode.window.tabGroups.close(staleTab);
       console.log(`Claudine: Closed restored shell tab "${staleTab.label}"`);
     } catch { /* ignore */ }
     this._onOpenConversation?.(conversationId);
+
+    // BUG14: Do NOT reset _replacingStaleTab here. It will be cleared by
+    // recordActiveTabMapping() once the new tab is mapped, or by the safety
+    // timeout below if the mapping never arrives.
+    clearTimeout(this._replacingStaleTabTimer);
+    this._replacingStaleTabTimer = setTimeout(() => {
+      this.clearReplacementGuard();
+    }, REPLACEMENT_GUARD_TIMEOUT_MS);
+  }
+
+  /** Clear the restored-tab replacement guard and its safety timer. */
+  private clearReplacementGuard() {
     this._replacingStaleTab = false;
+    clearTimeout(this._replacingStaleTabTimer);
+    this._replacingStaleTabTimer = undefined;
   }
 
   dispose() {
     clearTimeout(this._focusDetectionTimer);
+    clearTimeout(this._replacingStaleTabTimer);
   }
 }

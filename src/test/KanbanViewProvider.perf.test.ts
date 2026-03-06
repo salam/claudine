@@ -182,6 +182,7 @@ describe('KanbanViewProvider — regression tests', () => {
       createMockExtensionUri() as never,
       mockStateManager as never,
       mockWatcher as never,
+      {} as never,
     );
   });
 

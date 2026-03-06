@@ -15,6 +15,10 @@ export const TAB_MAPPING_DELAY_MS = 500;
 /** Debounce delay for focus detection when switching tabs/editors. */
 export const FOCUS_DETECTION_DEBOUNCE_MS = 150;
 
+/** Safety timeout (ms) for the restored-tab replacement guard. Prevents the
+ *  guard from being held indefinitely if recordActiveTabMapping is never called. */
+export const REPLACEMENT_GUARD_TIMEOUT_MS = 3000;
+
 /** Time window within which a conversation is considered "recently active". */
 export const RECENTLY_ACTIVE_WINDOW_MS = 2 * 60 * 1000; // 2 minutes
 

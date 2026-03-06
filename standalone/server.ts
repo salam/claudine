@@ -8,6 +8,9 @@ import { StateManager } from '../src/services/StateManager';
 import { StorageService } from '../src/services/StorageService';
 import { ImageGenerator } from '../src/services/ImageGenerator';
 import { ClaudeCodeWatcher } from '../src/providers/ClaudeCodeWatcher';
+import { CodexWatcher } from '../src/providers/CodexWatcher';
+import { CompositeConversationProvider } from '../src/providers/CompositeConversationProvider';
+import { IConversationProvider } from '../src/providers/IConversationProvider';
 import { CommandProcessor } from '../src/services/CommandProcessor';
 import { StandaloneMessageHandler } from './StandaloneMessageHandler';
 import { ExtensionToWebviewMessage } from '../src/types';
@@ -38,16 +41,21 @@ export class ClaudineServer {
   private _stateManager!: StateManager;
   private _storageService!: StorageService;
   private _imageGenerator!: ImageGenerator;
+  private _provider!: IConversationProvider;
+  /** Concrete Claude Code watcher — kept for static utility methods. */
   private _claudeCodeWatcher!: ClaudeCodeWatcher;
   private _commandProcessor!: CommandProcessor;
   private _messageHandler!: StandaloneMessageHandler;
   private _archiveTimer: ReturnType<typeof setInterval> | undefined;
   private _authToken: string;
+  private _version: string;
   private _clients = new Set<WebSocket>();
 
   constructor() {
     this._platform = new StandaloneAdapter();
     this._authToken = crypto.randomBytes(NONCE_BYTES).toString('hex');
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'));
+    this._version = pkg.version ?? '';
   }
 
   async start(options: ServerOptions): Promise<void> {
@@ -59,6 +67,13 @@ export class ClaudineServer {
     this._stateManager = new StateManager(this._storageService, this._platform);
     this._imageGenerator = new ImageGenerator(this._storageService, this._platform);
     this._claudeCodeWatcher = new ClaudeCodeWatcher(this._stateManager, this._platform, this._imageGenerator);
+    if (CodexWatcher.isAvailable(this._platform)) {
+      const codexWatcher = new CodexWatcher(this._stateManager, this._platform);
+      this._provider = new CompositeConversationProvider([this._claudeCodeWatcher, codexWatcher]);
+      console.log('Claudine: Codex sessions detected — multi-provider mode');
+    } else {
+      this._provider = this._claudeCodeWatcher;
+    }
 
     await this._stateManager.ready;
 
@@ -67,7 +82,7 @@ export class ClaudineServer {
     // Create message handler
     this._messageHandler = new StandaloneMessageHandler(
       this._stateManager,
-      this._claudeCodeWatcher,
+      this._provider,
       this._platform,
       (msg) => this.broadcast(msg)
     );
@@ -96,7 +111,7 @@ export class ClaudineServer {
 
     // Set up file watcher (without initial scan — the progressive scan
     // is triggered by the first 'ready' message from a client)
-    this._claudeCodeWatcher.setupFileWatcher();
+    this._provider.setupFileWatcher();
     this._commandProcessor.startWatching();
 
     // Start listening
@@ -114,7 +129,7 @@ export class ClaudineServer {
       this._archiveTimer = undefined;
     }
 
-    this._claudeCodeWatcher?.stopWatching();
+    this._provider?.stopWatching();
     this._commandProcessor?.stopWatching();
     this._stateManager?.flushSave();
 
@@ -243,6 +258,8 @@ export class ClaudineServer {
     window.__CLAUDINE_TOKEN__ = '${this._authToken}';
     window.__CLAUDINE_STANDALONE__ = true;
     window.__CLAUDINE_WS_URL__ = 'ws://' + location.host;
+    window.__CLAUDINE_VERSION__ = '${this._version}';
+
   </script>
   <script src="/assets/index.js"></script>
 </body>

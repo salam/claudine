@@ -1,0 +1,36 @@
+# Claudine
+
+> Claudine is a kanban board for Claude Code and OpenAI Codex conversations. It runs as a VS Code extension or as a standalone browser app, giving developers a real-time visual overview of all their AI coding agent sessions.
+
+## What Claudine does
+
+- Reads Claude Code and OpenAI Codex session files and renders them as a kanban board
+- Cards move through columns automatically: To Do → Needs Input → In Progress → In Review → Done
+- Detects rate limits, shows reset countdowns, and optionally auto-restarts paused tasks
+- Displays sidechain (subagent) activity dots so you can see which agents are working, completed, or failed
+- Smart Board: a cross-project overview with Running, Needs Input, and In Review lanes
+- Full-text search, category filters, drag-and-drop, AI-powered summaries, and AI-generated icons
+- Question detection: cards show a "?" badge and move to Needs Input when the agent asks something
+- Resizable columns and project panes, zoom 50–150%, auto-orientation for panel vs sidebar
+- Localized in English, German, Spanish, French, and Italian
+
+## Standalone mode
+
+- Run without VS Code: starts an HTTP + WebSocket server in the browser
+- Monitors all Claude Code and Codex instances across every project on the machine
+- Multi-project view with sidebar navigator, activity indicators, and collapsible panes
+- Progressive loading, desktop notifications, theme toggle, and settings persistence
+
+## Install
+
+- VS Code Marketplace: https://marketplace.visualstudio.com/items?itemName=claudine.claudine
+- Quick Start: https://claudine.pro/quickstart
+- GitHub: https://github.com/salam/claudine
+
+## Links
+
+- [Homepage](https://claudine.pro)
+- [Quick Start Guide](https://claudine.pro/quickstart)
+- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=claudine.claudine)
+- [GitHub Repository](https://github.com/salam/claudine)
+- [Sponsor](https://github.com/sponsors/salam)

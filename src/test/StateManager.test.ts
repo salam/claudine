@@ -551,4 +551,62 @@ describe('StateManager', () => {
       expect(mockStorage.loadDrafts).toHaveBeenCalled();
     });
   });
+
+  describe('provider-scoped deletion', () => {
+    it('only deletes conversations from the specified provider', () => {
+      // Seed with conversations from two providers
+      const claude = makeConversation({ id: 'c1', provider: 'claude-code' });
+      const codex = makeConversation({ id: 'x1', provider: 'codex' });
+      stateManager.setConversations([claude, codex]);
+      expect(stateManager.getConversations()).toHaveLength(2);
+
+      // Scan from claude-code with empty result → should only remove claude-code entries
+      stateManager.setConversations([], 'claude-code');
+      const remaining = stateManager.getConversations();
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].id).toBe('x1');
+    });
+
+    it('preserves cross-provider conversations when one provider rescans', () => {
+      const claude1 = makeConversation({ id: 'c1', provider: 'claude-code' });
+      const claude2 = makeConversation({ id: 'c2', provider: 'claude-code' });
+      const codex1 = makeConversation({ id: 'x1', provider: 'codex' });
+      stateManager.setConversations([claude1, claude2, codex1]);
+
+      // Claude-code rescans and only c1 survives
+      const updatedClaude1 = makeConversation({ id: 'c1', provider: 'claude-code' });
+      stateManager.setConversations([updatedClaude1], 'claude-code');
+
+      const all = stateManager.getConversations();
+      expect(all).toHaveLength(2);
+      expect(all.map(c => c.id).sort()).toEqual(['c1', 'x1']);
+    });
+
+    it('backward compat: no provider tag deletes all missing conversations', () => {
+      const claude = makeConversation({ id: 'c1', provider: 'claude-code' });
+      const codex = makeConversation({ id: 'x1', provider: 'codex' });
+      stateManager.setConversations([claude, codex]);
+
+      // No provider tag → deletes everything not in the scan
+      stateManager.setConversations([codex]);
+      const remaining = stateManager.getConversations();
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].id).toBe('x1');
+    });
+
+    it('only deletes same-provider stale entries', () => {
+      // Codex has 2 sessions, claude has 1
+      const codex1 = makeConversation({ id: 'x1', provider: 'codex' });
+      const codex2 = makeConversation({ id: 'x2', provider: 'codex' });
+      const claude1 = makeConversation({ id: 'c1', provider: 'claude-code' });
+      stateManager.setConversations([codex1, codex2, claude1]);
+
+      // Codex rescans and x2 is gone (file deleted)
+      stateManager.setConversations([codex1], 'codex');
+
+      const all = stateManager.getConversations();
+      expect(all).toHaveLength(2);
+      expect(all.map(c => c.id).sort()).toEqual(['c1', 'x1']);
+    });
+  });
 });

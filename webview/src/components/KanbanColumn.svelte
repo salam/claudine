@@ -46,30 +46,16 @@
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
   }
 
+  /* Column active state: subtle border only — task cards pulse instead */
   .column.has-active {
-    animation: widget-pulse 3s ease-in-out infinite;
-    border-color: rgba(16, 185, 129, 0.3);
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
-  }
-
-  @keyframes widget-pulse {
-    0%, 100% {
-      background: var(--vscode-sideBar-background, #252526);
-      border-color: rgba(16, 185, 129, 0.3);
-      box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
-    }
-    50% {
-      background: color-mix(in srgb, var(--vscode-sideBar-background, #252526) 96%, #10b981);
-      border-color: rgba(16, 185, 129, 0.5);
-      box-shadow: 0 0 20px rgba(16, 185, 129, 0.25), 0 0 40px rgba(16, 185, 129, 0.1);
-    }
+    border-color: rgba(16, 185, 129, 0.2);
   }
 
   .column-header {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 12px 8px;
+    padding: 6px 6px 4px;
     position: sticky;
     top: 0;
     background: inherit;
@@ -120,7 +106,7 @@
   .column-content {
     flex: 1;
     overflow-y: auto;
-    padding: 0 4px 8px;
+    padding: 0 4px 4px;
   }
 
   .column-content::-webkit-scrollbar {

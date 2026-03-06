@@ -4,6 +4,10 @@ import * as path from 'path';
 import { VsCodeAdapter } from './platform/VsCodeAdapter';
 import { KanbanViewProvider } from './providers/KanbanViewProvider';
 import { ClaudeCodeWatcher } from './providers/ClaudeCodeWatcher';
+import { CodexWatcher } from './providers/CodexWatcher';
+import { CompositeConversationProvider } from './providers/CompositeConversationProvider';
+import { ClaudeCodeEditorCommands } from './providers/ClaudeCodeEditorCommands';
+import { IConversationProvider } from './providers/IConversationProvider';
 import { StateManager } from './services/StateManager';
 import { StorageService } from './services/StorageService';
 import { ImageGenerator } from './services/ImageGenerator';
@@ -12,7 +16,7 @@ import { promptExport, promptImport } from './services/BoardExporter';
 import { ConversationStatus } from './types';
 
 let kanbanProvider: KanbanViewProvider;
-let claudeCodeWatcher: ClaudeCodeWatcher;
+let provider: IConversationProvider;
 let stateManager: StateManager;
 let storageService: StorageService;
 let imageGenerator: ImageGenerator;
@@ -54,7 +58,16 @@ export async function activate(context: vscode.ExtensionContext) {
   storageService = new StorageService(platform);
   stateManager = new StateManager(storageService, platform);
   imageGenerator = new ImageGenerator(storageService, platform);
-  claudeCodeWatcher = new ClaudeCodeWatcher(stateManager, platform, imageGenerator);
+
+  // Build provider: Claude Code is always present; Codex is conditional.
+  const claudeProvider = new ClaudeCodeWatcher(stateManager, platform, imageGenerator);
+  if (CodexWatcher.isAvailable(platform)) {
+    const codexProvider = new CodexWatcher(stateManager, platform);
+    provider = new CompositeConversationProvider([claudeProvider, codexProvider]);
+    console.log('Claudine: Codex sessions detected — multi-provider mode');
+  } else {
+    provider = claudeProvider;
+  }
 
   // Wait for saved state to load before scanning — prevents stale cross-project
   // conversations from being re-injected after setConversations() cleans up.
@@ -65,10 +78,12 @@ export async function activate(context: vscode.ExtensionContext) {
   commandProcessor.startWatching();
 
   // Initialize the Kanban view provider
+  const editorCommands = new ClaudeCodeEditorCommands();
   kanbanProvider = new KanbanViewProvider(
     context.extensionUri,
     stateManager,
-    claudeCodeWatcher
+    provider,
+    editorCommands
   );
   kanbanProvider.setSecretStorage(context.secrets);
 
@@ -94,7 +109,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('claudine.refresh', () => {
-      claudeCodeWatcher.refresh();
+      provider.refresh();
       kanbanProvider.refresh();
     })
   );
@@ -147,7 +162,7 @@ export async function activate(context: vscode.ExtensionContext) {
         prompt: vscode.l10n.t('Enter text to search across all conversation JSONL files')
       });
       if (!query) return;
-      const matchIds = claudeCodeWatcher.searchConversations(query);
+      const matchIds = provider.searchConversations(query);
       if (matchIds.length === 0) {
         vscode.window.showInformationMessage(vscode.l10n.t('No conversations found matching "{0}".', query));
         return;
@@ -282,7 +297,7 @@ export async function activate(context: vscode.ExtensionContext) {
         kanbanProvider.updateSettings();
         vscode.window.showInformationMessage(vscode.l10n.t('AI Summarization {0}.', !current ? vscode.l10n.t('enabled') : vscode.l10n.t('disabled')));
         if (!current) {
-          claudeCodeWatcher.refresh();
+          provider.refresh();
         }
       });
     })
@@ -326,8 +341,8 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('claudine.regenerateIcons', async () => {
       await stateManager.clearAllIcons();
-      claudeCodeWatcher.clearPendingIcons();
-      claudeCodeWatcher.refresh();
+      provider.clearPendingIcons();
+      provider.refresh();
       vscode.window.showInformationMessage(vscode.l10n.t('Regenerating all conversation icons...'));
     })
   );
@@ -410,14 +425,14 @@ export async function activate(context: vscode.ExtensionContext) {
         `  VS Code: ${vscode.version}`,
         '',
         '## Configuration',
-        `  Claude Code Path: ${claudeCodeWatcher.claudePath}`,
+        `  Claude Code Path: ${provider.dataPath}`,
         `  Image Generation API: ${config.get('imageGenerationApi', 'none')}`,
         `  API Key Configured: ${apiKey ? 'Yes' : 'No'}`,
         `  Summarization: ${config.get('enableSummarization', false) ? 'Enabled' : 'Disabled'}`,
         '',
         '## Watcher',
-        `  File Watcher Active: ${claudeCodeWatcher.isWatching}`,
-        `  Parse Cache Entries: ${claudeCodeWatcher.parseCacheSize}`,
+        `  File Watcher Active: ${provider.isWatching}`,
+        `  Parse Cache Entries: ${provider.parseCacheSize}`,
         '',
         '## Board State',
         `  Total Conversations: ${conversations.length}`,
@@ -559,7 +574,7 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   // Start watching for Claude Code changes
-  claudeCodeWatcher.startWatching();
+  provider.startWatching();
 
   // Listen for configuration changes
   context.subscriptions.push(
@@ -573,7 +588,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // Clean up on deactivation
   context.subscriptions.push({
     dispose: () => {
-      claudeCodeWatcher.stopWatching();
+      provider.stopWatching();
       commandProcessor.stopWatching();
     }
   });
@@ -600,7 +615,7 @@ export function deactivate() {
   if (stateManager) {
     stateManager.flushSave();
   }
-  if (claudeCodeWatcher) {
-    claudeCodeWatcher.stopWatching();
+  if (provider) {
+    provider.stopWatching();
   }
 }

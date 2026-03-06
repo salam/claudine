@@ -8,7 +8,8 @@ import {
   ParsedMessage,
   ClaudeCodeJsonlEntry,
   ClaudeCodeContent,
-  SidechainStep
+  SidechainStep,
+  LastActivity
 } from '../types';
 import {
   MAX_TITLE_LENGTH,
@@ -238,6 +239,7 @@ export class ConversationParser {
     let isRateLimited = false;
     let rateLimitResetDisplay: string | undefined;
     let rateLimitResetTime: string | undefined;
+    let toolResultHint: string | undefined;
 
     // BUG7: anchor reset-time computation to the message's own timestamp
     const messageDate = entry.timestamp ? new Date(entry.timestamp) : undefined;
@@ -275,6 +277,16 @@ export class ConversationParser {
         if (/API Error:\s*\d{3}/i.test(resultText)) {
           hasError = true;
         }
+        // Capture a brief hint from the tool result for display
+        if (resultText) {
+          const resultLines = resultText.split('\n').filter(l => l.trim());
+          if (resultLines.length > 3) {
+            toolResultHint = `${resultLines.length} lines of output`;
+          } else {
+            const brief = resultText.trim().slice(0, 100);
+            toolResultHint = brief.length < resultText.trim().length ? brief + '...' : brief;
+          }
+        }
         // Also check tool results for rate limit messages
         const rlMatch = resultText.match(RATE_LIMIT_PATTERN);
         if (rlMatch) {
@@ -305,7 +317,8 @@ export class ConversationParser {
       hasQuestion,
       isRateLimited,
       rateLimitResetDisplay,
-      rateLimitResetTime
+      rateLimitResetTime,
+      toolResultHint
     };
   }
 
@@ -318,8 +331,8 @@ export class ConversationParser {
       if (input.description) trimmed.description = input.description;
       return trimmed;
     }
-    // Read tool: keep file_path for image detection
-    if (toolName === 'Read') {
+    // File tools: keep file_path for display + image detection
+    if (toolName === 'Read' || toolName === 'Write' || toolName === 'Edit') {
       const trimmed: Record<string, unknown> = {};
       if (input.file_path) trimmed.file_path = input.file_path;
       return trimmed;
@@ -328,6 +341,28 @@ export class ConversationParser {
     if (toolName === 'AskUserQuestion') {
       const trimmed: Record<string, unknown> = {};
       if (input.question) trimmed.question = input.question;
+      return trimmed;
+    }
+    // Search tools: keep pattern + path for display
+    if (toolName === 'Grep' || toolName === 'Glob') {
+      const trimmed: Record<string, unknown> = {};
+      if (input.pattern) trimmed.pattern = input.pattern;
+      if (input.path) trimmed.path = input.path;
+      return trimmed;
+    }
+    // Bash: keep truncated command for display
+    if (toolName === 'Bash') {
+      const trimmed: Record<string, unknown> = {};
+      if (input.command) {
+        const cmd = String(input.command);
+        trimmed.command = cmd.length > 80 ? cmd.slice(0, 77) + '...' : cmd;
+      }
+      return trimmed;
+    }
+    // WebSearch: keep query for display
+    if (toolName === 'WebSearch') {
+      const trimmed: Record<string, unknown> = {};
+      if (input.query) trimmed.query = input.query;
       return trimmed;
     }
     // All other tools: discard inputs entirely
@@ -360,6 +395,8 @@ export class ConversationParser {
     const hasQuestion = this.hasRecentQuestion(messages);
     const isRateLimited = this.hasRecentRateLimit(messages);
     const rateLimitInfo = isRateLimited ? this.extractRateLimitInfo(messages) : {};
+    const lastActivity = this.extractLastActivity(messages);
+    const lastStatusText = this.extractLastStatusText(messages);
 
     const createdAt = firstTimestamp ? new Date(firstTimestamp) : new Date();
     const updatedAt = lastTimestamp ? new Date(lastTimestamp) : new Date();
@@ -381,11 +418,14 @@ export class ConversationParser {
       rateLimitResetDisplay: rateLimitInfo.display,
       rateLimitResetTime: rateLimitInfo.time,
       sidechainSteps: sidechainSteps.length > 0 ? sidechainSteps : undefined,
+      lastActivity,
+      lastStatusText,
       referencedImage: this.extractReferencedImage(messages),
       createdAt,
       updatedAt,
       filePath,
-      workspacePath: await this.extractWorkspacePath(filePath)
+      workspacePath: await this.extractWorkspacePath(filePath),
+      provider: 'claude-code'
     };
   }
 
@@ -426,8 +466,13 @@ export class ConversationParser {
 
     const content = lastAssistant.textContent.trim();
     const lines = content.split('\n').filter(l => l.trim());
-    const lastLine = lines[lines.length - 1] || '';
-    return lastLine.length > MAX_LAST_MESSAGE_LENGTH ? lastLine.slice(0, MAX_LAST_MESSAGE_LENGTH - 3) + '...' : lastLine;
+    // Return the last 2 lines, cropped from the beginning (left) when too long
+    const lastTwo = lines.slice(-2);
+    const combined = lastTwo.join('\n');
+    if (combined.length > MAX_LAST_MESSAGE_LENGTH) {
+      return '[...] ' + combined.slice(combined.length - MAX_LAST_MESSAGE_LENGTH + 6);
+    }
+    return combined;
   }
 
   private detectStatus(messages: ParsedMessage[]): ConversationStatus {
@@ -577,10 +622,10 @@ export class ConversationParser {
     const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
     if (!lastAssistant) return false;
     if (lastAssistant.hasQuestion) return true;
-    // Note: We no longer treat a pending tool_use on a recently active conversation
-    // as a question — it's far more likely the tool is still executing than waiting
-    // for permission. Genuine permission prompts use AskUserQuestion which sets
-    // hasQuestion = true above.
+    // Text-based question detection: if last non-empty line ends with "?"
+    const trimmed = lastAssistant.textContent.trimEnd();
+    const lastLine = trimmed.split('\n').filter(l => l.trim()).pop();
+    if (lastLine && lastLine.trimEnd().endsWith('?')) return true;
     return false;
   }
 
@@ -695,6 +740,94 @@ export class ConversationParser {
     } catch {
       return undefined;
     }
+  }
+
+  /** Tools that represent visible work and are worth showing in the card. */
+  private static readonly DISPLAY_TOOLS = new Set([
+    'Read', 'Write', 'Edit', 'Grep', 'Glob', 'Bash', 'Task',
+    'WebSearch', 'WebFetch', 'AskUserQuestion', 'NotebookEdit',
+  ]);
+
+  /** Extract the last tool activity for display in the task card. */
+  private extractLastActivity(messages: ParsedMessage[]): LastActivity | undefined {
+    // Walk backwards to find the last assistant message with a displayable tool use
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === 'assistant' && msg.toolUses.length > 0) {
+        // Pick the last displayable tool (skip internal ones like TodoWrite)
+        const displayTool = [...msg.toolUses].reverse()
+          .find(t => ConversationParser.DISPLAY_TOOLS.has(t.name));
+        if (!displayTool) continue;
+
+        const summary = this.formatToolSummary(displayTool.name, displayTool.input);
+
+        // Check the following user message for tool result info
+        const nextMsg = i + 1 < messages.length ? messages[i + 1] : undefined;
+        let outputHint: string | undefined;
+        let status: 'running' | 'completed' | 'failed' = 'running';
+
+        if (nextMsg && nextMsg.role === 'user') {
+          status = (nextMsg.hasError || nextMsg.isInterrupted) ? 'failed' : 'completed';
+          outputHint = nextMsg.toolResultHint;
+        }
+
+        return { toolName: displayTool.name, summary, outputHint, status };
+      }
+    }
+    return undefined;
+  }
+
+  /** Format a brief human-readable summary of tool parameters. */
+  private formatToolSummary(toolName: string, input: Record<string, unknown>): string | undefined {
+    switch (toolName) {
+      case 'Grep': {
+        const p = input.path ? ` (in ${this.shortenPath(String(input.path))})` : '';
+        return input.pattern ? `"${input.pattern}"${p}` : undefined;
+      }
+      case 'Glob':
+        return input.pattern ? `"${input.pattern}"` : undefined;
+      case 'Read':
+      case 'Write':
+      case 'Edit':
+        return input.file_path ? this.shortenPath(String(input.file_path)) : undefined;
+      case 'Bash':
+        return input.command ? String(input.command) : undefined;
+      case 'Task':
+        return input.subagent_type ? String(input.subagent_type) : undefined;
+      case 'WebSearch':
+        return input.query ? `"${input.query}"` : undefined;
+      default:
+        return undefined;
+    }
+  }
+
+  /** Shorten a file path to at most the last 2 segments. */
+  private shortenPath(p: string): string {
+    const parts = p.split('/').filter(Boolean);
+    if (parts.length <= 2) return p;
+    return '.../' + parts.slice(-2).join('/');
+  }
+
+  /** Extract a status text ("Interrupted", "Tool interrupted") from recent messages. */
+  private extractLastStatusText(messages: ParsedMessage[]): string | undefined {
+    if (messages.length === 0) return undefined;
+
+    // Check recent messages for explicit tool interruption
+    for (let i = messages.length - 1; i >= Math.max(0, messages.length - 4); i--) {
+      if (messages[i].isInterrupted) return 'Tool interrupted';
+    }
+
+    const lastMsg = messages[messages.length - 1];
+    // User cancelled mid-tool
+    if (lastMsg.role === 'user' && /interrupted by user|request interrupted|\[interrupted\]/i.test(lastMsg.textContent)) {
+      return 'Interrupted';
+    }
+    // Stale assistant with pending tool_use → abandoned session
+    if (lastMsg.role === 'assistant' && lastMsg.toolUses.length > 0 && !lastMsg.hasQuestion) {
+      if (!this.isRecentlyActive(messages)) return 'Interrupted';
+    }
+
+    return undefined;
   }
 
   private isRecentlyActive(messages: ParsedMessage[]): boolean {

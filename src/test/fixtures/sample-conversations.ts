@@ -432,3 +432,17 @@ export const manySidechainStepsConversation = [
   })),
   assistantMessage('All done!', 20),
 ].join('\n');
+
+/** Conversation where last assistant text ends with a question mark (no tool use). */
+export const textEndingWithQuestionConversation = [
+  userMessage('Add a caching layer', 20),
+  assistantMessage('Should I use Redis or an in-memory cache for this?', 18),
+].join('\n');
+
+/** Conversation where assistant text has a question mid-conversation but ends with a statement. */
+export const textQuestionAnsweredConversation = [
+  userMessage('Add a caching layer', 20),
+  assistantMessage('Should I use Redis or an in-memory cache?', 18),
+  userMessage('Use Redis', 16),
+  assistantMessage('Done! I\'ve added Redis caching.', 14),
+].join('\n');

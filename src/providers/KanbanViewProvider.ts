@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import { StateManager } from '../services/StateManager';
-import { ClaudeCodeWatcher } from './ClaudeCodeWatcher';
+import { IConversationProvider } from './IConversationProvider';
+import { IEditorCommands } from './IEditorCommands';
 import { TabManager } from './TabManager';
 import {
   Conversation,
@@ -22,6 +23,8 @@ import {
 
 export class KanbanViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'claudine.kanbanView';
+  private static readonly _version: string =
+    vscode.extensions?.getExtension('claudine.claudine')?.packageJSON?.version ?? '';
 
   private _views = new Map<string, {
     view: vscode.WebviewView;
@@ -39,14 +42,21 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly _stateManager: StateManager,
-    private readonly _claudeCodeWatcher: ClaudeCodeWatcher
+    private readonly _provider: IConversationProvider,
+    private readonly _editorCommands: IEditorCommands
   ) {
     this._tabManager = new TabManager(_stateManager);
     this._tabManager.onFocusChanged = (conversationId) => {
       this.sendMessage({ type: 'focusedConversation', conversationId });
     };
-    this._tabManager.onOpenConversation = (id) => {
-      this.openConversation(id);
+    this._tabManager.onOpenConversation = async (id) => {
+      // Open the editor without the follow-up focus call — the restored tab
+      // flow closes the old webview first, so calling claude-vscode.focus
+      // before the new webview is ready would hit a disposed webview.
+      const ok = await this._editorCommands.openConversation(id);
+      if (ok) {
+        setTimeout(() => this._tabManager.recordActiveTabMapping(id), TAB_MAPPING_DELAY_MS);
+      }
     };
 
     this._stateManager.onConversationsChanged((conversations) => {
@@ -152,11 +162,11 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
         break;
 
       case 'refreshConversations':
-        this._claudeCodeWatcher.refresh();
+        this._provider.refresh();
         break;
 
       case 'search': {
-        const ids = this._claudeCodeWatcher.searchConversations(message.query);
+        const ids = this._provider.searchConversations(message.query);
         this.sendMessage({ type: 'searchResults', query: message.query, ids });
         break;
       }
@@ -167,7 +177,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
         cfg.update('enableSummarization', !current, vscode.ConfigurationTarget.Global).then(() => {
           this.updateSettings();
           if (!current) {
-            this._claudeCodeWatcher.refresh();
+            this._provider.refresh();
           }
         });
         break;
@@ -198,8 +208,8 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
 
       case 'regenerateIcons':
         this._stateManager.clearAllIcons().then(() => {
-          this._claudeCodeWatcher.clearPendingIcons();
-          this._claudeCodeWatcher.refresh();
+          this._provider.clearPendingIcons();
+          this._provider.refresh();
         });
         break;
 
@@ -274,17 +284,17 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       this._tabManager.removeMapping(conversationId);
     }
 
-    // No known tab — create one via Claude Code extension
+    // No known tab — create one via the provider's editor integration
     await this._tabManager.closeUnmappedClaudeTabByTitle(conversation.title);
 
-    try {
-      await vscode.commands.executeCommand('claude-vscode.editor.open', conversationId);
+    const ok = await this._editorCommands.openConversation(conversationId);
+    if (ok) {
       this.focusEditorOnce(EDITOR_FOCUS_DELAY_MS);
       setTimeout(() => this._tabManager.recordActiveTabMapping(conversationId), TAB_MAPPING_DELAY_MS);
-    } catch {
+    } else {
       this._tabManager.suppressFocus(0);
       vscode.window.showWarningMessage(
-        vscode.l10n.t('Could not open conversation in Claude Code. Is the Claude Code extension installed?')
+        vscode.l10n.t('Could not open conversation. Is the provider extension installed?')
       );
     }
   }
@@ -304,24 +314,24 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       await this._tabManager.focusTabByLabel(knownLabel);
     }
 
-    try {
-      await vscode.commands.executeCommand('claude-vscode.editor.open', conversationId, prompt);
+    const ok = await this._editorCommands.sendPrompt(conversationId, prompt);
+    if (ok) {
       setTimeout(() => this._tabManager.recordActiveTabMapping(conversationId), TAB_MAPPING_DELAY_MS);
-    } catch {
+    } else {
       this._tabManager.suppressFocus(0);
       vscode.window.showWarningMessage(
-        vscode.l10n.t('Could not send prompt to Claude Code. Is the Claude Code extension installed?')
+        vscode.l10n.t('Could not send prompt. Is the provider extension installed?')
       );
     }
   }
 
   public async startNewConversation(prompt: string) {
-    try {
-      await vscode.commands.executeCommand('claude-vscode.editor.open', undefined, prompt);
+    const ok = await this._editorCommands.startNewConversation(prompt);
+    if (ok) {
       this.focusEditorOnce(EDITOR_FOCUS_DELAY_MS);
-    } catch {
+    } else {
       vscode.window.showWarningMessage(
-        vscode.l10n.t('Could not start a new Claude Code conversation. Is the Claude Code extension installed?')
+        vscode.l10n.t('Could not start a new conversation. Is the provider extension installed?')
       );
     }
   }
@@ -331,33 +341,13 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     if (!conversation) return;
     if (conversation.status !== 'in-progress' && conversation.status !== 'needs-input') return;
 
-    let sentToTerminal = false;
-    for (const terminal of vscode.window.terminals) {
-      const name = terminal.name;
-      if (/claude/i.test(name) && !/claudine/i.test(name)) {
-        terminal.sendText('\x03', false);
-        sentToTerminal = true;
-      }
-    }
-
-    if (!sentToTerminal) {
-      const knownLabel = this._tabManager.getTabLabel(conversationId);
-      if (knownLabel) {
-        await this._tabManager.focusTabByLabel(knownLabel);
-      } else {
-        await this._tabManager.focusAnyClaudeTab();
-      }
-    }
+    this._editorCommands.interruptTerminals();
   }
 
   private focusEditorOnce(delay: number) {
     clearTimeout(this._focusEditorTimer);
     this._focusEditorTimer = setTimeout(async () => {
-      try {
-        await vscode.commands.executeCommand('claude-vscode.focus');
-      } catch {
-        // focus command may not be available
-      }
+      await this._editorCommands.focusEditor();
     }, delay);
   }
 
@@ -559,6 +549,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     const settings: ClaudineSettings = {
       imageGenerationApi: config.get('imageGenerationApi', 'none'),
       claudeCodePath: config.get('claudeCodePath', '~/.claude'),
+      codexPath: config.get('codexPath', '~/.codex'),
       enableSummarization: config.get('enableSummarization', false),
       hasApiKey: !!apiKey,
       toolbarLocation: config.get('toolbarLocation', 'sidebar') as 'sidebar' | 'titlebar',
@@ -670,7 +661,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div id="app"></div>
-  <script nonce="${nonce}">window.__CLAUDINE_TOKEN__='${authToken}';</script>
+  <script nonce="${nonce}">window.__CLAUDINE_TOKEN__='${authToken}';window.__CLAUDINE_VERSION__='${KanbanViewProvider._version}';</script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

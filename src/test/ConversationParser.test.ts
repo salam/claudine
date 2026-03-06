@@ -64,6 +64,11 @@ describe('ConversationParser', () => {
       const result = await parseContent(fixtures.completedConversation, '/path/to/abc-123-def.jsonl');
       expect(result!.id).toBe('abc-123-def');
     });
+
+    it('sets provider to claude-code', async () => {
+      const result = await parseContent(fixtures.completedConversation);
+      expect(result!.provider).toBe('claude-code');
+    });
   });
 
   describe('title extraction', () => {
@@ -220,6 +225,17 @@ describe('ConversationParser', () => {
 
     it('no question in completed conversations', async () => {
       const result = await parseContent(fixtures.completedConversation);
+      expect(result!.hasQuestion).toBe(false);
+    });
+
+    it('detects question when last assistant text ends with "?"', async () => {
+      const result = await parseContent(fixtures.textEndingWithQuestionConversation);
+      expect(result!.hasQuestion).toBe(true);
+      expect(result!.status).toBe('needs-input');
+    });
+
+    it('no question when text "?" was already answered by user', async () => {
+      const result = await parseContent(fixtures.textQuestionAnsweredConversation);
       expect(result!.hasQuestion).toBe(false);
     });
   });

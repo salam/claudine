@@ -3175,7 +3175,7 @@ var require_stream = __commonJS({
       };
       duplex._final = function(callback) {
         if (ws.readyState === ws.CONNECTING) {
-          ws.once("open", function open3() {
+          ws.once("open", function open4() {
             duplex._final(callback);
           });
           return;
@@ -3196,7 +3196,7 @@ var require_stream = __commonJS({
       };
       duplex._write = function(chunk, encoding, callback) {
         if (ws.readyState === ws.CONNECTING) {
-          ws.once("open", function open3() {
+          ws.once("open", function open4() {
             duplex._write(chunk, encoding, callback);
           });
           return;
@@ -3738,7 +3738,7 @@ var init_esm = __esm({
         this._directoryFilter = normalizeFilter(opts.directoryFilter);
         const statMethod = opts.lstat ? import_promises.lstat : import_promises.stat;
         if (wantBigintFsStats) {
-          this._stat = (path7) => statMethod(path7, { bigint: true });
+          this._stat = (path8) => statMethod(path8, { bigint: true });
         } else {
           this._stat = statMethod;
         }
@@ -3763,8 +3763,8 @@ var init_esm = __esm({
             const par = this.parent;
             const fil = par && par.files;
             if (fil && fil.length > 0) {
-              const { path: path7, depth } = par;
-              const slice = fil.splice(0, batch).map((dirent) => this._formatEntry(dirent, path7));
+              const { path: path8, depth } = par;
+              const slice = fil.splice(0, batch).map((dirent) => this._formatEntry(dirent, path8));
               const awaited = await Promise.all(slice);
               for (const entry of awaited) {
                 if (!entry)
@@ -3804,21 +3804,21 @@ var init_esm = __esm({
           this.reading = false;
         }
       }
-      async _exploreDir(path7, depth) {
+      async _exploreDir(path8, depth) {
         let files;
         try {
-          files = await (0, import_promises.readdir)(path7, this._rdOptions);
+          files = await (0, import_promises.readdir)(path8, this._rdOptions);
         } catch (error) {
           this._onError(error);
         }
-        return { files, depth, path: path7 };
+        return { files, depth, path: path8 };
       }
-      async _formatEntry(dirent, path7) {
+      async _formatEntry(dirent, path8) {
         let entry;
-        const basename5 = this._isDirent ? dirent.name : dirent;
+        const basename6 = this._isDirent ? dirent.name : dirent;
         try {
-          const fullPath = (0, import_node_path.resolve)((0, import_node_path.join)(path7, basename5));
-          entry = { path: (0, import_node_path.relative)(this._root, fullPath), fullPath, basename: basename5 };
+          const fullPath = (0, import_node_path.resolve)((0, import_node_path.join)(path8, basename6));
+          entry = { path: (0, import_node_path.relative)(this._root, fullPath), fullPath, basename: basename6 };
           entry[this._statsProp] = this._isDirent ? dirent : await this._stat(fullPath);
         } catch (err) {
           this._onError(err);
@@ -3874,16 +3874,16 @@ var init_esm = __esm({
 });
 
 // node_modules/chokidar/esm/handler.js
-function createFsWatchInstance(path7, options, listener, errHandler, emitRaw) {
+function createFsWatchInstance(path8, options, listener, errHandler, emitRaw) {
   const handleEvent = (rawEvent, evPath) => {
-    listener(path7);
-    emitRaw(rawEvent, evPath, { watchedPath: path7 });
-    if (evPath && path7 !== evPath) {
-      fsWatchBroadcast(sysPath.resolve(path7, evPath), KEY_LISTENERS, sysPath.join(path7, evPath));
+    listener(path8);
+    emitRaw(rawEvent, evPath, { watchedPath: path8 });
+    if (evPath && path8 !== evPath) {
+      fsWatchBroadcast(sysPath.resolve(path8, evPath), KEY_LISTENERS, sysPath.join(path8, evPath));
     }
   };
   try {
-    return (0, import_fs.watch)(path7, {
+    return (0, import_fs.watch)(path8, {
       persistent: options.persistent
     }, handleEvent);
   } catch (error) {
@@ -4231,12 +4231,12 @@ var init_handler = __esm({
         listener(val1, val2, val3);
       });
     };
-    setFsWatchListener = (path7, fullPath, options, handlers) => {
+    setFsWatchListener = (path8, fullPath, options, handlers) => {
       const { listener, errHandler, rawEmitter } = handlers;
       let cont = FsWatchInstances.get(fullPath);
       let watcher;
       if (!options.persistent) {
-        watcher = createFsWatchInstance(path7, options, listener, errHandler, rawEmitter);
+        watcher = createFsWatchInstance(path8, options, listener, errHandler, rawEmitter);
         if (!watcher)
           return;
         return watcher.close.bind(watcher);
@@ -4247,7 +4247,7 @@ var init_handler = __esm({
         addAndConvert(cont, KEY_RAW, rawEmitter);
       } else {
         watcher = createFsWatchInstance(
-          path7,
+          path8,
           options,
           fsWatchBroadcast.bind(null, fullPath, KEY_LISTENERS),
           errHandler,
@@ -4262,7 +4262,7 @@ var init_handler = __esm({
             cont.watcherUnusable = true;
           if (isWindows && error.code === "EPERM") {
             try {
-              const fd = await (0, import_promises2.open)(path7, "r");
+              const fd = await (0, import_promises2.open)(path8, "r");
               await fd.close();
               broadcastErr(error);
             } catch (err) {
@@ -4293,7 +4293,7 @@ var init_handler = __esm({
       };
     };
     FsWatchFileInstances = /* @__PURE__ */ new Map();
-    setFsWatchFileListener = (path7, fullPath, options, handlers) => {
+    setFsWatchFileListener = (path8, fullPath, options, handlers) => {
       const { listener, rawEmitter } = handlers;
       let cont = FsWatchFileInstances.get(fullPath);
       const copts = cont && cont.options;
@@ -4315,7 +4315,7 @@ var init_handler = __esm({
             });
             const currmtime = curr.mtimeMs;
             if (curr.size !== prev.size || currmtime > prev.mtimeMs || currmtime === 0) {
-              foreach(cont.listeners, (listener2) => listener2(path7, curr));
+              foreach(cont.listeners, (listener2) => listener2(path8, curr));
             }
           })
         };
@@ -4343,13 +4343,13 @@ var init_handler = __esm({
        * @param listener on fs change
        * @returns closer for the watcher instance
        */
-      _watchWithNodeFs(path7, listener) {
+      _watchWithNodeFs(path8, listener) {
         const opts = this.fsw.options;
-        const directory = sysPath.dirname(path7);
-        const basename5 = sysPath.basename(path7);
+        const directory = sysPath.dirname(path8);
+        const basename6 = sysPath.basename(path8);
         const parent = this.fsw._getWatchedDir(directory);
-        parent.add(basename5);
-        const absolutePath = sysPath.resolve(path7);
+        parent.add(basename6);
+        const absolutePath = sysPath.resolve(path8);
         const options = {
           persistent: opts.persistent
         };
@@ -4358,13 +4358,13 @@ var init_handler = __esm({
         let closer;
         if (opts.usePolling) {
           const enableBin = opts.interval !== opts.binaryInterval;
-          options.interval = enableBin && isBinaryPath(basename5) ? opts.binaryInterval : opts.interval;
-          closer = setFsWatchFileListener(path7, absolutePath, options, {
+          options.interval = enableBin && isBinaryPath(basename6) ? opts.binaryInterval : opts.interval;
+          closer = setFsWatchFileListener(path8, absolutePath, options, {
             listener,
             rawEmitter: this.fsw._emitRaw
           });
         } else {
-          closer = setFsWatchListener(path7, absolutePath, options, {
+          closer = setFsWatchListener(path8, absolutePath, options, {
             listener,
             errHandler: this._boundHandleError,
             rawEmitter: this.fsw._emitRaw
@@ -4381,12 +4381,12 @@ var init_handler = __esm({
           return;
         }
         const dirname4 = sysPath.dirname(file);
-        const basename5 = sysPath.basename(file);
+        const basename6 = sysPath.basename(file);
         const parent = this.fsw._getWatchedDir(dirname4);
         let prevStats = stats;
-        if (parent.has(basename5))
+        if (parent.has(basename6))
           return;
-        const listener = async (path7, newStats) => {
+        const listener = async (path8, newStats) => {
           if (!this.fsw._throttle(THROTTLE_MODE_WATCH, file, 5))
             return;
           if (!newStats || newStats.mtimeMs === 0) {
@@ -4400,18 +4400,18 @@ var init_handler = __esm({
                 this.fsw._emit(EV.CHANGE, file, newStats2);
               }
               if ((isMacos || isLinux || isFreeBSD) && prevStats.ino !== newStats2.ino) {
-                this.fsw._closeFile(path7);
+                this.fsw._closeFile(path8);
                 prevStats = newStats2;
                 const closer2 = this._watchWithNodeFs(file, listener);
                 if (closer2)
-                  this.fsw._addPathCloser(path7, closer2);
+                  this.fsw._addPathCloser(path8, closer2);
               } else {
                 prevStats = newStats2;
               }
             } catch (error) {
-              this.fsw._remove(dirname4, basename5);
+              this.fsw._remove(dirname4, basename6);
             }
-          } else if (parent.has(basename5)) {
+          } else if (parent.has(basename6)) {
             const at = newStats.atimeMs;
             const mt = newStats.mtimeMs;
             if (!at || at <= mt || mt !== prevStats.mtimeMs) {
@@ -4436,7 +4436,7 @@ var init_handler = __esm({
        * @param item basename of this item
        * @returns true if no more processing is needed for this entry.
        */
-      async _handleSymlink(entry, directory, path7, item) {
+      async _handleSymlink(entry, directory, path8, item) {
         if (this.fsw.closed) {
           return;
         }
@@ -4446,7 +4446,7 @@ var init_handler = __esm({
           this.fsw._incrReadyCount();
           let linkPath;
           try {
-            linkPath = await (0, import_promises2.realpath)(path7);
+            linkPath = await (0, import_promises2.realpath)(path8);
           } catch (e) {
             this.fsw._emitReady();
             return true;
@@ -4456,12 +4456,12 @@ var init_handler = __esm({
           if (dir.has(item)) {
             if (this.fsw._symlinkPaths.get(full) !== linkPath) {
               this.fsw._symlinkPaths.set(full, linkPath);
-              this.fsw._emit(EV.CHANGE, path7, entry.stats);
+              this.fsw._emit(EV.CHANGE, path8, entry.stats);
             }
           } else {
             dir.add(item);
             this.fsw._symlinkPaths.set(full, linkPath);
-            this.fsw._emit(EV.ADD, path7, entry.stats);
+            this.fsw._emit(EV.ADD, path8, entry.stats);
           }
           this.fsw._emitReady();
           return true;
@@ -4490,9 +4490,9 @@ var init_handler = __esm({
             return;
           }
           const item = entry.path;
-          let path7 = sysPath.join(directory, item);
+          let path8 = sysPath.join(directory, item);
           current.add(item);
-          if (entry.stats.isSymbolicLink() && await this._handleSymlink(entry, directory, path7, item)) {
+          if (entry.stats.isSymbolicLink() && await this._handleSymlink(entry, directory, path8, item)) {
             return;
           }
           if (this.fsw.closed) {
@@ -4501,8 +4501,8 @@ var init_handler = __esm({
           }
           if (item === target || !target && !previous.has(item)) {
             this.fsw._incrReadyCount();
-            path7 = sysPath.join(dir, sysPath.relative(dir, path7));
-            this._addToNodeFs(path7, initialAdd, wh, depth + 1);
+            path8 = sysPath.join(dir, sysPath.relative(dir, path8));
+            this._addToNodeFs(path8, initialAdd, wh, depth + 1);
           }
         }).on(EV.ERROR, this._boundHandleError);
         return new Promise((resolve5, reject) => {
@@ -4571,13 +4571,13 @@ var init_handler = __esm({
        * @param depth Child path actually targeted for watch
        * @param target Child path actually targeted for watch
        */
-      async _addToNodeFs(path7, initialAdd, priorWh, depth, target) {
+      async _addToNodeFs(path8, initialAdd, priorWh, depth, target) {
         const ready = this.fsw._emitReady;
-        if (this.fsw._isIgnored(path7) || this.fsw.closed) {
+        if (this.fsw._isIgnored(path8) || this.fsw.closed) {
           ready();
           return false;
         }
-        const wh = this.fsw._getWatchHelpers(path7);
+        const wh = this.fsw._getWatchHelpers(path8);
         if (priorWh) {
           wh.filterPath = (entry) => priorWh.filterPath(entry);
           wh.filterDir = (entry) => priorWh.filterDir(entry);
@@ -4593,8 +4593,8 @@ var init_handler = __esm({
           const follow = this.fsw.options.followSymlinks;
           let closer;
           if (stats.isDirectory()) {
-            const absPath = sysPath.resolve(path7);
-            const targetPath = follow ? await (0, import_promises2.realpath)(path7) : path7;
+            const absPath = sysPath.resolve(path8);
+            const targetPath = follow ? await (0, import_promises2.realpath)(path8) : path8;
             if (this.fsw.closed)
               return;
             closer = await this._handleDir(wh.watchPath, stats, initialAdd, depth, target, wh, targetPath);
@@ -4604,29 +4604,29 @@ var init_handler = __esm({
               this.fsw._symlinkPaths.set(absPath, targetPath);
             }
           } else if (stats.isSymbolicLink()) {
-            const targetPath = follow ? await (0, import_promises2.realpath)(path7) : path7;
+            const targetPath = follow ? await (0, import_promises2.realpath)(path8) : path8;
             if (this.fsw.closed)
               return;
             const parent = sysPath.dirname(wh.watchPath);
             this.fsw._getWatchedDir(parent).add(wh.watchPath);
             this.fsw._emit(EV.ADD, wh.watchPath, stats);
-            closer = await this._handleDir(parent, stats, initialAdd, depth, path7, wh, targetPath);
+            closer = await this._handleDir(parent, stats, initialAdd, depth, path8, wh, targetPath);
             if (this.fsw.closed)
               return;
             if (targetPath !== void 0) {
-              this.fsw._symlinkPaths.set(sysPath.resolve(path7), targetPath);
+              this.fsw._symlinkPaths.set(sysPath.resolve(path8), targetPath);
             }
           } else {
             closer = this._handleFile(wh.watchPath, stats, initialAdd);
           }
           ready();
           if (closer)
-            this.fsw._addPathCloser(path7, closer);
+            this.fsw._addPathCloser(path8, closer);
           return false;
         } catch (error) {
           if (this.fsw._handleError(error)) {
             ready();
-            return path7;
+            return path8;
           }
         }
       }
@@ -4668,26 +4668,26 @@ function createPattern(matcher) {
   }
   return () => false;
 }
-function normalizePath(path7) {
-  if (typeof path7 !== "string")
+function normalizePath(path8) {
+  if (typeof path8 !== "string")
     throw new Error("string expected");
-  path7 = sysPath2.normalize(path7);
-  path7 = path7.replace(/\\/g, "/");
+  path8 = sysPath2.normalize(path8);
+  path8 = path8.replace(/\\/g, "/");
   let prepend = false;
-  if (path7.startsWith("//"))
+  if (path8.startsWith("//"))
     prepend = true;
   const DOUBLE_SLASH_RE2 = /\/\//;
-  while (path7.match(DOUBLE_SLASH_RE2))
-    path7 = path7.replace(DOUBLE_SLASH_RE2, "/");
+  while (path8.match(DOUBLE_SLASH_RE2))
+    path8 = path8.replace(DOUBLE_SLASH_RE2, "/");
   if (prepend)
-    path7 = "/" + path7;
-  return path7;
+    path8 = "/" + path8;
+  return path8;
 }
 function matchPatterns(patterns, testString, stats) {
-  const path7 = normalizePath(testString);
+  const path8 = normalizePath(testString);
   for (let index = 0; index < patterns.length; index++) {
     const pattern = patterns[index];
-    if (pattern(path7, stats)) {
+    if (pattern(path8, stats)) {
       return true;
     }
   }
@@ -4751,19 +4751,19 @@ var init_esm2 = __esm({
       }
       return str;
     };
-    normalizePathToUnix = (path7) => toUnix(sysPath2.normalize(toUnix(path7)));
-    normalizeIgnored = (cwd = "") => (path7) => {
-      if (typeof path7 === "string") {
-        return normalizePathToUnix(sysPath2.isAbsolute(path7) ? path7 : sysPath2.join(cwd, path7));
+    normalizePathToUnix = (path8) => toUnix(sysPath2.normalize(toUnix(path8)));
+    normalizeIgnored = (cwd = "") => (path8) => {
+      if (typeof path8 === "string") {
+        return normalizePathToUnix(sysPath2.isAbsolute(path8) ? path8 : sysPath2.join(cwd, path8));
       } else {
-        return path7;
+        return path8;
       }
     };
-    getAbsolutePath = (path7, cwd) => {
-      if (sysPath2.isAbsolute(path7)) {
-        return path7;
+    getAbsolutePath = (path8, cwd) => {
+      if (sysPath2.isAbsolute(path8)) {
+        return path8;
       }
-      return sysPath2.join(cwd, path7);
+      return sysPath2.join(cwd, path8);
     };
     EMPTY_SET = Object.freeze(/* @__PURE__ */ new Set());
     DirEntry = class {
@@ -4818,10 +4818,10 @@ var init_esm2 = __esm({
     STAT_METHOD_F = "stat";
     STAT_METHOD_L = "lstat";
     WatchHelper = class {
-      constructor(path7, follow, fsw) {
+      constructor(path8, follow, fsw) {
         this.fsw = fsw;
-        const watchPath = path7;
-        this.path = path7 = path7.replace(REPLACER_RE, "");
+        const watchPath = path8;
+        this.path = path8 = path8.replace(REPLACER_RE, "");
         this.watchPath = watchPath;
         this.fullWatchPath = sysPath2.resolve(watchPath);
         this.dirParts = [];
@@ -4943,20 +4943,20 @@ var init_esm2 = __esm({
         this._closePromise = void 0;
         let paths = unifyPaths(paths_);
         if (cwd) {
-          paths = paths.map((path7) => {
-            const absPath = getAbsolutePath(path7, cwd);
+          paths = paths.map((path8) => {
+            const absPath = getAbsolutePath(path8, cwd);
             return absPath;
           });
         }
-        paths.forEach((path7) => {
-          this._removeIgnoredPath(path7);
+        paths.forEach((path8) => {
+          this._removeIgnoredPath(path8);
         });
         this._userIgnored = void 0;
         if (!this._readyCount)
           this._readyCount = 0;
         this._readyCount += paths.length;
-        Promise.all(paths.map(async (path7) => {
-          const res = await this._nodeFsHandler._addToNodeFs(path7, !_internal, void 0, 0, _origAdd);
+        Promise.all(paths.map(async (path8) => {
+          const res = await this._nodeFsHandler._addToNodeFs(path8, !_internal, void 0, 0, _origAdd);
           if (res)
             this._emitReady();
           return res;
@@ -4978,17 +4978,17 @@ var init_esm2 = __esm({
           return this;
         const paths = unifyPaths(paths_);
         const { cwd } = this.options;
-        paths.forEach((path7) => {
-          if (!sysPath2.isAbsolute(path7) && !this._closers.has(path7)) {
+        paths.forEach((path8) => {
+          if (!sysPath2.isAbsolute(path8) && !this._closers.has(path8)) {
             if (cwd)
-              path7 = sysPath2.join(cwd, path7);
-            path7 = sysPath2.resolve(path7);
+              path8 = sysPath2.join(cwd, path8);
+            path8 = sysPath2.resolve(path8);
           }
-          this._closePath(path7);
-          this._addIgnoredPath(path7);
-          if (this._watched.has(path7)) {
+          this._closePath(path8);
+          this._addIgnoredPath(path8);
+          if (this._watched.has(path8)) {
             this._addIgnoredPath({
-              path: path7,
+              path: path8,
               recursive: true
             });
           }
@@ -5052,38 +5052,38 @@ var init_esm2 = __esm({
        * @param stats arguments to be passed with event
        * @returns the error if defined, otherwise the value of the FSWatcher instance's `closed` flag
        */
-      async _emit(event, path7, stats) {
+      async _emit(event, path8, stats) {
         if (this.closed)
           return;
         const opts = this.options;
         if (isWindows)
-          path7 = sysPath2.normalize(path7);
+          path8 = sysPath2.normalize(path8);
         if (opts.cwd)
-          path7 = sysPath2.relative(opts.cwd, path7);
-        const args = [path7];
+          path8 = sysPath2.relative(opts.cwd, path8);
+        const args = [path8];
         if (stats != null)
           args.push(stats);
         const awf = opts.awaitWriteFinish;
         let pw;
-        if (awf && (pw = this._pendingWrites.get(path7))) {
+        if (awf && (pw = this._pendingWrites.get(path8))) {
           pw.lastChange = /* @__PURE__ */ new Date();
           return this;
         }
         if (opts.atomic) {
           if (event === EVENTS.UNLINK) {
-            this._pendingUnlinks.set(path7, [event, ...args]);
+            this._pendingUnlinks.set(path8, [event, ...args]);
             setTimeout(() => {
-              this._pendingUnlinks.forEach((entry, path8) => {
+              this._pendingUnlinks.forEach((entry, path9) => {
                 this.emit(...entry);
                 this.emit(EVENTS.ALL, ...entry);
-                this._pendingUnlinks.delete(path8);
+                this._pendingUnlinks.delete(path9);
               });
             }, typeof opts.atomic === "number" ? opts.atomic : 100);
             return this;
           }
-          if (event === EVENTS.ADD && this._pendingUnlinks.has(path7)) {
+          if (event === EVENTS.ADD && this._pendingUnlinks.has(path8)) {
             event = EVENTS.CHANGE;
-            this._pendingUnlinks.delete(path7);
+            this._pendingUnlinks.delete(path8);
           }
         }
         if (awf && (event === EVENTS.ADD || event === EVENTS.CHANGE) && this._readyEmitted) {
@@ -5101,16 +5101,16 @@ var init_esm2 = __esm({
               this.emitWithAll(event, args);
             }
           };
-          this._awaitWriteFinish(path7, awf.stabilityThreshold, event, awfEmit);
+          this._awaitWriteFinish(path8, awf.stabilityThreshold, event, awfEmit);
           return this;
         }
         if (event === EVENTS.CHANGE) {
-          const isThrottled = !this._throttle(EVENTS.CHANGE, path7, 50);
+          const isThrottled = !this._throttle(EVENTS.CHANGE, path8, 50);
           if (isThrottled)
             return this;
         }
         if (opts.alwaysStat && stats === void 0 && (event === EVENTS.ADD || event === EVENTS.ADD_DIR || event === EVENTS.CHANGE)) {
-          const fullPath = opts.cwd ? sysPath2.join(opts.cwd, path7) : path7;
+          const fullPath = opts.cwd ? sysPath2.join(opts.cwd, path8) : path8;
           let stats2;
           try {
             stats2 = await (0, import_promises3.stat)(fullPath);
@@ -5141,23 +5141,23 @@ var init_esm2 = __esm({
        * @param timeout duration of time to suppress duplicate actions
        * @returns tracking object or false if action should be suppressed
        */
-      _throttle(actionType, path7, timeout) {
+      _throttle(actionType, path8, timeout) {
         if (!this._throttled.has(actionType)) {
           this._throttled.set(actionType, /* @__PURE__ */ new Map());
         }
         const action = this._throttled.get(actionType);
         if (!action)
           throw new Error("invalid throttle");
-        const actionPath = action.get(path7);
+        const actionPath = action.get(path8);
         if (actionPath) {
           actionPath.count++;
           return false;
         }
         let timeoutObject;
         const clear = () => {
-          const item = action.get(path7);
+          const item = action.get(path8);
           const count = item ? item.count : 0;
-          action.delete(path7);
+          action.delete(path8);
           clearTimeout(timeoutObject);
           if (item)
             clearTimeout(item.timeoutObject);
@@ -5165,7 +5165,7 @@ var init_esm2 = __esm({
         };
         timeoutObject = setTimeout(clear, timeout);
         const thr = { timeoutObject, clear, count: 0 };
-        action.set(path7, thr);
+        action.set(path8, thr);
         return thr;
       }
       _incrReadyCount() {
@@ -5179,44 +5179,44 @@ var init_esm2 = __esm({
        * @param event
        * @param awfEmit Callback to be called when ready for event to be emitted.
        */
-      _awaitWriteFinish(path7, threshold, event, awfEmit) {
+      _awaitWriteFinish(path8, threshold, event, awfEmit) {
         const awf = this.options.awaitWriteFinish;
         if (typeof awf !== "object")
           return;
         const pollInterval = awf.pollInterval;
         let timeoutHandler;
-        let fullPath = path7;
-        if (this.options.cwd && !sysPath2.isAbsolute(path7)) {
-          fullPath = sysPath2.join(this.options.cwd, path7);
+        let fullPath = path8;
+        if (this.options.cwd && !sysPath2.isAbsolute(path8)) {
+          fullPath = sysPath2.join(this.options.cwd, path8);
         }
         const now = /* @__PURE__ */ new Date();
         const writes = this._pendingWrites;
         function awaitWriteFinishFn(prevStat) {
           (0, import_fs2.stat)(fullPath, (err, curStat) => {
-            if (err || !writes.has(path7)) {
+            if (err || !writes.has(path8)) {
               if (err && err.code !== "ENOENT")
                 awfEmit(err);
               return;
             }
             const now2 = Number(/* @__PURE__ */ new Date());
             if (prevStat && curStat.size !== prevStat.size) {
-              writes.get(path7).lastChange = now2;
+              writes.get(path8).lastChange = now2;
             }
-            const pw = writes.get(path7);
+            const pw = writes.get(path8);
             const df = now2 - pw.lastChange;
             if (df >= threshold) {
-              writes.delete(path7);
+              writes.delete(path8);
               awfEmit(void 0, curStat);
             } else {
               timeoutHandler = setTimeout(awaitWriteFinishFn, pollInterval, curStat);
             }
           });
         }
-        if (!writes.has(path7)) {
-          writes.set(path7, {
+        if (!writes.has(path8)) {
+          writes.set(path8, {
             lastChange: now,
             cancelWait: () => {
-              writes.delete(path7);
+              writes.delete(path8);
               clearTimeout(timeoutHandler);
               return event;
             }
@@ -5227,8 +5227,8 @@ var init_esm2 = __esm({
       /**
        * Determines whether user has asked to ignore this path.
        */
-      _isIgnored(path7, stats) {
-        if (this.options.atomic && DOT_RE.test(path7))
+      _isIgnored(path8, stats) {
+        if (this.options.atomic && DOT_RE.test(path8))
           return true;
         if (!this._userIgnored) {
           const { cwd } = this.options;
@@ -5238,17 +5238,17 @@ var init_esm2 = __esm({
           const list = [...ignoredPaths.map(normalizeIgnored(cwd)), ...ignored];
           this._userIgnored = anymatch(list, void 0);
         }
-        return this._userIgnored(path7, stats);
+        return this._userIgnored(path8, stats);
       }
-      _isntIgnored(path7, stat5) {
-        return !this._isIgnored(path7, stat5);
+      _isntIgnored(path8, stat6) {
+        return !this._isIgnored(path8, stat6);
       }
       /**
        * Provides a set of common helpers and properties relating to symlink handling.
        * @param path file or directory pattern being watched
        */
-      _getWatchHelpers(path7) {
-        return new WatchHelper(path7, this.options.followSymlinks, this);
+      _getWatchHelpers(path8) {
+        return new WatchHelper(path8, this.options.followSymlinks, this);
       }
       // Directory helpers
       // -----------------
@@ -5280,63 +5280,63 @@ var init_esm2 = __esm({
        * @param item      base path of item/directory
        */
       _remove(directory, item, isDirectory) {
-        const path7 = sysPath2.join(directory, item);
-        const fullPath = sysPath2.resolve(path7);
-        isDirectory = isDirectory != null ? isDirectory : this._watched.has(path7) || this._watched.has(fullPath);
-        if (!this._throttle("remove", path7, 100))
+        const path8 = sysPath2.join(directory, item);
+        const fullPath = sysPath2.resolve(path8);
+        isDirectory = isDirectory != null ? isDirectory : this._watched.has(path8) || this._watched.has(fullPath);
+        if (!this._throttle("remove", path8, 100))
           return;
         if (!isDirectory && this._watched.size === 1) {
           this.add(directory, item, true);
         }
-        const wp = this._getWatchedDir(path7);
+        const wp = this._getWatchedDir(path8);
         const nestedDirectoryChildren = wp.getChildren();
-        nestedDirectoryChildren.forEach((nested) => this._remove(path7, nested));
+        nestedDirectoryChildren.forEach((nested) => this._remove(path8, nested));
         const parent = this._getWatchedDir(directory);
         const wasTracked = parent.has(item);
         parent.remove(item);
         if (this._symlinkPaths.has(fullPath)) {
           this._symlinkPaths.delete(fullPath);
         }
-        let relPath = path7;
+        let relPath = path8;
         if (this.options.cwd)
-          relPath = sysPath2.relative(this.options.cwd, path7);
+          relPath = sysPath2.relative(this.options.cwd, path8);
         if (this.options.awaitWriteFinish && this._pendingWrites.has(relPath)) {
           const event = this._pendingWrites.get(relPath).cancelWait();
           if (event === EVENTS.ADD)
             return;
         }
-        this._watched.delete(path7);
+        this._watched.delete(path8);
         this._watched.delete(fullPath);
         const eventName = isDirectory ? EVENTS.UNLINK_DIR : EVENTS.UNLINK;
-        if (wasTracked && !this._isIgnored(path7))
-          this._emit(eventName, path7);
-        this._closePath(path7);
+        if (wasTracked && !this._isIgnored(path8))
+          this._emit(eventName, path8);
+        this._closePath(path8);
       }
       /**
        * Closes all watchers for a path
        */
-      _closePath(path7) {
-        this._closeFile(path7);
-        const dir = sysPath2.dirname(path7);
-        this._getWatchedDir(dir).remove(sysPath2.basename(path7));
+      _closePath(path8) {
+        this._closeFile(path8);
+        const dir = sysPath2.dirname(path8);
+        this._getWatchedDir(dir).remove(sysPath2.basename(path8));
       }
       /**
        * Closes only file-specific watchers
        */
-      _closeFile(path7) {
-        const closers = this._closers.get(path7);
+      _closeFile(path8) {
+        const closers = this._closers.get(path8);
         if (!closers)
           return;
         closers.forEach((closer) => closer());
-        this._closers.delete(path7);
+        this._closers.delete(path8);
       }
-      _addPathCloser(path7, closer) {
+      _addPathCloser(path8, closer) {
         if (!closer)
           return;
-        let list = this._closers.get(path7);
+        let list = this._closers.get(path8);
         if (!list) {
           list = [];
-          this._closers.set(path7, list);
+          this._closers.set(path8, list);
         }
         list.push(closer);
       }
@@ -5364,8 +5364,8 @@ var init_esm2 = __esm({
 
 // standalone/server.ts
 var http = __toESM(require("http"));
-var fs4 = __toESM(require("fs"));
-var path6 = __toESM(require("path"));
+var fs5 = __toESM(require("fs"));
+var path7 = __toESM(require("path"));
 var crypto = __toESM(require("crypto"));
 
 // node_modules/ws/wrapper.mjs
@@ -5658,11 +5658,21 @@ var StateManager = class _StateManager {
   getConversation(id) {
     return this._conversations.get(id);
   }
-  setConversations(conversations) {
+  /**
+   * Replace conversations from a scan.
+   *
+   * When `providerTag` is given, only conversations whose `provider` matches
+   * the tag are eligible for deletion — this prevents two providers from
+   * clobbering each other's entries. Without a tag the original behaviour
+   * (delete anything missing from the scan) is preserved for backward compat.
+   */
+  setConversations(conversations, providerTag) {
     const scannedIds = new Set(conversations.map((c) => c.id));
-    for (const id of this._conversations.keys()) {
+    for (const [id, existing] of this._conversations.entries()) {
       if (!scannedIds.has(id)) {
-        this._conversations.delete(id);
+        if (!providerTag || existing.provider === providerTag) {
+          this._conversations.delete(id);
+        }
       }
     }
     for (const conv of conversations) {
@@ -5722,6 +5732,11 @@ var StateManager = class _StateManager {
         conv.status = existing.status;
         conv.previousStatus = existing.previousStatus;
         conv.updatedAt = existing.updatedAt;
+        return;
+      }
+      if (!conv.agents.some((a) => a.isActive)) {
+        conv.status = existing.status;
+        conv.previousStatus = existing.previousStatus;
         return;
       }
     }
@@ -6509,6 +6524,7 @@ var ConversationParser = class _ConversationParser {
     let isRateLimited = false;
     let rateLimitResetDisplay;
     let rateLimitResetTime;
+    let toolResultHint;
     const messageDate = entry.timestamp ? new Date(entry.timestamp) : void 0;
     for (const block of contentBlocks) {
       if (block.type === "text" && block.text) {
@@ -6537,6 +6553,15 @@ var ConversationParser = class _ConversationParser {
         if (/API Error:\s*\d{3}/i.test(resultText)) {
           hasError = true;
         }
+        if (resultText) {
+          const resultLines = resultText.split("\n").filter((l) => l.trim());
+          if (resultLines.length > 3) {
+            toolResultHint = `${resultLines.length} lines of output`;
+          } else {
+            const brief = resultText.trim().slice(0, 100);
+            toolResultHint = brief.length < resultText.trim().length ? brief + "..." : brief;
+          }
+        }
         const rlMatch = resultText.match(RATE_LIMIT_PATTERN);
         if (rlMatch) {
           isRateLimited = true;
@@ -6562,7 +6587,8 @@ var ConversationParser = class _ConversationParser {
       hasQuestion,
       isRateLimited,
       rateLimitResetDisplay,
-      rateLimitResetTime
+      rateLimitResetTime,
+      toolResultHint
     };
   }
   /** Keep only the fields we actually use from tool inputs, discarding large payloads. */
@@ -6573,7 +6599,7 @@ var ConversationParser = class _ConversationParser {
       if (input.description) trimmed.description = input.description;
       return trimmed;
     }
-    if (toolName === "Read") {
+    if (toolName === "Read" || toolName === "Write" || toolName === "Edit") {
       const trimmed = {};
       if (input.file_path) trimmed.file_path = input.file_path;
       return trimmed;
@@ -6581,6 +6607,25 @@ var ConversationParser = class _ConversationParser {
     if (toolName === "AskUserQuestion") {
       const trimmed = {};
       if (input.question) trimmed.question = input.question;
+      return trimmed;
+    }
+    if (toolName === "Grep" || toolName === "Glob") {
+      const trimmed = {};
+      if (input.pattern) trimmed.pattern = input.pattern;
+      if (input.path) trimmed.path = input.path;
+      return trimmed;
+    }
+    if (toolName === "Bash") {
+      const trimmed = {};
+      if (input.command) {
+        const cmd = String(input.command);
+        trimmed.command = cmd.length > 80 ? cmd.slice(0, 77) + "..." : cmd;
+      }
+      return trimmed;
+    }
+    if (toolName === "WebSearch") {
+      const trimmed = {};
+      if (input.query) trimmed.query = input.query;
       return trimmed;
     }
     return {};
@@ -6601,6 +6646,8 @@ var ConversationParser = class _ConversationParser {
     const hasQuestion = this.hasRecentQuestion(messages);
     const isRateLimited = this.hasRecentRateLimit(messages);
     const rateLimitInfo = isRateLimited ? this.extractRateLimitInfo(messages) : {};
+    const lastActivity = this.extractLastActivity(messages);
+    const lastStatusText = this.extractLastStatusText(messages);
     const createdAt = firstTimestamp ? new Date(firstTimestamp) : /* @__PURE__ */ new Date();
     const updatedAt = lastTimestamp ? new Date(lastTimestamp) : /* @__PURE__ */ new Date();
     return {
@@ -6620,11 +6667,14 @@ var ConversationParser = class _ConversationParser {
       rateLimitResetDisplay: rateLimitInfo.display,
       rateLimitResetTime: rateLimitInfo.time,
       sidechainSteps: sidechainSteps.length > 0 ? sidechainSteps : void 0,
+      lastActivity,
+      lastStatusText,
       referencedImage: this.extractReferencedImage(messages),
       createdAt,
       updatedAt,
       filePath,
-      workspacePath: await this.extractWorkspacePath(filePath)
+      workspacePath: await this.extractWorkspacePath(filePath),
+      provider: "claude-code"
     };
   }
   extractSessionId(filePath) {
@@ -6656,8 +6706,12 @@ var ConversationParser = class _ConversationParser {
     if (!lastAssistant) return "";
     const content = lastAssistant.textContent.trim();
     const lines = content.split("\n").filter((l) => l.trim());
-    const lastLine = lines[lines.length - 1] || "";
-    return lastLine.length > MAX_LAST_MESSAGE_LENGTH ? lastLine.slice(0, MAX_LAST_MESSAGE_LENGTH - 3) + "..." : lastLine;
+    const lastTwo = lines.slice(-2);
+    const combined = lastTwo.join("\n");
+    if (combined.length > MAX_LAST_MESSAGE_LENGTH) {
+      return "[...] " + combined.slice(combined.length - MAX_LAST_MESSAGE_LENGTH + 6);
+    }
+    return combined;
   }
   detectStatus(messages) {
     if (messages.length === 0) return "todo";
@@ -6861,6 +6915,84 @@ var ConversationParser = class _ConversationParser {
     } catch {
       return void 0;
     }
+  }
+  /** Tools that represent visible work and are worth showing in the card. */
+  static DISPLAY_TOOLS = /* @__PURE__ */ new Set([
+    "Read",
+    "Write",
+    "Edit",
+    "Grep",
+    "Glob",
+    "Bash",
+    "Task",
+    "WebSearch",
+    "WebFetch",
+    "AskUserQuestion",
+    "NotebookEdit"
+  ]);
+  /** Extract the last tool activity for display in the task card. */
+  extractLastActivity(messages) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === "assistant" && msg.toolUses.length > 0) {
+        const displayTool = [...msg.toolUses].reverse().find((t) => _ConversationParser.DISPLAY_TOOLS.has(t.name));
+        if (!displayTool) continue;
+        const summary = this.formatToolSummary(displayTool.name, displayTool.input);
+        const nextMsg = i + 1 < messages.length ? messages[i + 1] : void 0;
+        let outputHint;
+        let status = "running";
+        if (nextMsg && nextMsg.role === "user") {
+          status = nextMsg.hasError || nextMsg.isInterrupted ? "failed" : "completed";
+          outputHint = nextMsg.toolResultHint;
+        }
+        return { toolName: displayTool.name, summary, outputHint, status };
+      }
+    }
+    return void 0;
+  }
+  /** Format a brief human-readable summary of tool parameters. */
+  formatToolSummary(toolName, input) {
+    switch (toolName) {
+      case "Grep": {
+        const p = input.path ? ` (in ${this.shortenPath(String(input.path))})` : "";
+        return input.pattern ? `"${input.pattern}"${p}` : void 0;
+      }
+      case "Glob":
+        return input.pattern ? `"${input.pattern}"` : void 0;
+      case "Read":
+      case "Write":
+      case "Edit":
+        return input.file_path ? this.shortenPath(String(input.file_path)) : void 0;
+      case "Bash":
+        return input.command ? String(input.command) : void 0;
+      case "Task":
+        return input.subagent_type ? String(input.subagent_type) : void 0;
+      case "WebSearch":
+        return input.query ? `"${input.query}"` : void 0;
+      default:
+        return void 0;
+    }
+  }
+  /** Shorten a file path to at most the last 2 segments. */
+  shortenPath(p) {
+    const parts = p.split("/").filter(Boolean);
+    if (parts.length <= 2) return p;
+    return ".../" + parts.slice(-2).join("/");
+  }
+  /** Extract a status text ("Interrupted", "Tool interrupted") from recent messages. */
+  extractLastStatusText(messages) {
+    if (messages.length === 0) return void 0;
+    for (let i = messages.length - 1; i >= Math.max(0, messages.length - 4); i--) {
+      if (messages[i].isInterrupted) return "Tool interrupted";
+    }
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg.role === "user" && /interrupted by user|request interrupted|\[interrupted\]/i.test(lastMsg.textContent)) {
+      return "Interrupted";
+    }
+    if (lastMsg.role === "assistant" && lastMsg.toolUses.length > 0 && !lastMsg.hasQuestion) {
+      if (!this.isRecentlyActive(messages)) return "Interrupted";
+    }
+    return void 0;
   }
   isRecentlyActive(messages) {
     const last = messages[messages.length - 1];
@@ -7158,6 +7290,8 @@ var ClaudeCodeWatcher = class _ClaudeCodeWatcher {
       }
     }
   }
+  id = "claude-code";
+  displayName = "Claude Code";
   _watcherDisposable;
   _parser;
   _summaryService;
@@ -7171,6 +7305,10 @@ var ClaudeCodeWatcher = class _ClaudeCodeWatcher {
   }
   /** Resolved path to the Claude Code data directory. */
   get claudePath() {
+    return this._claudePath;
+  }
+  /** Alias for IConversationProvider. */
+  get dataPath() {
     return this._claudePath;
   }
   /** Whether the file system watcher is active. */
@@ -7213,7 +7351,7 @@ var ClaudeCodeWatcher = class _ClaudeCodeWatcher {
     try {
       const conversations = await this.scanForConversations();
       console.log(`Claudine: Found ${conversations.length} conversations`);
-      this._stateManager.setConversations(conversations);
+      this._stateManager.setConversations(conversations, "claude-code");
       this._summaryService.summarizeUncached(conversations, (id, summary) => {
         const existing = this._stateManager.getConversation(id);
         if (existing) {
@@ -7363,9 +7501,10 @@ var ClaudeCodeWatcher = class _ClaudeCodeWatcher {
   /**
    * Encode a workspace path the same way Claude Code does.
    * /Users/matthias/Development/foo → -Users-matthias-Development-foo
+   * /Users/matthias/Development/molts.club → -Users-matthias-Development-molts-club
    */
   encodeWorkspacePath(workspacePath) {
-    return workspacePath.replace(/\//g, "-");
+    return workspacePath.replace(/[/.]/g, "-");
   }
   // ── Project discovery & progressive scanning (standalone) ─────────
   /**
@@ -7585,9 +7724,540 @@ var ClaudeCodeWatcher = class _ClaudeCodeWatcher {
   }
 };
 
-// src/services/CommandProcessor.ts
-var fs3 = __toESM(require("fs"));
+// src/providers/CodexWatcher.ts
 var path5 = __toESM(require("path"));
+var os4 = __toESM(require("os"));
+var fs3 = __toESM(require("fs"));
+
+// src/providers/CodexSessionParser.ts
+var fsp2 = __toESM(require("fs/promises"));
+var CodexSessionParser = class {
+  _classifier;
+  _cache = /* @__PURE__ */ new Map();
+  constructor() {
+    this._classifier = new CategoryClassifier();
+  }
+  /** Number of files currently held in the incremental parse cache. */
+  get cacheSize() {
+    return this._cache.size;
+  }
+  /** Clear the parse cache for a specific file (e.g. on deletion). */
+  clearCache(filePath) {
+    this._cache.delete(filePath);
+  }
+  /** Promote a key to most-recently-used and evict the oldest if over limit. */
+  touchCache(key, value) {
+    this._cache.delete(key);
+    this._cache.set(key, value);
+    if (this._cache.size > MAX_PARSE_CACHE_ENTRIES) {
+      const oldest = this._cache.keys().next().value;
+      if (oldest !== void 0) {
+        this._cache.delete(oldest);
+      }
+    }
+  }
+  async parseFile(filePath) {
+    try {
+      if (!filePath.endsWith(".jsonl")) return null;
+      const cached = this._cache.get(filePath);
+      let fileSize;
+      try {
+        fileSize = (await fsp2.stat(filePath)).size;
+      } catch {
+        return null;
+      }
+      if (fileSize === 0) return null;
+      if (cached && cached.byteOffset > fileSize) {
+        this._cache.delete(filePath);
+        return this.parseFile(filePath);
+      }
+      if (cached && cached.byteOffset === fileSize) {
+        this.touchCache(filePath, cached);
+        if (!cached.sessionId) return null;
+        return this.buildConversation(filePath, cached);
+      }
+      if (cached && cached.byteOffset < fileSize) {
+        return await this.parseIncremental(filePath, cached, fileSize);
+      }
+      return await this.parseFullFile(filePath, fileSize);
+    } catch (error) {
+      console.error(`Claudine: Error parsing Codex file ${filePath}:`, error);
+      return null;
+    }
+  }
+  async parseFullFile(filePath, fileSize) {
+    const content = await fsp2.readFile(filePath, "utf-8");
+    if (!content.trim()) return null;
+    const cache = this.freshCache(fileSize);
+    this.parseLines(content, cache);
+    this.touchCache(filePath, cache);
+    if (!cache.sessionId) return null;
+    return this.buildConversation(filePath, cache);
+  }
+  async parseIncremental(filePath, cached, fileSize) {
+    const handle = await fsp2.open(filePath, "r");
+    try {
+      const newSize = fileSize - cached.byteOffset;
+      const buffer = Buffer.alloc(newSize);
+      await handle.read(buffer, 0, newSize, cached.byteOffset);
+      const newContent = buffer.toString("utf-8");
+      this.parseLines(newContent, cached);
+      cached.byteOffset = fileSize;
+    } finally {
+      await handle.close();
+    }
+    this.touchCache(filePath, cached);
+    if (!cached.sessionId) return null;
+    return this.buildConversation(filePath, cached);
+  }
+  freshCache(byteOffset) {
+    return {
+      byteOffset,
+      sessionId: void 0,
+      workspacePath: void 0,
+      gitBranch: void 0,
+      firstTimestamp: void 0,
+      lastTimestamp: void 0,
+      userMessages: [],
+      agentMessages: [],
+      lastEventType: void 0,
+      hasError: false,
+      errorMessage: void 0,
+      isAborted: false,
+      isRateLimited: false,
+      rateLimitResetTime: void 0,
+      rateLimitMessage: void 0
+    };
+  }
+  /** Parse raw JSONL lines and accumulate results into the cache. */
+  parseLines(content, cache) {
+    const lines = content.split("\n");
+    for (const raw of lines) {
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      try {
+        const obj = JSON.parse(trimmed);
+        this.processEntry(obj, cache);
+      } catch {
+      }
+    }
+  }
+  /**
+   * Process a single parsed JSON object.
+   * Handles both the standard envelope format and the legacy bare-object format.
+   */
+  processEntry(obj, cache) {
+    const ts = obj.timestamp || void 0;
+    if (ts) {
+      if (!cache.firstTimestamp) cache.firstTimestamp = ts;
+      cache.lastTimestamp = ts;
+    }
+    if (obj.type && obj.payload && typeof obj.payload === "object") {
+      const envelope = obj;
+      if (envelope.type === "session_meta") {
+        const meta = envelope.payload;
+        if (meta.id) cache.sessionId = meta.id;
+        if (meta.cwd) cache.workspacePath = meta.cwd;
+        return;
+      }
+      if (envelope.type === "event_msg") {
+        const event = envelope.payload;
+        this.processEvent(event, cache);
+        return;
+      }
+      if (envelope.type === "response_item") {
+        const item = envelope.payload;
+        if (item.content && Array.isArray(item.content)) {
+          for (const block of item.content) {
+            if (block.type === "input_text" && block.text) {
+              cache.userMessages.push(block.text);
+            } else if (block.type === "output_text" && block.text) {
+              cache.agentMessages.push(block.text);
+            }
+          }
+        }
+        return;
+      }
+      return;
+    }
+    if (obj.meta && typeof obj.meta === "object") {
+      const meta = obj.meta;
+      if (meta.id) cache.sessionId = meta.id;
+      if (meta.cwd) cache.workspacePath = meta.cwd;
+      const git = obj.git;
+      if (git?.branch) cache.gitBranch = git.branch;
+      return;
+    }
+    if (obj.type && typeof obj.type === "string" && !obj.payload) {
+      this.processEvent(obj, cache);
+    }
+  }
+  /** Process a Codex event (from either envelope or legacy format). */
+  processEvent(event, cache) {
+    const evType = event.type;
+    cache.lastEventType = evType;
+    switch (evType) {
+      case "user_message":
+        if ("message" in event && event.message) {
+          cache.userMessages.push(event.message);
+        }
+        break;
+      case "agent_message":
+        if ("message" in event && event.message) {
+          cache.agentMessages.push(event.message);
+        }
+        break;
+      case "error":
+        cache.hasError = true;
+        if ("message" in event && event.message) {
+          cache.errorMessage = event.message;
+        } else if ("error" in event && event.error) {
+          cache.errorMessage = event.error;
+        }
+        break;
+      case "turn_aborted":
+        cache.isAborted = true;
+        break;
+      case "rate_limit":
+        cache.isRateLimited = true;
+        if ("reset_at" in event && event.reset_at) {
+          cache.rateLimitResetTime = event.reset_at;
+        }
+        if ("message" in event && event.message) {
+          cache.rateLimitMessage = event.message;
+        }
+        break;
+      // task_started, task_complete, exec_command_*, mcp_tool_call_* are
+      // tracked implicitly via lastEventType for status detection.
+      default:
+        break;
+    }
+  }
+  /** Build a Conversation object from accumulated cache data. */
+  buildConversation(filePath, cache) {
+    if (!cache.sessionId) return null;
+    const title = this.extractTitle(cache);
+    const description = this.extractDescription(cache);
+    const lastMessage = this.extractLastMessage(cache);
+    if (title === "Untitled Session" && !description && !lastMessage) {
+      return null;
+    }
+    const status = this.detectStatus(cache);
+    const category = this._classifier.classify(title, description, []);
+    const agents = this.buildAgents(cache);
+    const createdAt = cache.firstTimestamp ? new Date(cache.firstTimestamp) : /* @__PURE__ */ new Date();
+    const updatedAt = cache.lastTimestamp ? new Date(cache.lastTimestamp) : /* @__PURE__ */ new Date();
+    return {
+      id: `codex-${cache.sessionId}`,
+      title,
+      description,
+      category,
+      status,
+      lastMessage,
+      agents,
+      gitBranch: cache.gitBranch,
+      hasError: cache.hasError,
+      errorMessage: cache.hasError ? cache.errorMessage : void 0,
+      isInterrupted: cache.isAborted,
+      hasQuestion: false,
+      // Codex doesn't have interactive questions
+      isRateLimited: cache.isRateLimited,
+      rateLimitResetTime: cache.rateLimitResetTime,
+      rateLimitResetDisplay: cache.rateLimitMessage,
+      createdAt,
+      updatedAt,
+      filePath,
+      workspacePath: cache.workspacePath,
+      provider: "codex"
+    };
+  }
+  extractTitle(cache) {
+    const first = cache.userMessages[0];
+    if (!first) return "Untitled Session";
+    const firstLine = first.split("\n")[0].trim();
+    if (!firstLine) return "Untitled Session";
+    return firstLine.length > MAX_TITLE_LENGTH ? firstLine.slice(0, MAX_TITLE_LENGTH - 3) + "..." : firstLine;
+  }
+  extractDescription(cache) {
+    const first = cache.agentMessages[0];
+    if (!first) return "";
+    const firstPara = first.split("\n\n")[0].trim();
+    return firstPara.length > MAX_DESCRIPTION_LENGTH ? firstPara.slice(0, MAX_DESCRIPTION_LENGTH - 3) + "..." : firstPara;
+  }
+  extractLastMessage(cache) {
+    const last = cache.agentMessages[cache.agentMessages.length - 1];
+    if (!last) return "";
+    const lines = last.split("\n").filter((l) => l.trim());
+    const lastTwo = lines.slice(-2).join("\n");
+    return lastTwo.length > MAX_LAST_MESSAGE_LENGTH ? lastTwo.slice(0, MAX_LAST_MESSAGE_LENGTH - 3) + "..." : lastTwo;
+  }
+  detectStatus(cache) {
+    if (cache.isRateLimited) return "needs-input";
+    if (cache.hasError) return "needs-input";
+    if (cache.isAborted) return "needs-input";
+    const last = cache.lastEventType;
+    if (last === "task_complete") return "in-review";
+    if (last === "task_started" || last === "exec_command_begin" || last === "mcp_tool_call_begin") {
+      return "in-progress";
+    }
+    if (cache.agentMessages.length > 0) {
+      if (this.isRecentlyActive(cache)) return "in-progress";
+      return "in-review";
+    }
+    if (cache.userMessages.length > 0) return "todo";
+    return "todo";
+  }
+  buildAgents(cache) {
+    return [{
+      id: "codex-main",
+      name: "Codex",
+      avatar: "",
+      isActive: this.isRecentlyActive(cache)
+    }];
+  }
+  isRecentlyActive(cache) {
+    if (!cache.lastTimestamp) return false;
+    return Date.now() - new Date(cache.lastTimestamp).getTime() < RECENTLY_ACTIVE_WINDOW_MS;
+  }
+};
+
+// src/providers/CodexWatcher.ts
+var CodexWatcher = class {
+  constructor(_stateManager, _platform) {
+    this._stateManager = _stateManager;
+    this._platform = _platform;
+    this._parser = new CodexSessionParser();
+    this._codexPath = this.getCodexPath();
+  }
+  id = "codex";
+  displayName = "Codex";
+  _watcherDisposable;
+  _parser;
+  _codexPath;
+  /** Resolved path to the Codex data directory. */
+  get dataPath() {
+    return this._codexPath;
+  }
+  get isWatching() {
+    return this._watcherDisposable !== void 0;
+  }
+  get parseCacheSize() {
+    return this._parser.cacheSize;
+  }
+  /**
+   * Check whether Codex sessions are available on this machine.
+   * Returns true if the sessions directory exists.
+   */
+  static isAvailable(platform) {
+    const configPath = platform.getConfig("codexPath", "~/.codex");
+    const resolved = configPath.replace("~", os4.homedir());
+    const sessionsDir = path5.join(resolved, "sessions");
+    return fs3.existsSync(sessionsDir);
+  }
+  getCodexPath() {
+    const configPath = this._platform.getConfig("codexPath", "~/.codex");
+    return configPath.replace("~", os4.homedir());
+  }
+  get sessionsPath() {
+    return path5.join(this._codexPath, "sessions");
+  }
+  // ── Lifecycle ────────────────────────────────────────────────────
+  startWatching() {
+    this.setupFileWatcher();
+    this.refresh();
+  }
+  setupFileWatcher() {
+    try {
+      this._watcherDisposable = this._platform.watchFiles(this.sessionsPath, "**/*.jsonl", {
+        onCreate: (filePath) => this.onFileChanged(filePath),
+        onChange: (filePath) => this.onFileChanged(filePath),
+        onDelete: (filePath) => this.onFileDeleted(filePath)
+      });
+      console.log(`Claudine: Codex \u2014 watching ${this.sessionsPath} for changes`);
+    } catch (error) {
+      console.error("Claudine: Codex \u2014 error setting up file watcher", error);
+    }
+  }
+  stopWatching() {
+    if (this._watcherDisposable) {
+      this._watcherDisposable.dispose();
+      this._watcherDisposable = void 0;
+    }
+  }
+  // ── Scanning ─────────────────────────────────────────────────────
+  async refresh() {
+    try {
+      const conversations = await this.scanForConversations();
+      console.log(`Claudine: Codex \u2014 found ${conversations.length} conversations`);
+      this._stateManager.setConversations(conversations, "codex");
+    } catch (error) {
+      console.error("Claudine: Codex \u2014 error refreshing conversations", error);
+    }
+  }
+  async scanForConversations() {
+    const conversations = [];
+    const sessionsDir = this.sessionsPath;
+    if (!fs3.existsSync(sessionsDir)) return conversations;
+    const workspaceFolders = this._platform.getWorkspaceFolders();
+    for (const filePath of this.walkJsonlFiles(sessionsDir)) {
+      try {
+        const conv = await this._parser.parseFile(filePath);
+        if (conv && this.matchesWorkspace(conv, workspaceFolders)) {
+          conversations.push(conv);
+        }
+      } catch (error) {
+        console.error(`Claudine: Codex \u2014 error parsing ${filePath}`, error);
+      }
+    }
+    return conversations;
+  }
+  /** Recursively yield all .jsonl files under a directory. */
+  *walkJsonlFiles(dir) {
+    try {
+      const entries = fs3.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const full = path5.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          yield* this.walkJsonlFiles(full);
+        } else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
+          yield full;
+        }
+      }
+    } catch {
+    }
+  }
+  /**
+   * Filter conversations by workspace.
+   * When workspace folders are known, only include conversations whose
+   * `workspacePath` matches one of them. When no workspace is open, include all.
+   */
+  matchesWorkspace(conv, workspaceFolders) {
+    if (!workspaceFolders || workspaceFolders.length === 0) return true;
+    if (!conv.workspacePath) return true;
+    const convPath = conv.workspacePath.replace(/\/+$/, "");
+    return workspaceFolders.some((f) => convPath === f.replace(/\/+$/, ""));
+  }
+  async onFileChanged(filePath) {
+    const workspaceFolders = this._platform.getWorkspaceFolders();
+    try {
+      const conv = await this._parser.parseFile(filePath);
+      if (conv && this.matchesWorkspace(conv, workspaceFolders)) {
+        this._stateManager.updateConversation(conv);
+      }
+    } catch (error) {
+      console.error(`Claudine: Codex \u2014 error parsing file ${filePath}`, error);
+    }
+  }
+  onFileDeleted(filePath) {
+    this._parser.clearCache(filePath);
+    const baseName = path5.basename(filePath, ".jsonl");
+    const all = this._stateManager.getConversations();
+    const match = all.find((c) => c.filePath === filePath);
+    if (match) {
+      this._stateManager.removeConversation(match.id);
+    }
+  }
+  // ── Search ───────────────────────────────────────────────────────
+  searchConversations(query) {
+    if (!query.trim()) return [];
+    const q = query.toLowerCase();
+    const matchingIds = [];
+    const sessionsDir = this.sessionsPath;
+    if (!fs3.existsSync(sessionsDir)) return matchingIds;
+    for (const filePath of this.walkJsonlFiles(sessionsDir)) {
+      try {
+        const content = fs3.readFileSync(filePath, "utf-8");
+        if (content.toLowerCase().includes(q)) {
+          const firstLine = content.split("\n")[0];
+          try {
+            const obj = JSON.parse(firstLine);
+            if (obj.payload?.meta?.id) {
+              matchingIds.push(`codex-${obj.payload.meta.id}`);
+            } else if (obj.meta?.id) {
+              matchingIds.push(`codex-${obj.meta.id}`);
+            }
+          } catch {
+          }
+        }
+      } catch {
+      }
+    }
+    return matchingIds;
+  }
+  // ── Icons (stub) ─────────────────────────────────────────────────
+  clearPendingIcons() {
+  }
+  // ── Project discovery (stub — not applicable for date-based layout) ──
+  discoverProjects() {
+    return [];
+  }
+  async scanProjectsProgressively(_enabledProjects, _onProgress, _onProjectScanned) {
+    return [];
+  }
+};
+
+// src/providers/CompositeConversationProvider.ts
+var CompositeConversationProvider = class {
+  id;
+  displayName;
+  _children;
+  constructor(children) {
+    if (children.length === 0) throw new Error("CompositeConversationProvider requires at least one child");
+    this._children = children;
+    this.id = children.map((c) => c.id).join("+");
+    this.displayName = children.map((c) => c.displayName).join(" + ");
+  }
+  /** Resolved data paths from all children. */
+  get dataPath() {
+    return this._children.map((c) => c.dataPath).join(", ");
+  }
+  get isWatching() {
+    return this._children.some((c) => c.isWatching);
+  }
+  get parseCacheSize() {
+    return this._children.reduce((sum, c) => sum + c.parseCacheSize, 0);
+  }
+  /** Access a child provider by its ID. */
+  getChild(id) {
+    return this._children.find((c) => c.id === id);
+  }
+  // ── Lifecycle ────────────────────────────────────────────────────
+  startWatching() {
+    for (const child of this._children) child.startWatching();
+  }
+  setupFileWatcher() {
+    for (const child of this._children) child.setupFileWatcher();
+  }
+  stopWatching() {
+    for (const child of this._children) child.stopWatching();
+  }
+  // ── Scanning ─────────────────────────────────────────────────────
+  async refresh() {
+    await Promise.all(this._children.map((c) => c.refresh()));
+  }
+  searchConversations(query) {
+    const results = [];
+    for (const child of this._children) {
+      results.push(...child.searchConversations(query));
+    }
+    return results;
+  }
+  // ── Icons ────────────────────────────────────────────────────────
+  clearPendingIcons() {
+    for (const child of this._children) child.clearPendingIcons();
+  }
+  // ── Project discovery (delegated to primary child) ───────────────
+  discoverProjects() {
+    return this._children[0].discoverProjects();
+  }
+  async scanProjectsProgressively(enabledProjects, onProgress, onProjectScanned) {
+    return this._children[0].scanProjectsProgressively(enabledProjects, onProgress, onProjectScanned);
+  }
+};
+
+// src/services/CommandProcessor.ts
+var fs4 = __toESM(require("fs"));
+var path6 = __toESM(require("path"));
 var VALID_STATUSES = [
   "todo",
   "needs-input",
@@ -7619,9 +8289,9 @@ var CommandProcessor = class {
     if (!workspaceFolders || workspaceFolders.length === 0) {
       return;
     }
-    const claudinePath = path5.join(workspaceFolders[0], ".claudine");
-    this._commandsPath = path5.join(claudinePath, "commands.jsonl");
-    this._resultsPath = path5.join(claudinePath, "command-results.json");
+    const claudinePath = path6.join(workspaceFolders[0], ".claudine");
+    this._commandsPath = path6.join(claudinePath, "commands.jsonl");
+    this._resultsPath = path6.join(claudinePath, "command-results.json");
     this._watcherDisposable = this._platform.watchFiles(claudinePath, "commands.jsonl", {
       onCreate: () => this.processCommandFile(),
       onChange: () => this.processCommandFile()
@@ -7636,12 +8306,12 @@ var CommandProcessor = class {
     if (!this._commandsPath) {
       return;
     }
-    if (!fs3.existsSync(this._commandsPath)) {
+    if (!fs4.existsSync(this._commandsPath)) {
       return;
     }
     let content;
     try {
-      content = fs3.readFileSync(this._commandsPath, "utf-8");
+      content = fs4.readFileSync(this._commandsPath, "utf-8");
     } catch {
       return;
     }
@@ -7676,7 +8346,7 @@ var CommandProcessor = class {
       this._processedIds.add(command.id);
     }
     try {
-      fs3.writeFileSync(this._commandsPath, "");
+      fs4.writeFileSync(this._commandsPath, "");
     } catch {
       console.error("Claudine: Failed to truncate commands.jsonl");
     }
@@ -7771,14 +8441,14 @@ var CommandProcessor = class {
     }
     try {
       let existing = [];
-      if (fs3.existsSync(this._resultsPath)) {
+      if (fs4.existsSync(this._resultsPath)) {
         try {
-          existing = JSON.parse(fs3.readFileSync(this._resultsPath, "utf-8")).results || [];
+          existing = JSON.parse(fs4.readFileSync(this._resultsPath, "utf-8")).results || [];
         } catch {
         }
       }
       const all = [...existing, ...results].slice(-MAX_COMMAND_RESULTS_HISTORY);
-      fs3.writeFileSync(this._resultsPath, JSON.stringify({ results: all }, null, 2));
+      fs4.writeFileSync(this._resultsPath, JSON.stringify({ results: all }, null, 2));
     } catch (error) {
       console.error("Claudine: Error writing command results", error);
     }
@@ -7840,9 +8510,9 @@ var DEFAULT_LOCALE = {
   "close": "Close"
 };
 var StandaloneMessageHandler = class {
-  constructor(_stateManager, _claudeCodeWatcher, _platform, _send) {
+  constructor(_stateManager, _provider, _platform, _send) {
     this._stateManager = _stateManager;
-    this._claudeCodeWatcher = _claudeCodeWatcher;
+    this._provider = _provider;
     this._platform = _platform;
     this._send = _send;
   }
@@ -7864,7 +8534,7 @@ var StandaloneMessageHandler = class {
         this.progressiveRefresh();
         break;
       case "search": {
-        const ids = this._claudeCodeWatcher.searchConversations(message.query);
+        const ids = this._provider.searchConversations(message.query);
         this._send({ type: "searchResults", query: message.query, ids });
         break;
       }
@@ -7901,7 +8571,7 @@ var StandaloneMessageHandler = class {
       }
       case "regenerateIcons":
         this._stateManager.clearAllIcons().then(() => {
-          this._claudeCodeWatcher.clearPendingIcons();
+          this._provider.clearPendingIcons();
           this.progressiveRefresh();
         });
         break;
@@ -7949,7 +8619,7 @@ var StandaloneMessageHandler = class {
   /** Run project discovery followed by progressive per-project scanning. */
   async progressiveRefresh() {
     this._send({ type: "indexingProgress", phase: "discovery", totalProjects: 0, scannedProjects: 0, totalFiles: 0, scannedFiles: 0 });
-    const manifest = this._claudeCodeWatcher.discoverProjects();
+    const manifest = this._provider.discoverProjects();
     this._manifest = manifest;
     const savedMap = this._platform.getGlobalState("projectEnabledMap", {});
     for (const entry of manifest) {
@@ -7961,7 +8631,7 @@ var StandaloneMessageHandler = class {
     const enabled = manifest.filter((p) => p.enabled);
     const totalFiles = enabled.reduce((s, p) => s + p.fileCount, 0);
     console.log(`Claudine: Discovered ${manifest.length} projects (${enabled.length} enabled, ${totalFiles} files)`);
-    const allConversations = await this._claudeCodeWatcher.scanProjectsProgressively(
+    const allConversations = await this._provider.scanProjectsProgressively(
       enabled,
       (progress) => {
         this._send({ type: "indexingProgress", phase: "scanning", ...progress });
@@ -7995,7 +8665,7 @@ var StandaloneMessageHandler = class {
       this._stateManager.setConversations(remaining);
     }
     if (enabled && entry) {
-      const convs = await this._claudeCodeWatcher.scanProjectsProgressively(
+      const convs = await this._provider.scanProjectsProgressively(
         [entry],
         (progress) => {
           this._send({ type: "indexingProgress", phase: "scanning", ...progress });
@@ -8025,6 +8695,7 @@ var StandaloneMessageHandler = class {
     const settings = {
       imageGenerationApi: this._platform.getConfig("imageGenerationApi", "none"),
       claudeCodePath: this._platform.getConfig("claudeCodePath", "~/.claude"),
+      codexPath: this._platform.getConfig("codexPath", "~/.codex"),
       enableSummarization: this._platform.getConfig("enableSummarization", false),
       hasApiKey: !!apiKey,
       toolbarLocation: "sidebar",
@@ -8142,15 +8813,20 @@ var ClaudineServer = class {
   _stateManager;
   _storageService;
   _imageGenerator;
+  _provider;
+  /** Concrete Claude Code watcher — kept for static utility methods. */
   _claudeCodeWatcher;
   _commandProcessor;
   _messageHandler;
   _archiveTimer;
   _authToken;
+  _version;
   _clients = /* @__PURE__ */ new Set();
   constructor() {
     this._platform = new StandaloneAdapter();
     this._authToken = crypto.randomBytes(NONCE_BYTES).toString("hex");
+    const pkg = JSON.parse(fs5.readFileSync(path7.join(__dirname, "..", "package.json"), "utf-8"));
+    this._version = pkg.version ?? "";
   }
   async start(options) {
     await this._platform.initAsync();
@@ -8158,11 +8834,18 @@ var ClaudineServer = class {
     this._stateManager = new StateManager(this._storageService, this._platform);
     this._imageGenerator = new ImageGenerator(this._storageService, this._platform);
     this._claudeCodeWatcher = new ClaudeCodeWatcher(this._stateManager, this._platform, this._imageGenerator);
+    if (CodexWatcher.isAvailable(this._platform)) {
+      const codexWatcher = new CodexWatcher(this._stateManager, this._platform);
+      this._provider = new CompositeConversationProvider([this._claudeCodeWatcher, codexWatcher]);
+      console.log("Claudine: Codex sessions detected \u2014 multi-provider mode");
+    } else {
+      this._provider = this._claudeCodeWatcher;
+    }
     await this._stateManager.ready;
     this._commandProcessor = new CommandProcessor(this._stateManager, this._platform);
     this._messageHandler = new StandaloneMessageHandler(
       this._stateManager,
-      this._claudeCodeWatcher,
+      this._provider,
       this._platform,
       (msg) => this.broadcast(msg)
     );
@@ -8178,7 +8861,7 @@ var ClaudineServer = class {
     });
     this._wss = new import_websocket_server.default({ server: this._httpServer });
     this._wss.on("connection", (ws) => this.handleWsConnection(ws));
-    this._claudeCodeWatcher.setupFileWatcher();
+    this._provider.setupFileWatcher();
     this._commandProcessor.startWatching();
     return new Promise((resolve5) => {
       this._httpServer.listen(options.port, options.host, () => {
@@ -8192,7 +8875,7 @@ var ClaudineServer = class {
       clearInterval(this._archiveTimer);
       this._archiveTimer = void 0;
     }
-    this._claudeCodeWatcher?.stopWatching();
+    this._provider?.stopWatching();
     this._commandProcessor?.stopWatching();
     this._stateManager?.flushSave();
     for (const ws of this._clients) {
@@ -8210,27 +8893,27 @@ var ClaudineServer = class {
   }
   resolveWebviewDist() {
     const candidates = [
-      path6.resolve(__dirname, "..", "webview", "dist"),
-      path6.resolve(__dirname, "..", "..", "webview", "dist"),
-      path6.resolve(process.cwd(), "webview", "dist")
+      path7.resolve(__dirname, "..", "webview", "dist"),
+      path7.resolve(__dirname, "..", "..", "webview", "dist"),
+      path7.resolve(process.cwd(), "webview", "dist")
     ];
     for (const candidate of candidates) {
-      if (fs4.existsSync(path6.join(candidate, "assets", "index.js"))) {
+      if (fs5.existsSync(path7.join(candidate, "assets", "index.js"))) {
         return candidate;
       }
     }
     console.warn("Claudine: Could not locate webview/dist \u2014 falling back to cwd");
-    return path6.resolve(process.cwd(), "webview", "dist");
+    return path7.resolve(process.cwd(), "webview", "dist");
   }
   handleHttpRequest(req, res, webviewDist) {
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
     const pathname = url.pathname;
     if (pathname.startsWith("/themes/")) {
-      const themePath = path6.join(__dirname, pathname);
+      const themePath = path7.join(__dirname, pathname);
       return this.serveStaticFile(themePath, res);
     }
     if (pathname.startsWith("/assets/")) {
-      const filePath = path6.join(webviewDist, pathname);
+      const filePath = path7.join(webviewDist, pathname);
       return this.serveStaticFile(filePath, res);
     }
     if (pathname === "/" || pathname === "/index.html") {
@@ -8240,20 +8923,20 @@ var ClaudineServer = class {
     res.end("Not Found");
   }
   serveStaticFile(filePath, res) {
-    const resolved = path6.resolve(filePath);
-    if (!resolved.startsWith(path6.resolve(__dirname)) && !resolved.includes("webview")) {
+    const resolved = path7.resolve(filePath);
+    if (!resolved.startsWith(path7.resolve(__dirname)) && !resolved.includes("webview")) {
       res.writeHead(403, { "Content-Type": "text/plain" });
       res.end("Forbidden");
       return;
     }
-    if (!fs4.existsSync(resolved)) {
+    if (!fs5.existsSync(resolved)) {
       res.writeHead(404, { "Content-Type": "text/plain" });
       res.end("Not Found");
       return;
     }
-    const ext = path6.extname(resolved);
+    const ext = path7.extname(resolved);
     const contentType = MIME_TYPES[ext] || "application/octet-stream";
-    const data = fs4.readFileSync(resolved);
+    const data = fs5.readFileSync(resolved);
     res.writeHead(200, {
       "Content-Type": contentType,
       "Cache-Control": "public, max-age=3600"
@@ -8297,6 +8980,8 @@ var ClaudineServer = class {
     window.__CLAUDINE_TOKEN__ = '${this._authToken}';
     window.__CLAUDINE_STANDALONE__ = true;
     window.__CLAUDINE_WS_URL__ = 'ws://' + location.host;
+    window.__CLAUDINE_VERSION__ = '${this._version}';
+
   </script>
   <script src="/assets/index.js"></script>
 </body>
@@ -8344,20 +9029,16 @@ var ClaudineServer = class {
 };
 
 // standalone/cli.ts
+var VERSION = "1.1.2";
 var DEFAULT_PORT = 5147;
 var DEFAULT_HOST = "127.0.0.1";
-function parseArgs(argv) {
+function parseStandaloneArgs(argv) {
   let port = DEFAULT_PORT;
   let host = DEFAULT_HOST;
-  let open3 = true;
-  let help = false;
-  for (let i = 2; i < argv.length; i++) {
+  let open4 = true;
+  for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--help" || arg === "-h") {
-      help = true;
-    } else if (arg === "--no-open") {
-      open3 = false;
-    } else if (arg === "--port" || arg === "-p") {
+    if (arg === "--port" || arg === "-p") {
       const next = argv[++i];
       const parsed = parseInt(next, 10);
       if (isNaN(parsed) || parsed < 1 || parsed > 65535) {
@@ -8367,30 +9048,29 @@ function parseArgs(argv) {
       port = parsed;
     } else if (arg === "--host") {
       host = argv[++i] || DEFAULT_HOST;
-    } else if (arg === "standalone") {
+    } else if (arg === "--no-open") {
+      open4 = false;
+    } else if (arg === "--help" || arg === "-h") {
+      printStandaloneHelp();
+      process.exit(0);
     } else {
-      console.error(`Unknown argument: ${arg}`);
+      console.error(`Unknown option: ${arg}`);
       process.exit(1);
     }
   }
-  return { port, host, open: open3, help };
+  return { port, host, open: open4 };
 }
-function printHelp() {
+function printStandaloneHelp() {
   console.log(`
-Claudine \u2014 Kanban board for Claude Code conversations
+Usage: claudine standalone [options]
 
-Usage: claudine [options]
+Start the Claudine web server and open the kanban board in your browser.
 
 Options:
   -p, --port <number>   Port to listen on (default: ${DEFAULT_PORT})
   --host <address>      Host to bind to (default: ${DEFAULT_HOST})
-  --no-open             Don't auto-open browser
+  --no-open             Don't auto-open the browser
   -h, --help            Show this help
-
-Examples:
-  claudine                    Start server and open browser
-  claudine --port 8080        Use custom port
-  claudine --no-open          Start without opening browser
 `);
 }
 async function openBrowser(url) {
@@ -8404,12 +9084,8 @@ async function openBrowser(url) {
     execFile3("xdg-open", [url]);
   }
 }
-async function main() {
-  const args = parseArgs(process.argv);
-  if (args.help) {
-    printHelp();
-    process.exit(0);
-  }
+async function runStandalone(argv) {
+  const args = parseStandaloneArgs(argv);
   const server = new ClaudineServer();
   const shutdown = async () => {
     console.log("\nClaudine: Shutting down...");
@@ -8426,6 +9102,42 @@ async function main() {
   console.log(`
 Open ${url} in your browser`);
   console.log("Press Ctrl+C to stop\n");
+}
+function printHelp() {
+  console.log(`
+Claudine v${VERSION} \u2014 Kanban board for Claude Code conversations
+
+Usage: claudine <command> [options]
+
+Commands:
+  standalone    Start the web server (browser-based board)
+
+Options:
+  -v, --version   Show version
+  -h, --help      Show this help
+
+Run claudine <command> --help for command-specific options.
+`);
+}
+async function main() {
+  const args = process.argv.slice(2);
+  const command = args[0];
+  if (!command || command === "--help" || command === "-h") {
+    printHelp();
+    process.exit(0);
+  }
+  if (command === "--version" || command === "-v") {
+    console.log(VERSION);
+    process.exit(0);
+  }
+  if (command === "standalone") {
+    await runStandalone(args.slice(1));
+    return;
+  }
+  console.error(`Unknown command: ${command}
+`);
+  printHelp();
+  process.exit(1);
 }
 main().catch((err) => {
   console.error("Claudine: Fatal error", err);

@@ -33,6 +33,7 @@
   "config.title": "Claudine",
   "config.imageGenerationApi.description": "API zur Generierung von Aufgabensymbolen",
   "config.claudeCodePath.description": "Pfad zum Claude Code-Datenverzeichnis",
+  "config.codexPath.description": "Pfad zum OpenAI Codex-Datenverzeichnis (automatisch erkannt unter ~/.codex)",
   "config.enableSummarization.description": "Claude Code CLI verwenden, um kurze Zusammenfassungen für Unterhaltungskarten zu erzeugen",
   "config.toolbarLocation.description": "Wo die Symbolleiste angezeigt werden soll: in der Webview-Seitenleiste, in der VS Code-Paneltitelleiste oder in beiden",
   "config.autoRestartAfterRateLimit.description": "Pausierte Aufgaben automatisch neu starten, wenn das Claude-API-Limit zurückgesetzt wird",

@@ -13,6 +13,7 @@ import boardScreenshot from "../../../resources/screenshot.png";
       </a>
       <div class="hidden md:flex items-center gap-8 text-sm text-text-muted">
         <a href="#board" class="hover:text-text transition-colors">Board</a>
+        <a href="#features" class="hover:text-text transition-colors">Features</a>
         <a href="#toolbar" class="hover:text-text transition-colors">Toolbar</a>
         <a href="#standalone" class="hover:text-text transition-colors">Standalone</a>
         <a
@@ -58,7 +59,7 @@ import boardScreenshot from "../../../resources/screenshot.png";
       <!-- Badge -->
       <div class="animate-fade-up inline-flex items-center gap-2 rounded-full border border-border bg-bg-soft px-4 py-1.5 text-sm text-text-muted mb-8">
         <span class="inline-block w-2 h-2 rounded-full bg-green animate-pulse"></span>
-        v1.1.0 &mdash; Now with standalone mode
+        v1.2.3 &mdash; Smart Board &amp; multi-provider support
       </div>
 
       <!-- Logo + Name -->
@@ -89,9 +90,7 @@ import boardScreenshot from "../../../resources/screenshot.png";
           Install for VS Code
         </a>
         <a
-          href="https://github.com/salam/claudine/blob/main/QUICK_START.md"
-          target="_blank"
-          rel="noopener"
+          href="/quickstart"
           class="pill-btn border border-border text-text-muted hover:text-text hover:border-border-soft"
         >
           Quick Start &rarr;
@@ -111,7 +110,7 @@ import boardScreenshot from "../../../resources/screenshot.png";
           Your conversations,<br />organized
         </h2>
         <p class="text-text-muted text-lg max-w-2xl mx-auto">
-          Claudine reads Claude Code's session files and renders them as a kanban board. Cards move through columns automatically as conversations evolve.
+          Claudine reads Claude Code and Codex session files and renders them as a kanban board. Cards move through columns automatically as conversations evolve.
         </p>
       </div>
 
@@ -136,6 +135,7 @@ import boardScreenshot from "../../../resources/screenshot.png";
           "Quick ideas",
           "Needs Input alerts",
           "Active agent indicators",
+          "Sidechain activity dots",
           "Conversation focus tracking",
           "Git branch display",
           "Agent integration",
@@ -143,6 +143,12 @@ import boardScreenshot from "../../../resources/screenshot.png";
           "AI summaries",
           "Export & import",
           "Panel or sidebar",
+          "Smart Board overview",
+          "Rate limit detection",
+          "Question detection",
+          "Card layout settings",
+          "Localization (4 languages)",
+          "Multi-provider support",
         ].map((f) => (
           <span class="rounded-full border border-border bg-bg-soft px-4 py-1.5 text-sm text-text-muted">{f}</span>
         ))}
@@ -320,6 +326,188 @@ import boardScreenshot from "../../../resources/screenshot.png";
     </div>
   </section>
 
+  <!-- ====== FEATURES SECTION ====== -->
+  <section id="features" class="py-24 md:py-32">
+    <div class="mx-auto max-w-6xl px-6">
+      <div class="text-center mb-16">
+        <span class="text-sm font-mono text-accent tracking-wider uppercase">Features</span>
+        <h2 class="text-3xl md:text-5xl font-bold tracking-tight mt-3 mb-5">
+          Built for real workflows
+        </h2>
+        <p class="text-text-muted text-lg max-w-2xl mx-auto">
+          From cross-project oversight to rate-limit awareness &mdash; every feature is designed to keep you in flow while your agents work.
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- Smart Board -->
+        <div class="rounded-xl border border-border bg-bg-card/60 p-6 hover:border-accent/30 transition-colors">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-accent/10 text-accent">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            </div>
+            <h3 class="font-semibold">Smart Board</h3>
+          </div>
+          <p class="text-text-muted text-sm leading-relaxed">
+            A cross-project overview at the top of the board. Three lanes &mdash; <strong class="text-text font-medium">Running</strong>, <strong class="text-text font-medium">Needs Input</strong>, and <strong class="text-text font-medium">In Review</strong> &mdash; show you the most important tasks across all your projects at a glance.
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Collapsible</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Dismiss cards</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Project labels</span>
+          </div>
+        </div>
+
+        <!-- Multi-Provider Support -->
+        <div class="rounded-xl border border-border bg-bg-card/60 p-6 hover:border-accent/30 transition-colors">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue/10 text-blue">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </div>
+            <h3 class="font-semibold">Multi-Provider</h3>
+          </div>
+          <p class="text-text-muted text-sm leading-relaxed">
+            Not just Claude Code. Claudine auto-detects <strong class="text-text font-medium">OpenAI Codex</strong> sessions and displays them alongside Claude conversations on the same board. One view, all your agents.
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Claude Code</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">OpenAI Codex</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Extensible</span>
+          </div>
+        </div>
+
+        <!-- Rate Limit Detection -->
+        <div class="rounded-xl border border-border bg-bg-card/60 p-6 hover:border-accent/30 transition-colors">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-amber/10 text-amber">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <h3 class="font-semibold">Rate Limit Awareness</h3>
+          </div>
+          <p class="text-text-muted text-sm leading-relaxed">
+            Claudine detects when Claude Code hits its API limit and shows a banner with the reset time. Enable <strong class="text-text font-medium">auto-restart</strong> to have paused tasks resume automatically once the limit lifts.
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Reset countdown</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Auto-restart</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Pause badge</span>
+          </div>
+        </div>
+
+        <!-- Sidechain Activity -->
+        <div class="rounded-xl border border-border bg-bg-card/60 p-6 hover:border-accent/30 transition-colors">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-green/10 text-green">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <h3 class="font-semibold">Sidechain Activity</h3>
+          </div>
+          <p class="text-text-muted text-sm leading-relaxed">
+            Colored dots on each card visualize the last three subagent (sidechain) steps. At a glance you can see which tasks have agents actively working, completed, or failed.
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <span class="text-xs text-green bg-bg-muted px-2 py-1 rounded">&#9679; completed</span>
+            <span class="text-xs text-amber bg-bg-muted px-2 py-1 rounded">&#9679; running</span>
+            <span class="text-xs text-rose bg-bg-muted px-2 py-1 rounded">&#9679; failed</span>
+          </div>
+        </div>
+
+        <!-- Question Detection -->
+        <div class="rounded-xl border border-border bg-bg-card/60 p-6 hover:border-accent/30 transition-colors">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-rose/10 text-rose">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <h3 class="font-semibold">Question Detection</h3>
+          </div>
+          <p class="text-text-muted text-sm leading-relaxed">
+            Cards show a <strong class="text-text font-medium">"?" badge</strong> and move to "Needs Input" when the agent asks you something &mdash; whether via the AskUserQuestion tool or a plain text question at the end of its response.
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Tool-based</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Text-based</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Auto-move</span>
+          </div>
+        </div>
+
+        <!-- Localization -->
+        <div class="rounded-xl border border-border bg-bg-card/60 p-6 hover:border-accent/30 transition-colors">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-accent/10 text-accent">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </div>
+            <h3 class="font-semibold">Localization</h3>
+          </div>
+          <p class="text-text-muted text-sm leading-relaxed">
+            Claudine speaks your language. Full UI translations for <strong class="text-text font-medium">German</strong>, <strong class="text-text font-medium">Spanish</strong>, <strong class="text-text font-medium">French</strong>, and <strong class="text-text font-medium">Italian</strong> &mdash; both runtime strings and extension metadata.
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">DE</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">ES</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">FR</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">IT</span>
+          </div>
+        </div>
+
+        <!-- Card Customization -->
+        <div class="rounded-xl border border-border bg-bg-card/60 p-6 hover:border-accent/30 transition-colors">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue/10 text-blue">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            </div>
+            <h3 class="font-semibold">Card Customization</h3>
+          </div>
+          <p class="text-text-muted text-sm leading-relaxed">
+            Choose what to display on each card: icon, description, latest message, and git branch. Multiline quick-idea input with auto-grow. Resizable columns with drag handles.
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Toggle fields</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Resize columns</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Quick ideas</span>
+          </div>
+        </div>
+
+        <!-- Agent Integration -->
+        <div class="rounded-xl border border-border bg-bg-card/60 p-6 hover:border-accent/30 transition-colors">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-green/10 text-green">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <h3 class="font-semibold">Agent Status Bar</h3>
+          </div>
+          <p class="text-text-muted text-sm leading-relaxed">
+            A status bar button appears when <code class="text-accent text-xs font-mono bg-bg-muted px-1 py-0.5 rounded">CLAUDINE.AGENTS.md</code> is missing. Click to scaffold it. The button hides itself once integration is wired up.
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Auto-detect</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">One-click setup</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Live updates</span>
+          </div>
+        </div>
+
+        <!-- Resizable Layout -->
+        <div class="rounded-xl border border-border bg-bg-card/60 p-6 hover:border-accent/30 transition-colors">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-amber/10 text-amber">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            </div>
+            <h3 class="font-semibold">Flexible Layout</h3>
+          </div>
+          <p class="text-text-muted text-sm leading-relaxed">
+            Drag handles to resize columns or project panes. Double-click to reset. Zoom from 50% to 150%. Placement auto-detects panel vs. sidebar and adapts column orientation.
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Zoom 50–150%</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Drag resize</span>
+            <span class="text-xs text-text-dim bg-bg-muted px-2 py-1 rounded">Auto-orient</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
   <!-- ====== STANDALONE SECTION ====== -->
   <section id="standalone" class="py-24 md:py-32">
     <div class="mx-auto max-w-6xl px-6">
@@ -377,6 +565,14 @@ import boardScreenshot from "../../../resources/screenshot.png";
                 <span class="text-green mt-0.5">&#10003;</span>
                 <span>Stale projects auto-collapse after 24h of inactivity</span>
               </li>
+              <li class="flex items-start gap-2">
+                <span class="text-green mt-0.5">&#10003;</span>
+                <span><strong class="text-text font-medium">Progressive loading</strong> &mdash; projects discovered instantly, conversations load incrementally with a progress bar</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-green mt-0.5">&#10003;</span>
+                <span><strong class="text-text font-medium">Resizable panes</strong> &mdash; drag handles between project panes; double-click to reset; heights persist across reloads</span>
+              </li>
             </ul>
           </div>
 
@@ -400,11 +596,15 @@ import boardScreenshot from "../../../resources/screenshot.png";
               </li>
               <li class="flex items-start gap-2">
                 <span class="text-green mt-0.5">&#10003;</span>
+                <span><strong class="text-text font-medium">Open in Terminal or VS Code</strong> &mdash; click a task title to choose where to open the conversation</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-green mt-0.5">&#10003;</span>
                 <span>CLI flags: <code class="text-accent text-xs font-mono">--port</code>, <code class="text-accent text-xs font-mono">--host</code>, <code class="text-accent text-xs font-mono">--no-open</code>, <code class="text-accent text-xs font-mono">--help</code></span>
               </li>
               <li class="flex items-start gap-2">
                 <span class="text-green mt-0.5">&#10003;</span>
-                <span>Platform abstraction layer &mdash; all core services decoupled from VS Code APIs via <code class="text-accent text-xs font-mono bg-bg-muted px-1 py-0.5 rounded">IPlatformAdapter</code></span>
+                <span><strong class="text-text font-medium">Settings persistence</strong> &mdash; config saved to <code class="text-accent text-xs font-mono bg-bg-muted px-1 py-0.5 rounded">~/.claudine/config.json</code></span>
               </li>
             </ul>
           </div>
@@ -461,9 +661,7 @@ import boardScreenshot from "../../../resources/screenshot.png";
           Install for VS Code
         </a>
         <a
-          href="https://github.com/salam/claudine/blob/main/QUICK_START.md"
-          target="_blank"
-          rel="noopener"
+          href="/quickstart"
           class="pill-btn border border-border text-text-muted hover:text-text hover:border-border-soft"
         >
           Read Quick Start &rarr;
@@ -489,21 +687,23 @@ import boardScreenshot from "../../../resources/screenshot.png";
         <p class="text-text-muted text-base md:text-lg max-w-2xl mx-auto mb-8 leading-relaxed">
           Get updates on new features, integrations, and signal wisdom. No spam, unsubscribe anytime.
         </p>
-        <form action="/subscribe.php" method="post" class="mx-auto max-w-xl flex flex-col sm:flex-row gap-3">
+        <form id="subscribe-form" class="mx-auto max-w-xl flex flex-col sm:flex-row gap-3">
           <input type="text" name="company" autocomplete="off" tabindex="-1" class="hidden" aria-hidden="true" />
           <input
             type="email"
             name="email"
+            id="subscribe-email"
             placeholder="your@email.com"
             aria-label="Email address"
             autocomplete="email"
             required
             class="flex-1 rounded-full border border-border bg-bg-soft px-5 py-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:border-accent"
           />
-          <button type="submit" class="pill-btn bg-accent-dim text-white hover:bg-accent justify-center">
+          <button type="submit" id="subscribe-btn" class="pill-btn bg-accent-dim text-white hover:bg-accent justify-center">
             Subscribe
           </button>
         </form>
+        <p id="subscribe-toast" class="mt-4 text-sm transition-all duration-300 opacity-0 translate-y-1" aria-live="polite"></p>
       </div>
     </div>
   </section>
@@ -522,6 +722,60 @@ import boardScreenshot from "../../../resources/screenshot.png";
       <a href="https://marketplace.visualstudio.com/items?itemName=claudine.claudine" target="_blank" rel="noopener" class="hover:text-text-muted transition-colors">VS Code Marketplace</a>
       <span class="px-2">&middot;</span>
       <a href="https://github.com/sponsors/salam" target="_blank" rel="noopener" class="hover:text-text-muted transition-colors">Sponsor</a>
+      <span class="px-2">&middot;</span>
+      <a href="/llms.txt" class="hover:text-text-muted transition-colors">llms.txt</a>
     </div>
   </footer>
+
+<script>
+  const form = document.getElementById('subscribe-form');
+  const email = document.getElementById('subscribe-email');
+  const btn = document.getElementById('subscribe-btn');
+  const toast = document.getElementById('subscribe-toast');
+
+  function showToast(message, isError) {
+    toast.textContent = message;
+    toast.className = 'mt-4 text-sm transition-all duration-300 opacity-0 translate-y-1';
+    toast.classList.add(isError ? 'text-rose-400' : 'text-emerald-400');
+    requestAnimationFrame(() => {
+      toast.classList.remove('opacity-0', 'translate-y-1');
+    });
+    if (!isError) {
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-1');
+      }, 4000);
+    }
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (!email.reportValidity()) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    try {
+      const body = new FormData(form);
+      const res = await fetch('/subscribe.php', {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+        body,
+      });
+      const data = await res.json();
+
+      if (res.ok && data.ok) {
+        showToast('You\'re in! We\'ll keep you posted.', false);
+        email.value = '';
+      } else {
+        showToast(data.message || 'Something went wrong. Please try again.', true);
+      }
+    } catch {
+      showToast('Network error. Please try again.', true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Subscribe';
+    }
+  });
+</script>
 </Layout>

@@ -1,5 +1,6 @@
 node_modules/
 out/
+out-standalone/
 .vscode-test/
 *.vsix
 .DS_Store
@@ -11,3 +12,5 @@ webview/dist/
 
 .GIT_NEXT_COMMIT_MESSAGE.md
 
+.claude/
+tools/

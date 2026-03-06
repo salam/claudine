@@ -267,6 +267,49 @@ describe('ClaudeCodeWatcher — regression tests', () => {
       const conversations = mockStateManager.setConversations.mock.calls[0][0] as Conversation[];
       expect(conversations.length).toBe(2);
     });
+
+    // BUG12: projects with dots in their path (e.g. molts.club) were not found
+    // because encodeWorkspacePath only replaced '/' with '-', but Claude Code
+    // also replaces '.' with '-'.
+    it('finds conversations for workspace paths containing dots', async () => {
+      const dottedWorkspace = '/Users/matthias/Development/molts.club';
+      const encodedDir = '-Users-matthias-Development-molts-club';
+
+      // Create a watcher with a workspace folder containing a dot
+      const platform = createMockPlatform();
+      platform.getWorkspaceFolders = () => [dottedWorkspace];
+      const sm = createMockStateManager();
+      const w = new ClaudeCodeWatcher(sm as never, platform);
+
+      mockExistsSync.mockImplementation(((p: string) => {
+        if (typeof p === 'string' && p.includes(encodedDir)) return true;
+        if (p === path.join(claudePath, 'projects')) return true;
+        return false;
+      }) as typeof fs.existsSync);
+
+      mockReaddirSync.mockImplementation(((dirPath: string) => {
+        if (typeof dirPath === 'string' && dirPath.includes(encodedDir)) {
+          return [{ name: 'conv-1.jsonl', isDirectory: () => false, isFile: () => true }];
+        }
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+
+      const ts = new Date().toISOString();
+      const jsonl = JSON.stringify({
+        type: 'user', uuid: '1', timestamp: ts, sessionId: 's',
+        parentUuid: null, isSidechain: false,
+        message: { role: 'user', content: [{ type: 'text', text: 'Hello from molts.club' }] },
+      });
+      const bytes = Buffer.byteLength(jsonl, 'utf-8');
+      mockStat.mockResolvedValue({ size: bytes } as any);
+      mockReadFile.mockResolvedValue(jsonl);
+
+      await w.refresh();
+
+      expect(sm.setConversations).toHaveBeenCalledTimes(1);
+      const convs = sm.setConversations.mock.calls[0][0] as Conversation[];
+      expect(convs.length).toBe(1);
+    });
   });
 
   // ---------- File deletion ----------
