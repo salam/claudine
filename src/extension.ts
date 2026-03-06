@@ -7,6 +7,8 @@ import { ClaudeCodeWatcher } from './providers/ClaudeCodeWatcher';
 import { CodexWatcher } from './providers/CodexWatcher';
 import { CompositeConversationProvider } from './providers/CompositeConversationProvider';
 import { ClaudeCodeEditorCommands } from './providers/ClaudeCodeEditorCommands';
+import { CodexEditorCommands } from './providers/CodexEditorCommands';
+import { IEditorCommands } from './providers/IEditorCommands';
 import { IConversationProvider } from './providers/IConversationProvider';
 import { StateManager } from './services/StateManager';
 import { StorageService } from './services/StorageService';
@@ -80,13 +82,18 @@ export async function activate(context: vscode.ExtensionContext) {
   commandProcessor = new CommandProcessor(stateManager, platform);
   commandProcessor.startWatching();
 
-  // Initialize the Kanban view provider
-  const editorCommands = new ClaudeCodeEditorCommands();
+  // Initialize the Kanban view provider with provider-aware editor commands
+  const claudeEditorCommands = new ClaudeCodeEditorCommands();
+  const editorCommandsByProvider = new Map<string, IEditorCommands>();
+  editorCommandsByProvider.set('claude-code', claudeEditorCommands);
+  editorCommandsByProvider.set('codex', new CodexEditorCommands(stateManager));
+
   kanbanProvider = new KanbanViewProvider(
     context.extensionUri,
     stateManager,
     provider,
-    editorCommands
+    claudeEditorCommands,
+    editorCommandsByProvider
   );
   kanbanProvider.setSecretStorage(context.secrets);
 

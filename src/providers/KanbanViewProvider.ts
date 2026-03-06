@@ -43,7 +43,8 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     private readonly _extensionUri: vscode.Uri,
     private readonly _stateManager: StateManager,
     private readonly _provider: IConversationProvider,
-    private readonly _editorCommands: IEditorCommands
+    private readonly _editorCommands: IEditorCommands,
+    private readonly _editorCommandsByProvider?: Map<string, IEditorCommands>
   ) {
     this._tabManager = new TabManager(_stateManager);
     this._tabManager.onFocusChanged = (conversationId) => {
@@ -53,7 +54,9 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       // Open the editor without the follow-up focus call — the restored tab
       // flow closes the old webview first, so calling claude-vscode.focus
       // before the new webview is ready would hit a disposed webview.
-      const ok = await this._editorCommands.openConversation(id);
+      const conv = this._stateManager.getConversation(id);
+      const commands = this._getEditorCommands(conv?.provider);
+      const ok = await commands.openConversation(id);
       if (ok) {
         setTimeout(() => this._tabManager.recordActiveTabMapping(id), TAB_MAPPING_DELAY_MS);
       }
@@ -262,6 +265,14 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
 
   // ── Conversation actions ─────────────────────────────────────────────
 
+  /** Resolve the correct editor commands for a conversation's provider. */
+  private _getEditorCommands(provider?: string): IEditorCommands {
+    if (provider && this._editorCommandsByProvider) {
+      return this._editorCommandsByProvider.get(provider) ?? this._editorCommands;
+    }
+    return this._editorCommands;
+  }
+
   public async openConversation(conversationId: string) {
     const conversation = this._stateManager.getConversation(conversationId);
     if (!conversation) {
@@ -287,7 +298,8 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     // No known tab — create one via the provider's editor integration
     await this._tabManager.closeUnmappedClaudeTabByTitle(conversation.title);
 
-    const ok = await this._editorCommands.openConversation(conversationId);
+    const commands = this._getEditorCommands(conversation.provider);
+    const ok = await commands.openConversation(conversationId);
     if (ok) {
       this.focusEditorOnce(EDITOR_FOCUS_DELAY_MS);
       setTimeout(() => this._tabManager.recordActiveTabMapping(conversationId), TAB_MAPPING_DELAY_MS);
@@ -314,7 +326,8 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       await this._tabManager.focusTabByLabel(knownLabel);
     }
 
-    const ok = await this._editorCommands.sendPrompt(conversationId, prompt);
+    const commands = this._getEditorCommands(conversation.provider);
+    const ok = await commands.sendPrompt(conversationId, prompt);
     if (ok) {
       setTimeout(() => this._tabManager.recordActiveTabMapping(conversationId), TAB_MAPPING_DELAY_MS);
     } else {
@@ -341,7 +354,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
     if (!conversation) return;
     if (conversation.status !== 'in-progress' && conversation.status !== 'needs-input') return;
 
-    this._editorCommands.interruptTerminals();
+    this._getEditorCommands(conversation.provider).interruptTerminals();
   }
 
   private focusEditorOnce(delay: number) {

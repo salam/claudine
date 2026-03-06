@@ -6,6 +6,7 @@
 * **Codex icon generation** — Codex conversations now show AI-generated or placeholder icons, matching Claude Code conversations
 * **Fix: Codex titles** — titles no longer show system instructions; IDE context preamble is stripped to show the actual user request
 * **Fix: Codex search** — full-text search now finds Codex conversations (was silently failing due to wrong JSON path for ID extraction)
+* **Fix: Clicking Codex tasks** — clicking a Codex conversation now opens its session file instead of opening an empty Claude Code tab
 
 ## Version 1.2.5 (Mar 6 2026, 12:30)
 

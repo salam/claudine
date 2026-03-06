@@ -163,3 +163,10 @@
 - **Symptom:** When using Codex from VSCode, conversation titles show `# Context from my IDE setup:` instead of the actual user request, because VSCode wraps user messages with IDE context (open tabs, active file) before the `## My request for Codex:` section.
 - **Root cause:** Even after fixing BUG16a, the `event_msg/user_message` text includes the full IDE context wrapper. The title extractor takes the first line, which is `# Context from my IDE setup:`. The actual user request is buried after a `## My request for Codex:` header.
 - [✔️] Fixed — added `stripIDEContext()` method that extracts text after the `## My request for Codex:` marker
+
+## BUG17 — Clicking a Codex conversation opens an empty Claude Code tab
+
+- **Reported:** 2026-03-06
+- **Symptom:** Clicking a task card for a Codex conversation opens a new, empty Claude Code conversation instead of opening the conversation in the Codex extension.
+- **Root cause:** In `extension.ts`, only `ClaudeCodeEditorCommands` is instantiated and passed to `KanbanViewProvider`. The provider-specific `CodexEditorCommands` class exists but is never used. When `openConversation()` is called for a Codex conversation, it always delegates to `ClaudeCodeEditorCommands`, which calls `claude-vscode.editor.open` with the Codex conversation ID. The Claude extension doesn't recognize this ID, so it opens a blank new conversation.
+- [✔️] Fixed — added provider-aware editor command routing to `KanbanViewProvider`; `openConversation`, `sendPrompt`, and `interruptTerminals` now resolve the correct `IEditorCommands` via the conversation's `provider` field; `CodexEditorCommands.openConversation` opens the session JSONL file as a fallback until the Codex extension exposes public commands
