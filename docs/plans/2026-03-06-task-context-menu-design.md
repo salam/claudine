@@ -6,10 +6,9 @@ Add a right-click context menu to task cards in the Kanban board. The menu provi
 
 ## Trigger
 
-- Right-click (`contextmenu` event) on any task card — full, compact, and narrow modes
+- Right-click (`contextmenu` event) on any task card — full, compact, narrow, and draft modes
 - Prevents the browser default context menu
 - Only one context menu visible at a time; clicking outside or pressing Escape closes it
-- Draft cards are excluded (no context menu)
 
 ## Menu Structure
 
@@ -27,6 +26,14 @@ Add a right-click context menu to task cards in the Kanban board. The menu provi
 
 - Each "Move to X" item shows the column's color dot
 - The card's current column is **omitted** from the list (not grayed, just hidden)
+
+### Draft card menu
+
+| # | Label | Behavior |
+|---|-------|----------|
+| 1 | **Send idea** | Bold/default. Dispatches `sendDraft` event |
+| — | Separator | — |
+| 2 | Delete idea | Red text. Dispatches `deleteDraft` event |
 
 ## Positioning
 
@@ -46,4 +53,3 @@ Add a right-click context menu to task cards in the Kanban board. The menu provi
 
 - Sub-menus
 - Keyboard navigation within the menu (beyond Escape to close)
-- Context menu on draft cards
