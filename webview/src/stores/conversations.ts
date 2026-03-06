@@ -69,6 +69,76 @@ export function clearCategoryFilter() {
   activeCategories.set(new Set());
 }
 
+// Provider filter: empty set = show all, non-empty = show only selected providers
+export const activeProviders = writable<Set<string>>(new Set());
+
+export function toggleProvider(provider: string) {
+  activeProviders.update(set => {
+    const next = new Set(set);
+    if (next.has(provider)) next.delete(provider);
+    else next.add(provider);
+    return next;
+  });
+}
+
+export function clearProviderFilter() {
+  activeProviders.set(new Set());
+}
+
+// State/problem filter: empty set = show all, non-empty = show only matching states
+export type StateFilterKey = 'needs-attention' | 'hasQuestion' | 'isInterrupted' | 'hasError' | 'isRateLimited';
+
+export const activeStateFilters = writable<Set<StateFilterKey>>(new Set());
+
+export function toggleStateFilter(key: StateFilterKey) {
+  activeStateFilters.update(set => {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  });
+}
+
+export function clearStateFilter() {
+  activeStateFilters.set(new Set());
+}
+
+/** Clear ALL filter groups at once. */
+export function clearAllFilters() {
+  clearCategoryFilter();
+  clearProviderFilter();
+  clearStateFilter();
+}
+
+/** Whether any filter is active across all groups. */
+export const hasActiveFilters = derived(
+  [activeCategories, activeProviders, activeStateFilters],
+  ([$cats, $provs, $states]) => $cats.size > 0 || $provs.size > 0 || $states.size > 0
+);
+
+/** Available providers derived from current conversations (only shown when >1). */
+export const availableProviders = derived(conversations, ($conversations) => {
+  const providers = new Set<string>();
+  for (const c of $conversations) {
+    if (c.provider) providers.add(c.provider);
+  }
+  return providers;
+});
+
+/** Available state/problem filters derived from current conversations. */
+export const availableStateFilters = derived(conversations, ($conversations) => {
+  const available = new Set<StateFilterKey>();
+  for (const c of $conversations) {
+    if (c.hasQuestion) available.add('hasQuestion');
+    if (c.isInterrupted) available.add('isInterrupted');
+    if (c.hasError) available.add('hasError');
+    if (c.isRateLimited) available.add('isRateLimited');
+  }
+  // Show "needs-attention" when any problem state exists
+  if (available.size > 0) available.add('needs-attention');
+  return available;
+});
+
 // ── Smart Board ───────────────────────────────────────────────────────
 
 /** IDs of in-review conversations the user has acknowledged (dismissed from Smart Board). */

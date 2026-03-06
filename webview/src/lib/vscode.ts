@@ -191,6 +191,7 @@ export interface Conversation {
   lastActivity?: LastActivity;
   lastStatusText?: string;
   icon?: string;
+  provider?: string;
   isDraft?: boolean;
   originalTitle?: string;
   originalDescription?: string;

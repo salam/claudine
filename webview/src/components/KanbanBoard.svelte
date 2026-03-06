@@ -9,10 +9,10 @@
     conversationsByStatus, columns, archiveColumn, updateConversationStatus,
     searchMatchIds, searchMode, searchQuery, compactView, collapsedCardIds, focusedConversationId,
     firstConversationId, drafts, addDraft, removeDraft, updateDraft,
-    activeCategories, zoomLevel, columnWidths, setColumnWidth, resetAllColumnWidths,
+    activeCategories, activeProviders, activeStateFilters, zoomLevel, columnWidths, setColumnWidth, resetAllColumnWidths,
     acknowledgeReview
   } from '../stores/conversations';
-  import { vscode, type Conversation, type ConversationStatus } from '../lib/vscode';
+  import { vscode, type Conversation, type ConversationStatus, type ConversationCategory } from '../lib/vscode';
 
   export let showArchive: boolean = false;
   /** When set, only show conversations from this workspace path. */
@@ -125,11 +125,50 @@
     }
   }
 
-  function isVisible(id: string, matchIds: Set<string> | null, mode: string, category: string, catFilter: Set<string>): boolean {
-    // Category filter: if active, hide non-matching categories
-    if (catFilter.size > 0 && !catFilter.has(category)) return false;
+  function isVisible(
+    conv: Conversation,
+    matchIds: Set<string> | null,
+    mode: string,
+    catFilter: Set<ConversationCategory>,
+    provFilter: Set<string>,
+    stateFilter: Set<string>
+  ): boolean {
+    // Provider filter
+    if (provFilter.size > 0 && conv.provider && !provFilter.has(conv.provider)) return false;
+
+    // State/problem filter
+    if (stateFilter.size > 0) {
+      const hasNeedsAttention = stateFilter.has('needs-attention');
+      const hasSpecific = stateFilter.has('hasQuestion') || stateFilter.has('isInterrupted') || stateFilter.has('hasError') || stateFilter.has('isRateLimited');
+
+      if (hasNeedsAttention && hasSpecific) {
+        // Intersection: must be "needs attention" AND match a specific filter
+        const isAttention = conv.hasQuestion || conv.isInterrupted || conv.hasError || conv.isRateLimited;
+        const matchesSpecific =
+          (stateFilter.has('hasQuestion') && conv.hasQuestion) ||
+          (stateFilter.has('isInterrupted') && conv.isInterrupted) ||
+          (stateFilter.has('hasError') && conv.hasError) ||
+          (stateFilter.has('isRateLimited') && conv.isRateLimited);
+        if (!isAttention || !matchesSpecific) return false;
+      } else if (hasNeedsAttention) {
+        if (!conv.hasQuestion && !conv.isInterrupted && !conv.hasError && !conv.isRateLimited) return false;
+      } else {
+        // Only specific filters active — match ANY
+        const matchesAny =
+          (stateFilter.has('hasQuestion') && conv.hasQuestion) ||
+          (stateFilter.has('isInterrupted') && conv.isInterrupted) ||
+          (stateFilter.has('hasError') && conv.hasError) ||
+          (stateFilter.has('isRateLimited') && conv.isRateLimited);
+        if (!matchesAny) return false;
+      }
+    }
+
+    // Category filter
+    if (catFilter.size > 0 && !catFilter.has(conv.category)) return false;
+
+    // Search filter
     if (!matchIds) return true;
-    if (mode === 'hide') return matchIds.has(id);
+    if (mode === 'hide') return matchIds.has(conv.id);
     return true;
   }
 
@@ -277,7 +316,7 @@
           on:finalize={(e) => handleDndFinalize(column.id, e)}
         >
           {#each boardItems[column.id] as conversation (conversation.id)}
-            {#if isVisible(conversation.id, $searchMatchIds, $searchMode, conversation.category, $activeCategories)}
+            {#if isVisible(conversation, $searchMatchIds, $searchMode, $activeCategories, $activeProviders, $activeStateFilters)}
               <div class:faded={isFaded(conversation.id, $searchMatchIds, $searchMode)}>
                 <TaskCard {conversation} compact={isCompact(conversation.id, conversation.status, $compactView, $collapsedCardIds, $searchMatchIds)} narrow={narrowColumns[column.id] || false} searchQuery={$searchQuery} focused={$focusedConversationId === conversation.id} isFirst={conversation.id === $firstConversationId} on:sendDraft={(e) => sendDraft(e.detail)} on:deleteDraft={(e) => removeDraft(e.detail)} on:updateDraft={(e) => updateDraft(e.detail.id, e.detail.title)} />
               </div>
@@ -299,7 +338,7 @@
               on:finalize={(e) => handleDndFinalize('cancelled', e)}
             >
               {#each boardItems['cancelled'] as conversation (conversation.id)}
-                {#if isVisible(conversation.id, $searchMatchIds, $searchMode, conversation.category, $activeCategories)}
+                {#if isVisible(conversation, $searchMatchIds, $searchMode, $activeCategories, $activeProviders, $activeStateFilters)}
                   <div class:faded={isFaded(conversation.id, $searchMatchIds, $searchMode)}>
                     <TaskCard {conversation} compact={isCompact(conversation.id, conversation.status, $compactView, $collapsedCardIds, $searchMatchIds)} narrow={narrowColumns[column.id] || false} searchQuery={$searchQuery} focused={$focusedConversationId === conversation.id} isFirst={conversation.id === $firstConversationId} on:sendDraft={(e) => sendDraft(e.detail)} on:deleteDraft={(e) => removeDraft(e.detail)} on:updateDraft={(e) => updateDraft(e.detail.id, e.detail.title)} />
                   </div>
@@ -328,7 +367,7 @@
           on:finalize={(e) => handleDndFinalize('archived', e)}
         >
           {#each boardItems['archived'] as conversation (conversation.id)}
-            {#if isVisible(conversation.id, $searchMatchIds, $searchMode, conversation.category, $activeCategories)}
+            {#if isVisible(conversation, $searchMatchIds, $searchMode, $activeCategories, $activeProviders, $activeStateFilters)}
               <div class:faded={isFaded(conversation.id, $searchMatchIds, $searchMode)}>
                 <TaskCard {conversation} compact={isCompact(conversation.id, conversation.status, $compactView, $collapsedCardIds, $searchMatchIds)} searchQuery={$searchQuery} focused={$focusedConversationId === conversation.id} isFirst={conversation.id === $firstConversationId} on:sendDraft={(e) => sendDraft(e.detail)} on:deleteDraft={(e) => removeDraft(e.detail)} on:updateDraft={(e) => updateDraft(e.detail.id, e.detail.title)} />
               </div>
