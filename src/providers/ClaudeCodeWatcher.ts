@@ -84,7 +84,7 @@ export class ClaudeCodeWatcher implements IConversationProvider {
 
   private getClaudePath(): string {
     const configPath = this._platform.getConfig<string>('claudeCodePath', '~/.claude');
-    return configPath.replace('~', os.homedir());
+    return path.normalize(configPath.replace('~', os.homedir()));
   }
 
   public startWatching() {
@@ -215,7 +215,8 @@ export class ClaudeCodeWatcher implements IConversationProvider {
     for (const folder of effectiveFolders) {
       if (this._excludedWorkspacePath && folder === this._excludedWorkspacePath) continue;
       const encodedPath = this.encodeWorkspacePath(folder);
-      if (filePath.includes(`${path.sep}${encodedPath}${path.sep}`)) return true;
+      const normalizedFilePath = filePath.replace(/[\\/]/g, path.sep);
+      if (normalizedFilePath.includes(`${path.sep}${encodedPath}${path.sep}`)) return true;
     }
     return false;
   }

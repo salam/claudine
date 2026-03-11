@@ -100,7 +100,7 @@ describe('CodexWatcher', () => {
         },
       });
       CodexWatcher.isAvailable(platform);
-      expect(vi.mocked(fs.existsSync)).toHaveBeenCalledWith('/custom/codex/sessions');
+      expect(vi.mocked(fs.existsSync)).toHaveBeenCalledWith(path.join('/custom/codex', 'sessions'));
     });
   });
 

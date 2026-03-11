@@ -139,7 +139,7 @@ describe('MonitoredWorkspace — isFromCurrentWorkspace', () => {
       monitoredWorkspace: { mode: 'single', path: '/Users/alice/projectB' },
     });
     const watcher = new ClaudeCodeWatcher(createMockStateManager(), platform as any);
-    const filePath = '/tmp/test-claude/projects/-Users-alice-projectB/conv123.jsonl';
+    const filePath = path.join('/tmp/test-claude/projects', '-Users-alice-projectB', 'conv123.jsonl');
     expect((watcher as any).isFromCurrentWorkspace(filePath)).toBe(true);
   });
 
@@ -149,7 +149,7 @@ describe('MonitoredWorkspace — isFromCurrentWorkspace', () => {
       monitoredWorkspace: { mode: 'single', path: '/Users/alice/projectB' },
     });
     const watcher = new ClaudeCodeWatcher(createMockStateManager(), platform as any);
-    const filePath = '/tmp/test-claude/projects/-Users-alice-projectA/conv123.jsonl';
+    const filePath = path.join('/tmp/test-claude/projects', '-Users-alice-projectA', 'conv123.jsonl');
     expect((watcher as any).isFromCurrentWorkspace(filePath)).toBe(false);
   });
 });

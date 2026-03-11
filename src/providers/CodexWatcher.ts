@@ -58,14 +58,14 @@ export class CodexWatcher implements IConversationProvider {
    */
   public static isAvailable(platform: IPlatformAdapter): boolean {
     const configPath = platform.getConfig<string>('codexPath', '~/.codex');
-    const resolved = configPath.replace('~', os.homedir());
+    const resolved = path.normalize(configPath.replace('~', os.homedir()));
     const sessionsDir = path.join(resolved, 'sessions');
     return fs.existsSync(sessionsDir);
   }
 
   private getCodexPath(): string {
     const configPath = this._platform.getConfig<string>('codexPath', '~/.codex');
-    return configPath.replace('~', os.homedir());
+    return path.normalize(configPath.replace('~', os.homedir()));
   }
 
   private get sessionsPath(): string {
