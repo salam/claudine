@@ -158,6 +158,7 @@
 - [x] Desktop browser notifications for needs-input
 - [x] Theme toggle (system / light / dark)
 - [x] Settings persistence to `~/.claudine/config.json`
+- [x] Monitored Workspace setting — auto (VSCode workspace), single path, or multiple paths with native folder picker
 - [x] Graceful shutdown on SIGINT/SIGTERM
 
 ## Notifications

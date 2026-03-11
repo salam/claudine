@@ -1,5 +1,14 @@
 # Release Notes
 
+## Version 1.2.10 (Mar 11 2026, 15:02)
+
+* **Monitored Workspace** — see which workspace path is being monitored in Settings; switch between auto-detection (VSCode workspace), a single manually-picked path, or multiple paths with add/remove
+
+## Version 1.2.9 (Mar 11 2026, 14:55)
+
+* **Windows compatibility** — fixed workspace path encoding so Claudine can find conversations on Windows (backslashes and drive letter colons are now handled correctly)
+* **Cross-platform CI** — GitHub Actions now runs build, lint, type check, and tests on macOS, Windows, and Linux
+
 ## Version 1.2.8 (Mar 7 2026, 00:06)
 
 * **Fix: Context menu not visible** — right-click context menu on task cards was invisible when the board was zoomed (transform/overflow clipping); menu is now portaled to document.body to escape all CSS containment
