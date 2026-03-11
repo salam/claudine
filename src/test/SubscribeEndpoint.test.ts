@@ -7,9 +7,9 @@ import { describe, expect, it } from "vitest";
 const phpBinaryAvailable = (() => {
   const phpVersionProbe = spawnSync("php", ["-v"], { encoding: "utf8" });
   if (phpVersionProbe.status !== 0) return false;
-  // Also require the SQLite3 extension (not available on all CI runners)
-  const sqliteProbe = spawnSync("php", ["-r", "new SQLite3(':memory:');"], { encoding: "utf8" });
-  return sqliteProbe.status === 0;
+  // The subscribe script requires PDO + sqlite driver (not the SQLite3 class)
+  const pdoProbe = spawnSync("php", ["-r", "if(!in_array('sqlite',PDO::getAvailableDrivers()))exit(1);"], { encoding: "utf8" });
+  return pdoProbe.status === 0;
 })();
 
 const runIfPhpAvailable = phpBinaryAvailable ? describe : describe.skip;
