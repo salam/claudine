@@ -40,7 +40,9 @@ export const settings = writable<ClaudineSettings>({
   showTaskIcon: true,
   showTaskDescription: true,
   showTaskLatest: true,
-  showTaskGitBranch: true
+  showTaskGitBranch: true,
+  monitoredWorkspace: { mode: 'auto' as const },
+  detectedWorkspacePaths: [] as string[],
 });
 
 // Error messages store

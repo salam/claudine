@@ -279,6 +279,11 @@
           "type": "boolean",
           "default": true,
           "description": "%config.showTaskGitBranch.description%"
+        },
+        "claudine.monitoredWorkspace": {
+          "type": "object",
+          "default": { "mode": "auto" },
+          "description": "Which workspace path(s) to monitor for conversations. Modes: auto (use VSCode workspace), single (one path), multi (multiple paths)."
         }
       }
     },

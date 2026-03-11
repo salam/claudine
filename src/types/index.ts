@@ -110,7 +110,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'toolbarAction'; action: ToolbarAction }
   | { type: 'indexingProgress'; phase: IndexingPhase; totalProjects: number; scannedProjects: number; totalFiles: number; scannedFiles: number; currentProject?: string }
   | { type: 'projectDiscovered'; projects: ProjectManifestEntry[] }
-  | { type: 'projectConversationsLoaded'; projectPath: string; conversations: Conversation[] };
+  | { type: 'projectConversationsLoaded'; projectPath: string; conversations: Conversation[] }
+  | { type: 'folderSelected'; path: string };
 
 export type OpenConversationTarget = 'terminal' | 'vscode';
 
@@ -134,9 +135,15 @@ export type WebviewToExtensionMessage =
   | { type: 'setProjectEnabled'; projectPath: string; enabled: boolean }
   | { type: 'setAllProjectsEnabled'; enabled: boolean }
   | { type: 'openExternal'; url: string }
+  | { type: 'browseWorkspaceFolder' }
   | { type: 'ready' };
 
 export type ToolbarAction = 'toggleSearch' | 'toggleFilter' | 'toggleCompactView' | 'toggleExpandAll' | 'toggleArchive' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'toggleSettingsPanel' | 'toggleAbout';
+
+export type MonitoredWorkspace =
+  | { mode: 'auto' }
+  | { mode: 'single'; path: string }
+  | { mode: 'multi'; paths: string[] };
 
 export interface ClaudineSettings {
   imageGenerationApi: 'openai' | 'stability' | 'none';
@@ -150,6 +157,8 @@ export interface ClaudineSettings {
   showTaskDescription: boolean;
   showTaskLatest: boolean;
   showTaskGitBranch: boolean;
+  monitoredWorkspace: MonitoredWorkspace;
+  detectedWorkspacePaths: string[];
 }
 
 // Claude Code data structures (based on actual file format)

@@ -218,6 +218,11 @@ export interface ProjectGroup {
 
 export type ToolbarAction = 'toggleSearch' | 'toggleFilter' | 'toggleCompactView' | 'toggleExpandAll' | 'toggleArchive';
 
+export type MonitoredWorkspace =
+  | { mode: 'auto' }
+  | { mode: 'single'; path: string }
+  | { mode: 'multi'; paths: string[] };
+
 export interface ClaudineSettings {
   imageGenerationApi: 'openai' | 'stability' | 'none';
   claudeCodePath: string;
@@ -229,6 +234,8 @@ export interface ClaudineSettings {
   showTaskDescription: boolean;
   showTaskLatest: boolean;
   showTaskGitBranch: boolean;
+  monitoredWorkspace: MonitoredWorkspace;
+  detectedWorkspacePaths: string[];
 }
 
 export type IndexingPhase = 'idle' | 'discovery' | 'scanning' | 'complete';
