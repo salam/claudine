@@ -42,6 +42,9 @@ export interface IConversationProvider {
   /** Clear the pending-icon set so regeneration can pick up all conversations. */
   clearPendingIcons(): void;
 
+  /** Return the workspace paths currently detected by the platform (for settings display). */
+  getWorkspacePaths?(): string[];
+
   // ── Project discovery (standalone progressive loading) ─────────────
 
   /** Quickly enumerate all project directories without parsing conversations. */

@@ -73,6 +73,10 @@ export class ClaudeCodeWatcher implements IConversationProvider {
     return this._watcherDisposable !== undefined;
   }
 
+  public getWorkspacePaths(): string[] {
+    return this._platform.getWorkspaceFolders() ?? [];
+  }
+
   /** Number of files held in the incremental parse cache. */
   public get parseCacheSize(): number {
     return this._parser.cacheSize;
@@ -316,9 +320,10 @@ export class ClaudeCodeWatcher implements IConversationProvider {
    * Encode a workspace path the same way Claude Code does.
    * /Users/matthias/Development/foo → -Users-matthias-Development-foo
    * /Users/matthias/Development/molts.club → -Users-matthias-Development-molts-club
+   * C:\Users\foo\project → C-Users-foo-project (BUG20: Windows backslash + colon)
    */
   private encodeWorkspacePath(workspacePath: string): string {
-    return workspacePath.replace(/[/.]/g, '-');
+    return workspacePath.replace(/[/\\.:]/g, '-');
   }
 
   // ── Project discovery & progressive scanning (standalone) ─────────

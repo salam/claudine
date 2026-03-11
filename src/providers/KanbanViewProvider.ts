@@ -9,6 +9,7 @@ import {
   ExtensionToWebviewMessage,
   WebviewToExtensionMessage,
   ClaudineSettings,
+  MonitoredWorkspace,
   ToolbarAction
 } from '../types';
 import {
@@ -194,7 +195,8 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
           'showTaskIcon',
           'showTaskDescription',
           'showTaskLatest',
-          'showTaskGitBranch'
+          'showTaskGitBranch',
+          'monitoredWorkspace'
         ];
         if (message.key === 'imageGenerationApiKey') {
           this._secrets?.store('imageGenerationApiKey', String(message.value ?? '')).then(() => {
@@ -204,6 +206,9 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
           const config = vscode.workspace.getConfiguration('claudine');
           config.update(message.key, message.value, vscode.ConfigurationTarget.Global).then(() => {
             this.updateSettings();
+            if (message.key === 'monitoredWorkspace') {
+              this._provider.refresh();
+            }
           });
         }
         break;
@@ -241,6 +246,21 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
           vscode.env.openExternal(vscode.Uri.parse(message.url));
         }
         break;
+
+      case 'browseWorkspaceFolder': {
+        vscode.window.showOpenDialog({
+          canSelectFolders: true,
+          canSelectFiles: false,
+          canSelectMany: false,
+          openLabel: 'Select Workspace Folder'
+        }).then(uris => {
+          if (uris && uris.length > 0) {
+            const folderPath = uris[0].fsPath;
+            this.sendMessage({ type: 'folderSelected', path: folderPath });
+          }
+        });
+        break;
+      }
 
       case 'toggleAutoRestart': {
         const cfg = vscode.workspace.getConfiguration('claudine');
@@ -570,7 +590,14 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       showTaskIcon: config.get('showTaskIcon', true),
       showTaskDescription: config.get('showTaskDescription', true),
       showTaskLatest: config.get('showTaskLatest', true),
-      showTaskGitBranch: config.get('showTaskGitBranch', true)
+      showTaskGitBranch: config.get('showTaskGitBranch', true),
+      monitoredWorkspace: (() => {
+        const raw = config.get<MonitoredWorkspace>('monitoredWorkspace', { mode: 'auto' });
+        return (raw && typeof raw === 'object' && 'mode' in raw)
+          ? raw as MonitoredWorkspace
+          : { mode: 'auto' as const };
+      })(),
+      detectedWorkspacePaths: this._provider.getWorkspacePaths?.() ?? [],
     };
     this.sendMessage({ type: 'updateSettings', settings });
   }
