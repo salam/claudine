@@ -178,6 +178,13 @@
 - **Root cause:** The context menu uses `position: fixed` inside a DOM tree that includes `transform: scale(...)` on `.kanban-board` (when zoom != 1) and `overflow: hidden` on `.zoom-wrapper`. CSS `transform` creates a new containing block, making `position: fixed` act like `position: absolute` relative to the transformed ancestor. Combined with `overflow: hidden`, the menu is clipped entirely. Also affects SmartBoard (`style:zoom`) and MultiProjectView (`overflow: hidden` on `.project-content`).
 - [✔️] Fixed — portaled the context menu element to `document.body` via a Svelte action, escaping all overflow/transform containers
 
+## BUG20 — Windows: workspace path encoding fails to match Claude Code directories
+
+- **Reported:** 2026-03-11
+- **Symptom:** On Windows, Claudine cannot find any conversations. The extension logs "No project dir found for workspace" for every workspace folder.
+- **Root cause:** `encodeWorkspacePath()` replaces `/` and `.` with `-`, but Windows paths use `\` as separators and `:` after drive letters (e.g. `C:\Users\foo\project`). Claude Code encodes these paths by replacing all separators, dots, and colons with `-`. Claudine's regex `/[/.]/g` missed `\` and `:`, so the encoded path didn't match the directory on disk.
+- [✔️] Fixed — changed regex from `/[/.]/g` to `/[/\\.:]/g` to also replace backslashes and colons
+
 ## BUG18 — Conversations with background agents not shown as "In Progress" and missing agent dots
 
 - **Reported:** 2026-03-06

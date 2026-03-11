@@ -310,6 +310,126 @@ describe('ClaudeCodeWatcher — regression tests', () => {
       const convs = sm.setConversations.mock.calls[0][0] as Conversation[];
       expect(convs.length).toBe(1);
     });
+
+    // BUG20: Windows backslash paths were not encoded correctly because
+    // encodeWorkspacePath only replaced '/' and '.', not '\' and ':'.
+    it('encodes Windows-style backslash paths correctly', async () => {
+      const windowsWorkspace = 'C:\\Users\\dev\\my-project';
+      const encodedDir = 'C--Users-dev-my-project';
+
+      const platform = createMockPlatform();
+      platform.getWorkspaceFolders = () => [windowsWorkspace];
+      const sm = createMockStateManager();
+      const w = new ClaudeCodeWatcher(sm as never, platform);
+
+      mockExistsSync.mockImplementation(((p: string) => {
+        if (typeof p === 'string' && p.includes(encodedDir)) return true;
+        if (p === path.join(claudePath, 'projects')) return true;
+        return false;
+      }) as typeof fs.existsSync);
+
+      mockReaddirSync.mockImplementation(((dirPath: string) => {
+        if (typeof dirPath === 'string' && dirPath.includes(encodedDir)) {
+          return [{ name: 'conv-win.jsonl', isDirectory: () => false, isFile: () => true }];
+        }
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+
+      const ts = new Date().toISOString();
+      const jsonl = JSON.stringify({
+        type: 'user', uuid: '1', timestamp: ts, sessionId: 's',
+        parentUuid: null, isSidechain: false,
+        message: { role: 'user', content: [{ type: 'text', text: 'Hello from Windows' }] },
+      });
+      const bytes = Buffer.byteLength(jsonl, 'utf-8');
+      mockStat.mockResolvedValue({ size: bytes } as any);
+      mockReadFile.mockResolvedValue(jsonl);
+
+      await w.refresh();
+
+      expect(sm.setConversations).toHaveBeenCalledTimes(1);
+      const convs = sm.setConversations.mock.calls[0][0] as Conversation[];
+      expect(convs.length).toBe(1);
+    });
+
+    it('encodes mixed forward/backslash paths correctly', async () => {
+      // Some Windows APIs return mixed separators
+      const mixedWorkspace = 'C:\\Users\\dev/my-project';
+      const encodedDir = 'C--Users-dev-my-project';
+
+      const platform = createMockPlatform();
+      platform.getWorkspaceFolders = () => [mixedWorkspace];
+      const sm = createMockStateManager();
+      const w = new ClaudeCodeWatcher(sm as never, platform);
+
+      mockExistsSync.mockImplementation(((p: string) => {
+        if (typeof p === 'string' && p.includes(encodedDir)) return true;
+        if (p === path.join(claudePath, 'projects')) return true;
+        return false;
+      }) as typeof fs.existsSync);
+
+      mockReaddirSync.mockImplementation(((dirPath: string) => {
+        if (typeof dirPath === 'string' && dirPath.includes(encodedDir)) {
+          return [{ name: 'conv-mix.jsonl', isDirectory: () => false, isFile: () => true }];
+        }
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+
+      const ts = new Date().toISOString();
+      const jsonl = JSON.stringify({
+        type: 'user', uuid: '1', timestamp: ts, sessionId: 's',
+        parentUuid: null, isSidechain: false,
+        message: { role: 'user', content: [{ type: 'text', text: 'Hello from mixed path' }] },
+      });
+      const bytes = Buffer.byteLength(jsonl, 'utf-8');
+      mockStat.mockResolvedValue({ size: bytes } as any);
+      mockReadFile.mockResolvedValue(jsonl);
+
+      await w.refresh();
+
+      expect(sm.setConversations).toHaveBeenCalledTimes(1);
+      const convs = sm.setConversations.mock.calls[0][0] as Conversation[];
+      expect(convs.length).toBe(1);
+    });
+
+    it('encodes Linux-style paths correctly', async () => {
+      const linuxWorkspace = '/home/dev/my-project';
+      const encodedDir = '-home-dev-my-project';
+
+      const platform = createMockPlatform();
+      platform.getWorkspaceFolders = () => [linuxWorkspace];
+      const sm = createMockStateManager();
+      const w = new ClaudeCodeWatcher(sm as never, platform);
+
+      mockExistsSync.mockImplementation(((p: string) => {
+        if (typeof p === 'string' && p.includes(encodedDir)) return true;
+        if (p === path.join(claudePath, 'projects')) return true;
+        return false;
+      }) as typeof fs.existsSync);
+
+      mockReaddirSync.mockImplementation(((dirPath: string) => {
+        if (typeof dirPath === 'string' && dirPath.includes(encodedDir)) {
+          return [{ name: 'conv-linux.jsonl', isDirectory: () => false, isFile: () => true }];
+        }
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+
+      const ts = new Date().toISOString();
+      const jsonl = JSON.stringify({
+        type: 'user', uuid: '1', timestamp: ts, sessionId: 's',
+        parentUuid: null, isSidechain: false,
+        message: { role: 'user', content: [{ type: 'text', text: 'Hello from Linux' }] },
+      });
+      const bytes = Buffer.byteLength(jsonl, 'utf-8');
+      mockStat.mockResolvedValue({ size: bytes } as any);
+      mockReadFile.mockResolvedValue(jsonl);
+
+      await w.refresh();
+
+      expect(sm.setConversations).toHaveBeenCalledTimes(1);
+      const convs = sm.setConversations.mock.calls[0][0] as Conversation[];
+      expect(convs.length).toBe(1);
+    });
   });
 
   // ---------- File deletion ----------
