@@ -343,7 +343,7 @@ export class ClaudeCodeWatcher implements IConversationProvider {
    * C:\Users\foo\project → C-Users-foo-project (BUG20: Windows backslash + colon)
    */
   private encodeWorkspacePath(workspacePath: string): string {
-    return workspacePath.replace(/[/\\.:]/g, '-');
+    return workspacePath.replace(/[/\\.:_]/g, '-');
   }
 
   // ── Project discovery & progressive scanning (standalone) ─────────
