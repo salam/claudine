@@ -24,7 +24,13 @@ const CHILD_ENV: NodeJS.ProcessEnv = {
   PATH: process.env.PATH,
   HOME: process.env.HOME,
   LANG: process.env.LANG,
-  TERM: process.env.TERM
+  TERM: process.env.TERM,
+  // Windows: needed for CLI tools to locate config/data dirs and resolve .cmd files
+  ...(process.platform === 'win32' && {
+    APPDATA: process.env.APPDATA,
+    USERPROFILE: process.env.USERPROFILE,
+    PATHEXT: process.env.PATHEXT,
+  })
 };
 
 /** Which CLI backend is being used for summarization. */
@@ -166,7 +172,8 @@ Return ONLY a JSON array in the same order: [{"title":"...","description":"...",
       const child = spawn(backend.path, args, {
         cwd: os.tmpdir(),
         timeout: CLI_TIMEOUT_MS,
-        env: CHILD_ENV
+        env: CHILD_ENV,
+        shell: process.platform === 'win32'  // required to execute .cmd/.bat files on Windows
       });
 
       child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
@@ -228,13 +235,20 @@ Return ONLY a JSON array in the same order: [{"title":"...","description":"...",
     return undefined;
   }
 
-  /** Resolve an executable name to an absolute path via `which`. */
+  /** Resolve an executable name to an absolute path via `which` (Unix) or `where` (Windows). */
   private resolveExecutable(name: string): Promise<string | undefined> {
     return new Promise((resolve) => {
-      execFile('which', [name], { timeout: CLI_CHECK_TIMEOUT_MS, env: CHILD_ENV }, (err, stdout) => {
+      const isWindows = process.platform === 'win32';
+      const whichCmd = isWindows ? 'where' : 'which';
+      execFile(whichCmd, [name], { timeout: CLI_CHECK_TIMEOUT_MS, env: CHILD_ENV }, (err, stdout) => {
         if (err || !stdout.trim()) return resolve(undefined);
-        const binPath = stdout.trim();
-        const child = spawn(binPath, ['--version'], { timeout: CLI_CHECK_TIMEOUT_MS, env: CHILD_ENV });
+        // `where` on Windows may return multiple matches (one per line); take the first
+        const binPath = stdout.trim().split('\n')[0].trim();
+        const child = spawn(binPath, ['--version'], {
+          timeout: CLI_CHECK_TIMEOUT_MS,
+          env: CHILD_ENV,
+          shell: isWindows  // required to execute .cmd/.bat files on Windows
+        });
         child.on('error', () => resolve(undefined));
         child.on('close', (code) => resolve(code === 0 ? binPath : undefined));
       });
