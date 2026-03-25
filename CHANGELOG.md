@@ -5,6 +5,12 @@ All notable changes to the Claudine extension will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Summarization on Windows: `resolveExecutable` now uses `which` or `where` depending on platform, enabling Summarization on Windows
+
 ## [1.1.5]
 
 ### Added
