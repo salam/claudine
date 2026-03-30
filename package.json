@@ -214,7 +214,8 @@
         {
           "type": "webview",
           "id": "claudine.kanbanView",
-          "name": "%view.panel.name%"
+          "name": "%view.panel.name%",
+          "icon": "resources/icons/claudine-activitybar.png"
         }
       ]
     },

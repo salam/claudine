@@ -25,6 +25,16 @@
         "${workspaceFolder}/out/test/**/*.js"
       ],
       "preLaunchTask": "npm: compile"
+    },
+    {
+      "name": "Run Standalone",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/out-standalone/claudine.js",
+      "args": ["standalone", "--no-open"],
+      "preLaunchTask": "Build Standalone + Webview",
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/out-standalone/**/*.js"]
     }
   ]
 }
