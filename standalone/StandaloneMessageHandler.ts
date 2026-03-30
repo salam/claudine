@@ -1,4 +1,5 @@
 import { execFile } from 'child_process';
+import { homedir } from 'os';
 import { IPlatformAdapter } from '../src/platform/IPlatformAdapter';
 import { StateManager } from '../src/services/StateManager';
 import { IConversationProvider } from '../src/providers/IConversationProvider';
@@ -331,16 +332,21 @@ export class StandaloneMessageHandler {
       return;
     }
 
-    const cwd = conversation.workspacePath || process.env.HOME || '/';
+    const cwd = conversation.workspacePath || homedir();
     const sessionId = conversation.id;
 
     if (target === 'terminal') {
       const platform = process.platform;
-
+      // Strip Node.js debugger variables that interfere with child processes (mainly relevant to 
+      // VS Code debug sessions). NODE_OPTIONS may carry debugger bootstrap flags (--require) that 
+      // claude's embedded Node can't resolve.
+      const env = { ...process.env };
+      delete env['NODE_OPTIONS'];
+      
       if (platform === 'darwin') {
         // macOS: open Terminal.app via osascript and resume the Claude Code conversation
         const script = `tell application "Terminal" to do script "cd '${cwd}' && claude --resume '${sessionId}'"`;
-        execFile('osascript', ['-e', script], (err) => {
+        execFile('osascript', ['-e', script], { env }, (err) => {
           if (err) {
             console.error('Claudine: Failed to open terminal', err);
             this._send({ type: 'error', message: `Failed to open terminal: ${err.message}` });
@@ -353,14 +359,13 @@ export class StandaloneMessageHandler {
           { cmd: 'konsole', args: ['-e', 'bash', '-c', shellCmd] },
           { cmd: 'xterm', args: ['-e', 'bash', '-c', shellCmd] },
         ];
-        this.tryExecFiles(terminals);
+        this.tryExecFiles(terminals, env);
       } else if (platform === 'win32') {
-        execFile('cmd', ['/c', 'start', 'cmd', '/k', `cd /d "${cwd}" && claude --resume "${sessionId}"`], (err) => {
-          if (err) {
-            console.error('Claudine: Failed to open terminal', err);
-            this._send({ type: 'error', message: `Failed to open terminal: ${err.message}` });
-          }
-        });
+        const winTerminals: Array<{ cmd: string; args: string[] }> = [
+          { cmd: 'wt', args: ['-d', cwd, 'cmd', '/k', `claude --resume ${sessionId}`] },
+          { cmd: 'cmd', args: ['/c', 'start', '', '/D', cwd, 'cmd', '/k', `claude --resume ${sessionId}`] },
+        ];
+        this.tryExecFiles(winTerminals, env);
       }
     } else {
       // Open the workspace folder in VSCode
@@ -374,14 +379,14 @@ export class StandaloneMessageHandler {
   }
 
   /** Try a list of terminal emulators in order, stopping at the first success. */
-  private tryExecFiles(commands: Array<{ cmd: string; args: string[] }>, index = 0) {
+  private tryExecFiles(commands: Array<{ cmd: string; args: string[] }>, env: NodeJS.ProcessEnv, index = 0) {
     if (index >= commands.length) {
       this._send({ type: 'error', message: 'No supported terminal emulator found' });
       return;
     }
     const { cmd, args } = commands[index];
-    execFile(cmd, args, (err) => {
-      if (err) this.tryExecFiles(commands, index + 1);
+    execFile(cmd, args, { env }, (err) => {
+      if (err) this.tryExecFiles(commands, env, index + 1);
     });
   }
 
