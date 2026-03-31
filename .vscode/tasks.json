@@ -27,16 +27,28 @@
     {
       "label": "Build Webview",
       "type": "shell",
-      "command": "cd webview && npm run build",
+      "options": {
+        "cwd": "${workspaceFolder}/webview"
+      },
+      "command": "npm run build",
       "problemMatcher": [],
       "group": "build"
     },
     {
       "label": "Dev Webview",
       "type": "shell",
-      "command": "cd webview && npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/webview"
+      },
+      "command": "npm run dev",
       "problemMatcher": [],
       "isBackground": true,
+      "group": "build"
+    },
+    {
+      "label": "Build Standalone + Webview",
+      "dependsOn": ["npm: build:standalone", "Build Webview"],
+      "dependsOrder": "parallel",
       "group": "build"
     }
   ]

@@ -123,4 +123,5 @@ export class VsCodeAdapter implements IPlatformAdapter {
   getExtensionPath(): string | undefined {
     return this._context.extensionPath;
   }
+
 }

@@ -1,5 +1,7 @@
 import * as path from 'path';
 import * as fsp from 'fs/promises';
+import type { Dirent } from 'fs';
+import { execFile } from 'child_process';
 import { CategoryClassifier } from '../services/CategoryClassifier';
 import {
   Conversation,
@@ -952,42 +954,62 @@ export class ConversationParser {
     const parts = filePath.split(path.sep);
     const projectsIndex = parts.indexOf('projects');
     if (projectsIndex === -1 || !parts[projectsIndex + 1]) return undefined;
-
-    const encoded = parts[projectsIndex + 1]; // e.g. "-Users-matthias-Development-ai-stick"
-    const segments = encoded.split('-').filter(Boolean); // ["Users","matthias","Development","ai","stick"]
-
-    // Greedily rebuild the path by checking which combinations exist on disk
-    let current: string = path.sep;
-    let i = 0;
-    while (i < segments.length) {
-      // Try joining progressively more segments with hyphens to handle names like "ai-stick"
-      let found = false;
-      for (let len = segments.length - i; len >= 1; len--) {
-        const candidate = segments.slice(i, i + len).join('-');
-        const testPath = path.join(current, candidate);
-        if (await this.pathExists(testPath)) {
-          current = testPath;
-          i += len;
-          found = true;
-          break;
-        }
-      }
-      if (!found) {
-        // Can't resolve — fall back to simple single-segment
-        current = path.join(current, segments[i]);
-        i++;
-      }
+    
+    // macOS and Windows use case-insensitive filesystems; Claude Code may lowercase parts of
+    // the encoded project directory name on these platforms.
+    const ignoreCase = process.platform === 'win32' || process.platform === 'darwin';
+    const encoded = ignoreCase
+      ? parts[projectsIndex + 1].toLowerCase()
+      : parts[projectsIndex + 1];
+    const roots = await this.getFilesystemRoots();
+    
+    for (const root of roots) {
+      const result = await this.resolveEncodedPath(encoded, root, ignoreCase);
+      if (result !== undefined) return result;
     }
-
-    return (await this.pathExists(current)) ? current : undefined;
+    return undefined;
   }
 
-  private async pathExists(p: string): Promise<boolean> {
+  private async getFilesystemRoots(): Promise<string[]> {
+    if (process.platform !== 'win32') return ['/'];
     try {
-      await fsp.access(p);
-      return true;
+      const stdout = await new Promise<string>((resolve, reject) =>
+        execFile('fsutil', ['fsinfo', 'drives'], (err, out) => err ? reject(err) : resolve(out))
+      );
+      // Output e.g. "Drives: C:\ D:\ E:\ G:\"
+      const drives = stdout.match(/[A-Za-z]:\\/g);
+      if (drives && drives.length > 0) return drives;
     } catch {
-      return false;
+      console.warn('Failed to get Windows drives, defaulting to C:\\');
     }
+    return ['C:\\'];
+  }
+
+  /**
+   * Walk the filesystem from `currentPath`, encoding each candidate path the 
+   * same way Claude does, and checking it as a prefix of `encoded`.
+   */
+  private async resolveEncodedPath(encoded: string, currentPath: string, ignoreCase = false): Promise<string | undefined> {
+    const currentEncoded = ignoreCase
+      ? currentPath.replace(/[/\\.:_]/g, '-').toLowerCase()
+      : currentPath.replace(/[/\\.:_]/g, '-');
+    
+    if (currentEncoded === encoded) return currentPath;
+    if (!encoded.startsWith(currentEncoded)) return undefined;
+
+    let entries: Dirent[];
+    try {
+      entries = await fsp.readdir(currentPath, { withFileTypes: true }) as Dirent[];
+    } catch {
+      return undefined;
+    }
+    
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const childPath = path.join(currentPath, entry.name);
+      const result = await this.resolveEncodedPath(encoded, childPath, ignoreCase);
+      if (result !== undefined) return result;
+    }
+    return undefined;
   }
 }

@@ -15,11 +15,13 @@ vi.mock('fs/promises', () => ({
   stat: vi.fn().mockResolvedValue({ size: 1024 }),
   readFile: vi.fn().mockResolvedValue(''),
   access: vi.fn().mockRejectedValue(new Error('ENOENT')),
+  readdir: vi.fn().mockResolvedValue([]),
   open: vi.fn(),
 }));
 
 const mockStat = vi.mocked(fsp.stat);
 const mockReadFile = vi.mocked(fsp.readFile);
+const mockReaddir = vi.mocked(fsp.readdir);
 const mockOpen = vi.mocked(fsp.open);
 
 const TEST_PATH = '/home/user/.claude/projects/test-project/abc123.jsonl';
@@ -33,6 +35,7 @@ describe('ConversationParser — regression tests', () => {
     // Restore default mock behavior after clearAllMocks
     mockStat.mockResolvedValue({ size: 1024 } as any);
     vi.mocked(fsp.access).mockRejectedValue(new Error('ENOENT'));
+    mockReaddir.mockResolvedValue([]);
   });
 
   function parseContent(content: string, filePath = TEST_PATH) {
@@ -247,6 +250,65 @@ describe('ConversationParser — regression tests', () => {
       // workspacePath should be undefined since access rejects
       // (the important thing is it doesn't crash on hyphenated dirs)
       expect(result!.workspacePath).toBeUndefined();
+    });
+  });
+
+  // ---------- Workspace path reconstruction (dots, underscores, colons) ----------
+
+  describe('workspace path reconstruction via filesystem walk', () => {
+    const isWin = process.platform === 'win32';
+
+    interface ReconCase { label: string; filePath: string; tree: Record<string, string[]>; expected: string; }
+
+    // Platform-appropriate test cases: { filePath, readdir tree, expected workspace }.
+    // On Windows paths are C:\… with case-folded encoding; on Unix /home/… with no case folding.
+    const cases: ReconCase[] = isWin
+      ? [
+          {
+            label: 'dot in directory name',
+            filePath: 'C:\\Users\\alice\\.claude\\projects\\c--users-jane-doe-project\\conv.jsonl',
+            tree: { 'C:\\': ['Users'], 'C:\\Users': ['jane.doe'], 'C:\\Users\\jane.doe': ['project'] },
+            expected: 'C:\\Users\\jane.doe\\project',
+          },
+          {
+            label: 'underscore in directory name',
+            filePath: 'C:\\Users\\alice\\.claude\\projects\\c--users-alice-my-project\\conv.jsonl',
+            tree: { 'C:\\': ['Users'], 'C:\\Users': ['alice'], 'C:\\Users\\alice': ['my_project'] },
+            expected: 'C:\\Users\\alice\\my_project',
+          },
+          {
+            label: 'both dots and underscores',
+            filePath: 'C:\\Users\\alice\\.claude\\projects\\c--users-jane-doe-work-my-project\\conv.jsonl',
+            tree: { 'C:\\': ['Users'], 'C:\\Users': ['jane.doe_work'], 'C:\\Users\\jane.doe_work': ['my_project'] },
+            expected: 'C:\\Users\\jane.doe_work\\my_project',
+          },
+        ]
+      : [
+          {
+            label: 'dot in directory name',
+            filePath: '/home/alice/.claude/projects/-home-jane-doe-project/conv.jsonl',
+            tree: { '/': ['home'], '/home': ['jane.doe'], '/home/jane.doe': ['project'] },
+            expected: '/home/jane.doe/project',
+          },
+          {
+            label: 'underscore in directory name',
+            filePath: '/home/alice/.claude/projects/-home-alice-my-project/conv.jsonl',
+            tree: { '/': ['home'], '/home': ['alice'], '/home/alice': ['my_project'] },
+            expected: '/home/alice/my_project',
+          },
+          {
+            label: 'both dots and underscores',
+            filePath: '/home/alice/.claude/projects/-home-jane-doe-work-my-project/conv.jsonl',
+            tree: { '/': ['home'], '/home': ['jane.doe_work'], '/home/jane.doe_work': ['my_project'] },
+            expected: '/home/jane.doe_work/my_project',
+          },
+        ];
+
+    it.each(cases)('reconstructs a path with $label', async ({ filePath, tree, expected }) => {
+      const dirent = (name: string) => ({ name, isDirectory: () => true, isFile: () => false });
+      mockReaddir.mockImplementation(async (p) => (tree[p as string] ?? []).map(dirent) as any);
+      const result = await parseContent(fixtures.completedConversation, filePath);
+      expect(result!.workspacePath).toBe(expected);
     });
   });
 });

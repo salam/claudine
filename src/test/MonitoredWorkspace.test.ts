@@ -72,15 +72,31 @@ describe('MonitoredWorkspace — getProjectDirsToScan', () => {
     }) as unknown as typeof fs.readdirSync);
   });
 
+  it('applies lowercase normalization on case-insensitive platforms', () => {
+    const platform = createMockPlatform({
+      workspaceFolders: ['/Users/alice/projectA'],
+      monitoredWorkspace: { mode: 'auto' },
+    });
+    const watcher = new ClaudeCodeWatcher(createMockStateManager(), platform as any);
+
+    let dirs = (watcher as any).getProjectDirsToScan(projectsDir, true);
+    expect(dirs).toHaveLength(1);
+    expect(dirs[0]).toContain('-users-alice-projecta');
+
+    dirs = (watcher as any).getProjectDirsToScan(projectsDir, false);
+    expect(dirs).toHaveLength(1);
+    expect(dirs[0]).toContain('-Users-alice-projectA');
+  });
+
   it('auto mode with workspace folders scans only matching dirs', () => {
     const platform = createMockPlatform({
       workspaceFolders: ['/Users/alice/projectA'],
       monitoredWorkspace: { mode: 'auto' },
     });
     const watcher = new ClaudeCodeWatcher(createMockStateManager(), platform as any);
-    const dirs = (watcher as any).getProjectDirsToScan(projectsDir);
+    const dirs = (watcher as any).getProjectDirsToScan(projectsDir, true);
     expect(dirs).toHaveLength(1);
-    expect(dirs[0]).toContain('-Users-alice-projectA');
+    expect(dirs[0]).toContain('-users-alice-projecta');
   });
 
   it('auto mode without workspace folders scans all (excluding temp)', () => {
@@ -100,7 +116,7 @@ describe('MonitoredWorkspace — getProjectDirsToScan', () => {
       monitoredWorkspace: { mode: 'single', path: '/Users/alice/projectB' },
     });
     const watcher = new ClaudeCodeWatcher(createMockStateManager(), platform as any);
-    const dirs = (watcher as any).getProjectDirsToScan(projectsDir);
+    const dirs = (watcher as any).getProjectDirsToScan(projectsDir, false);
     expect(dirs).toHaveLength(1);
     expect(dirs[0]).toContain('-Users-alice-projectB');
   });
@@ -111,10 +127,10 @@ describe('MonitoredWorkspace — getProjectDirsToScan', () => {
       monitoredWorkspace: { mode: 'multi', paths: ['/Users/alice/projectA', '/Users/alice/projectB'] },
     });
     const watcher = new ClaudeCodeWatcher(createMockStateManager(), platform as any);
-    const dirs = (watcher as any).getProjectDirsToScan(projectsDir);
+    const dirs = (watcher as any).getProjectDirsToScan(projectsDir, true);
     expect(dirs).toHaveLength(2);
-    expect(dirs[0]).toContain('-Users-alice-projectA');
-    expect(dirs[1]).toContain('-Users-alice-projectB');
+    expect(dirs[0]).toContain('-users-alice-projecta');
+    expect(dirs[1]).toContain('-users-alice-projectb');
   });
 
   it('single mode with invalid path returns empty', () => {

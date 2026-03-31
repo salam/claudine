@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Fixed
 
 - Summarization on Windows: `resolveExecutable` now uses `which` or `where` depending on platform, enabling Summarization on Windows
+- Workspace path reconstruction (`ConversationParser`) — replaced the greedy hyphen-split + `fsp.access` existence-check approach with a filesystem walk that re-encodes each candidate path using Claude's own algorithm; paths containing dots (`user.name`), underscores (`my_project`), or Windows drive-letter colons (`C:`) are now resolved correctly on all platforms
+- Windows workspace encoding (`ClaudeCodeWatcher`) — `encodeWorkspacePath` normalizes backslashes before encoding and applies case folding on case-insensitive platforms (Windows/macOS), matching Claude Code's encoding exactly; fixes conversations from Windows projects not appearing on the board
+- Standalone terminal resumption on Windows — tries Windows Terminal (`wt`) before falling back to `cmd /c start`
+- Standalone conversation "open in terminal" dropdown immediately closing — `stopPropagation` on the button click prevents the window-level handler from dismissing the menu before it renders
 
 ## [1.1.5]
 
