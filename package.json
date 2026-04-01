@@ -285,6 +285,26 @@
           "type": "object",
           "default": { "mode": "auto" },
           "description": "Which workspace path(s) to monitor for conversations. Modes: auto (use VSCode workspace), single (one path), multi (multiple paths)."
+        },
+        "claudine.customTerminals": {
+          "type": "array",
+          "default": [],
+          "description": "Custom terminal emulators for resuming conversations; the first to execute successfully is used, and configured entries are implicitly followed by preconfigured terminals for the current platform.",
+          "items": {
+            "type": "object",
+            "required": ["command", "args"],
+            "properties": {
+              "command": {
+                "type": "string",
+                "description": "Path or alias to the terminal executable. Claudine will automatically set the working directory to the conversation's workspace path."
+              },
+              "args": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Base arguments. Claudine appends e.g. `claude --resume <session-id>` as the final argument."
+              }
+            }
+          }
         }
       }
     },
