@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+
+- Custom terminal configuration: `claudine.customTerminals` config property can be used to specify a custom terminal emulator and arguments for use in Standalone mode.
+
 ### Fixed
 
 - Summarization on Windows: `resolveExecutable` now uses `which` or `where` depending on platform, enabling Summarization on Windows
