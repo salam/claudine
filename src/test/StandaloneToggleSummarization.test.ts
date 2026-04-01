@@ -98,6 +98,7 @@ describe('BUG8 – toggleSummarization in standalone mode', () => {
         showTaskGitBranch: true,
         monitoredWorkspace: { mode: 'auto' },
         detectedWorkspacePaths: [],
+        customTerminals: [],
       };
       sent.push({ type: 'updateSettings', settings });
     }

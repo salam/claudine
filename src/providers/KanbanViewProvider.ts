@@ -10,7 +10,8 @@ import {
   WebviewToExtensionMessage,
   ClaudineSettings,
   MonitoredWorkspace,
-  ToolbarAction
+  ToolbarAction,
+  CustomTerminalConfig
 } from '../types';
 import {
   ARCHIVE_CHECK_INTERVAL_MS,
@@ -598,6 +599,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
           : { mode: 'auto' as const };
       })(),
       detectedWorkspacePaths: this._provider.getWorkspacePaths?.() ?? [],
+      customTerminals: config.get<CustomTerminalConfig[]>('customTerminals', []),
     };
     this.sendMessage({ type: 'updateSettings', settings });
   }
