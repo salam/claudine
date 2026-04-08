@@ -1012,8 +1012,8 @@ export class ConversationParser {
    */
   private async resolveEncodedPath(encoded: string, currentPath: string, ignoreCase = false): Promise<string | undefined> {
     const currentEncoded = ignoreCase
-      ? currentPath.replace(/[/\\.:_]/g, '-').toLowerCase()
-      : currentPath.replace(/[/\\.:_]/g, '-');
+      ? currentPath.replace(/[/\\.:_ ]/g, '-').toLowerCase()
+      : currentPath.replace(/[/\\.:_ ]/g, '-');
 
     if (currentEncoded === encoded) return currentPath;
     if (!encoded.startsWith(currentEncoded)) return undefined;
