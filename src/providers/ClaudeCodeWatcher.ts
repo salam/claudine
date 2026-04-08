@@ -423,7 +423,7 @@ export class ClaudeCodeWatcher implements IConversationProvider {
    */
   private encodeWorkspacePath(workspacePath: string, lowercase: boolean = false): string {
     const normalizedWorkspacePath = this.normalizePath(workspacePath, lowercase);
-    return normalizedWorkspacePath.replace(/[/.:_]/g, '-');
+    return normalizedWorkspacePath.replace(/[/.:_ ]/g, '-');
   }
 
   private resolveWorkspacePathForFile(filePath: string): string | undefined {
