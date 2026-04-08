@@ -177,6 +177,10 @@ export class ConversationParser {
         if (entry.type === 'worktree-state' && entry.worktreeSession) {
           cache.worktreeName = entry.worktreeSession.worktreeName;
         }
+        else if (entry.type === 'worktree-state' && !entry.worktreeSession) {
+          // Clear worktree name on worktree exit
+          cache.worktreeName = undefined;
+        }
 
         if ((entry.type !== 'user' && entry.type !== 'assistant') || !entry.message) {
           continue;
@@ -473,8 +477,7 @@ export class ConversationParser {
 
     const createdAt = firstTimestamp ? new Date(firstTimestamp) : new Date();
     const updatedAt = lastTimestamp ? new Date(lastTimestamp) : new Date();
-    const workspacePath = await this.extractWorkspacePath(filePath);
-
+    
     return {
       id,
       title,
@@ -498,8 +501,8 @@ export class ConversationParser {
       createdAt,
       updatedAt,
       filePath,
-      workspacePath,
-      worktreeName: worktreeName || this.extractWorktreeFromWorkspacePath(workspacePath),
+      workspacePath: await this.extractWorkspacePath(filePath),
+      worktreeName,
       provider: 'claude-code'
     };
   }
@@ -966,14 +969,6 @@ export class ConversationParser {
     return undefined;
   }
 
-  /** Extract a worktree name from a reconstructed workspace path.
-   *  Matches paths ending in `.claude/worktrees/<name>` (cross-platform). */
-  private extractWorktreeFromWorkspacePath(workspacePath: string | undefined): string | undefined {
-    if (!workspacePath) return undefined;
-    const match = workspacePath.replace(/\\/g, '/').match(/\/\.claude\/worktrees\/([^/]+)$/);
-    return match?.[1];
-  }
-
   private static readonly IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|svg)$/i;
 
   /**
@@ -1004,6 +999,13 @@ export class ConversationParser {
     return undefined;
   }
 
+  private extractProjectFolderFromFilePath(filePath: string): string | undefined {
+    const parts = filePath.split(path.sep);
+    const projectsIndex = parts.indexOf('projects');
+    if (projectsIndex === -1 || !parts[projectsIndex + 1]) return undefined;
+    return parts[projectsIndex + 1];
+  }
+
   /**
    * Extract the workspace path from a conversation file path.
    * The encoded directory name (e.g. `-Users-matthias-Development-ai-stick`) is lossy
@@ -1011,14 +1013,16 @@ export class ConversationParser {
    * Instead of guessing, check the actual filesystem for matching paths.
    */
   private async extractWorkspacePath(filePath: string): Promise<string | undefined> {
-    const parts = filePath.split(path.sep);
-    const projectsIndex = parts.indexOf('projects');
-    if (projectsIndex === -1 || !parts[projectsIndex + 1]) return undefined;
+    let projectFolder = this.extractProjectFolderFromFilePath(filePath);
+    if (!projectFolder) return undefined;
 
+    // Don't include worktree directory (if any) in workspace path;
+    // worktree conversations are still resumed from base workspace path
+    projectFolder = projectFolder.replace(/--claude-worktrees-.*$/, '');
+    
     // macOS and Windows use case-insensitive filesystems; Claude Code may lowercase parts of
     // the encoded project directory name on these platforms.
     const ignoreCase = process.platform === 'win32' || process.platform === 'darwin';
-    let projectFolder = parts[projectsIndex + 1].replace(/--claude-worktrees-.*$/, '');
     projectFolder = ignoreCase ? projectFolder.toLowerCase() : projectFolder;
     
     const roots = await this.getFilesystemRoots();
