@@ -164,7 +164,6 @@ export interface ClaudineSettings {
   showTaskDescription: boolean;
   showTaskLatest: boolean;
   showTaskGitBranch: boolean;
-  monitorWorktrees: boolean;
   monitoredWorkspace: MonitoredWorkspace;
   monitorWorktrees: boolean;
   detectedWorkspacePaths: string[];

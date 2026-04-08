@@ -98,8 +98,8 @@ describe('BUG8 – toggleSummarization in standalone mode', () => {
         showTaskDescription: true,
         showTaskLatest: true,
         showTaskGitBranch: true,
-        monitorWorktrees: true,
         monitoredWorkspace: { mode: 'auto' },
+        monitorWorktrees: true,
         detectedWorkspacePaths: [],
         customTerminals: [],
       };
