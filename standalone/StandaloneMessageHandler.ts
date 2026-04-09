@@ -365,7 +365,7 @@ export class StandaloneMessageHandler {
 
   /** Open a workspace folder in an editor (VSCode, Cursor, etc.). */
   private openInEditor(cmd: string, cwd: string) {
-    execFile(cmd, [cwd], { shell: process.platform === 'win32' }, (err) => {
+    execFile(cmd, [cwd], (err) => {
       if (err) {
         console.error(`Claudine: Failed to open ${cmd}`, err);
         this._send({ type: 'error', message: `Failed to open ${cmd}: ${err.message}` });
@@ -376,11 +376,23 @@ export class StandaloneMessageHandler {
   /** Resume a Claude Code conversation in a terminal emulator. */
   private openInTerminal(cwd: string, sessionId: string) {
     const platform = process.platform;
-    // Strip Node.js debugger variables that interfere with child processes (mainly relevant to
-    // VS Code debug sessions). NODE_OPTIONS may carry debugger bootstrap flags (--require) that
-    // claude's embedded Node can't resolve.
-    const env = { ...process.env };
-    delete env['NODE_OPTIONS'];
+    // Use a minimal env to avoid leaking secrets and stripping Node.js debugger
+    // variables (e.g. NODE_OPTIONS) that interfere with child processes.
+    const env: NodeJS.ProcessEnv = {
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+      LANG: process.env.LANG,
+      TERM: process.env.TERM,
+      // Windows: needed for terminal emulators to locate config dirs and resolve .cmd files
+      ...(platform === 'win32' && {
+        APPDATA: process.env.APPDATA,
+        USERPROFILE: process.env.USERPROFILE,
+        PATHEXT: process.env.PATHEXT,
+        SystemRoot: process.env.SystemRoot,
+        TEMP: process.env.TEMP,
+        TMP: process.env.TMP,
+      }),
+    };
 
     const resumeCmd = `claude --resume ${sessionId}`;
 
