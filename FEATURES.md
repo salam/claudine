@@ -24,7 +24,7 @@
 - [x] Last tool activity chip (e.g. `Read "path/to/file"`, `Bash "npm test"`)
 - [x] Activity timer counting seconds/minutes while agent is actively working
 - [x] Status badges: error, interruption, question/awaiting-input, rate-limit
-- [x] Claude worktree badge (`wt`) on cards when a conversation belongs to `.claude/worktrees/<name>`
+- [x] Claude worktree badge (`wt`) on cards when a conversation has an active worktree session
 - [x] Inline "Respond" prompt input on cards needing input
 - [x] "Open" menu to open conversation in terminal or VS Code editor
 - [x] Highlight when the card's conversation is the focused editor tab
@@ -112,7 +112,7 @@
 - [x] Incremental parsing: only newly appended bytes read on file change
 - [x] LRU parse cache (200 entries max)
 - [x] Workspace-scoped filtering (only shows conversations for current workspace)
-- [x] Claude worktree discovery under monitored workspaces (`.claude/worktrees/*`) with a `monitorWorktrees` toggle
+- [x] Claude worktree discovery for monitored workspaces (project folders ending in `--claude-worktrees-*`) with a `monitorWorktrees` toggle
 - [x] Subagent JSONL files excluded
 
 ## State Persistence

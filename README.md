@@ -277,7 +277,7 @@ Open VS Code Settings (`Ctrl+,` / `Cmd+,`) and search for **Claudine**.
 | `claudine.showTaskDescription` | `boolean` | `true` | Show description on cards |
 | `claudine.showTaskLatest` | `boolean` | `true` | Show last message preview on cards |
 | `claudine.showTaskGitBranch` | `boolean` | `true` | Show git branch badge on cards |
-| `claudine.monitorWorktrees` | `boolean` | `true` | Also scan Claude Code worktrees found under each monitored workspace at `.claude/worktrees/*` |
+| `claudine.monitorWorktrees` | `boolean` | `true` | Also scan Claude project folders matching `<workspace-name>--claude-worktrees-<worktree-name>` for monitored workspaces |
 | `claudine.monitoredWorkspace` | `object` | `{ mode: 'auto' }` | Monitor the current VS Code workspace, one manual path, or multiple manual paths |
 
 API keys are stored securely via VS Code's `SecretStorage` and configured through the in-app settings panel.
