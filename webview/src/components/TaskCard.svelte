@@ -820,7 +820,7 @@
   }
 
   /* Git branch + agents on same row (#10) */
-  .meta-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; min-height: 24px; }
+  .meta-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; min-height: 24px; }
   .git-branch {
     display: inline-flex; align-items: center; gap: 3px;
     font-size: 10px; color: var(--vscode-textLink-foreground, #3794ff);
@@ -839,6 +839,8 @@
     font-size: 9px;
     line-height: 1;
     white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
   }
   .worktree-label {
     font-size: 8px;

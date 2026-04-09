@@ -37,6 +37,7 @@ interface ParseCache {
   firstTimestamp: string | undefined;
   lastTimestamp: string | undefined;
   gitBranch: string | undefined;
+  worktreeName: string | undefined;
 }
 
 export class ConversationParser {
@@ -94,7 +95,7 @@ export class ConversationParser {
         // No new data — promote in LRU and rebuild from cached messages
         this.touchCache(filePath, cached);
         if (cached.messages.length === 0) return null;
-        return await this.buildConversation(filePath, cached.messages, cached.firstTimestamp, cached.lastTimestamp, cached.gitBranch, cached.sidechainSteps);
+        return await this.buildConversation(filePath, cached.messages, cached.firstTimestamp, cached.lastTimestamp, cached.gitBranch, cached.worktreeName, cached.sidechainSteps);
       }
 
       if (cached && cached.byteOffset < fileSize) {
@@ -124,13 +125,14 @@ export class ConversationParser {
       firstTimestamp: undefined,
       lastTimestamp: undefined,
       gitBranch: undefined,
+      worktreeName: undefined,
     };
 
     this.parseLines(content, cache);
     this.touchCache(filePath, cache);
 
     if (cache.messages.length === 0) return null;
-    return await this.buildConversation(filePath, cache.messages, cache.firstTimestamp, cache.lastTimestamp, cache.gitBranch, cache.sidechainSteps);
+    return await this.buildConversation(filePath, cache.messages, cache.firstTimestamp, cache.lastTimestamp, cache.gitBranch, cache.worktreeName, cache.sidechainSteps);
   }
 
   private async parseIncremental(filePath: string, cached: ParseCache, fileSize: number): Promise<Conversation | null> {
@@ -149,7 +151,7 @@ export class ConversationParser {
     }
 
     if (cached.messages.length === 0) return null;
-    return await this.buildConversation(filePath, cached.messages, cached.firstTimestamp, cached.lastTimestamp, cached.gitBranch, cached.sidechainSteps);
+    return await this.buildConversation(filePath, cached.messages, cached.firstTimestamp, cached.lastTimestamp, cached.gitBranch, cached.worktreeName, cached.sidechainSteps);
   }
 
   /** Parse raw JSONL lines and accumulate results into the cache. */
@@ -170,6 +172,14 @@ export class ConversationParser {
 
         if (entry.gitBranch && entry.gitBranch !== 'HEAD') {
           cache.gitBranch = entry.gitBranch;
+        }
+
+        if (entry.type === 'worktree-state' && entry.worktreeSession) {
+          cache.worktreeName = entry.worktreeSession.worktreeName;
+        }
+        else if (entry.type === 'worktree-state' && !entry.worktreeSession) {
+          // Clear worktree name on worktree exit
+          cache.worktreeName = undefined;
         }
 
         if ((entry.type !== 'user' && entry.type !== 'assistant') || !entry.message) {
@@ -256,13 +266,35 @@ export class ConversationParser {
     cache.sidechainSteps = Array.from(cache.sidechainAgentStatus.values());
   }
 
+  /** Claude Code will sometimes collapse 'text' type content into a single string,
+   *  or return a single content block instead of an array -- normalize these into
+   *  array of ClaudeCodeContent
+   */
+  private parseMessageContent(content: any): ClaudeCodeContent[] {
+    function _parse(c: any): ClaudeCodeContent | null {
+      if (typeof c === 'string') {
+        return { type: 'text', text: c } as ClaudeCodeContent;
+      }
+      else if (c && "type" in c && typeof c.type === 'string') {
+        return c as ClaudeCodeContent;
+      }
+      console.warn('Claudine: Unrecognized content block format:', c);
+      return null;
+    }
+
+    if (!Array.isArray(content)) content = [content];
+    return content
+      .map(_parse)
+      .filter((c: ClaudeCodeContent | null): c is ClaudeCodeContent => c !== null);
+  }
+
   private parseMessage(entry: ClaudeCodeJsonlEntry): ParsedMessage | null {
     if (!entry.message) return null;
 
     const role = entry.message.role;
     if (role !== 'user' && role !== 'assistant') return null;
 
-    const contentBlocks: ClaudeCodeContent[] = entry.message.content || [];
+    const contentBlocks = this.parseMessageContent(entry.message.content);
 
     const textParts: string[] = [];
     const toolUses: Array<{ name: string; input: Record<string, unknown> }> = [];
@@ -417,6 +449,7 @@ export class ConversationParser {
     firstTimestamp: string | undefined,
     lastTimestamp: string | undefined,
     gitBranch: string | undefined,
+    worktreeName: string | undefined,
     sidechainSteps: SidechainStep[] = []
   ): Promise<Conversation | null> {
     const id = this.extractSessionId(filePath);
@@ -444,7 +477,7 @@ export class ConversationParser {
 
     const createdAt = firstTimestamp ? new Date(firstTimestamp) : new Date();
     const updatedAt = lastTimestamp ? new Date(lastTimestamp) : new Date();
-
+    
     return {
       id,
       title,
@@ -469,6 +502,7 @@ export class ConversationParser {
       updatedAt,
       filePath,
       workspacePath: await this.extractWorkspacePath(filePath),
+      worktreeName,
       provider: 'claude-code'
     };
   }
@@ -965,6 +999,13 @@ export class ConversationParser {
     return undefined;
   }
 
+  private extractProjectFolderFromFilePath(filePath: string): string | undefined {
+    const parts = filePath.split(path.sep);
+    const projectsIndex = parts.indexOf('projects');
+    if (projectsIndex === -1 || !parts[projectsIndex + 1]) return undefined;
+    return parts[projectsIndex + 1];
+  }
+
   /**
    * Extract the workspace path from a conversation file path.
    * The encoded directory name (e.g. `-Users-matthias-Development-ai-stick`) is lossy
@@ -972,20 +1013,21 @@ export class ConversationParser {
    * Instead of guessing, check the actual filesystem for matching paths.
    */
   private async extractWorkspacePath(filePath: string): Promise<string | undefined> {
-    const parts = filePath.split(path.sep);
-    const projectsIndex = parts.indexOf('projects');
-    if (projectsIndex === -1 || !parts[projectsIndex + 1]) return undefined;
+    let projectFolder = this.extractProjectFolderFromFilePath(filePath);
+    if (!projectFolder) return undefined;
 
+    // Don't include worktree directory (if any) in workspace path;
+    // worktree conversations are still resumed from base workspace path
+    projectFolder = projectFolder.replace(/--claude-worktrees-.*$/, '');
+    
     // macOS and Windows use case-insensitive filesystems; Claude Code may lowercase parts of
     // the encoded project directory name on these platforms.
     const ignoreCase = process.platform === 'win32' || process.platform === 'darwin';
-    const encoded = ignoreCase
-      ? parts[projectsIndex + 1].toLowerCase()
-      : parts[projectsIndex + 1];
+    projectFolder = ignoreCase ? projectFolder.toLowerCase() : projectFolder;
+    
     const roots = await this.getFilesystemRoots();
-
     for (const root of roots) {
-      const result = await this.resolveEncodedPath(encoded, root, ignoreCase);
+      const result = await this.resolveEncodedPath(projectFolder, root, ignoreCase);
       if (result !== undefined) return result;
     }
     return undefined;

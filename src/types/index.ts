@@ -164,8 +164,8 @@ export interface ClaudineSettings {
   showTaskDescription: boolean;
   showTaskLatest: boolean;
   showTaskGitBranch: boolean;
-  monitorWorktrees: boolean;
   monitoredWorkspace: MonitoredWorkspace;
+  monitorWorktrees: boolean;
   detectedWorkspacePaths: string[];
   customTerminals: CustomTerminalConfig[];
 }
@@ -173,7 +173,7 @@ export interface ClaudineSettings {
 // Claude Code data structures (based on actual file format)
 // Each line in a JSONL conversation file is one of these:
 export interface ClaudeCodeJsonlEntry {
-  type: 'user' | 'assistant' | 'file-history-snapshot' | 'queue-operation';
+  type: 'user' | 'assistant' | 'file-history-snapshot' | 'queue-operation' | 'worktree-state';
   uuid: string;
   timestamp: string; // ISO 8601
   sessionId: string;
@@ -193,6 +193,8 @@ export interface ClaudeCodeJsonlEntry {
   snapshot?: unknown;
   // queue-operation fields
   operation?: string;
+  // worktree-state fields
+  worktreeSession?: { worktreeName: string; [key: string]: unknown } | null;
 }
 
 export interface ClaudeCodeApiMessage {

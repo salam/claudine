@@ -171,13 +171,12 @@ export class ClaudeCodeWatcher implements IConversationProvider {
     try {
       const conversation = await this._parser.parseFile(filePath);
       if (conversation) {
-        const conversationWithWorkspace = this.applyWorkspaceMetadata(conversation, filePath);
-        this._summaryService.applyCached(conversationWithWorkspace);
-        this._stateManager.updateConversation(conversationWithWorkspace);
+        this._summaryService.applyCached(conversation);
+        this._stateManager.updateConversation(conversation);
 
         // Kick off async summarization if not cached
         if (!this._summaryService.hasCached(conversation.id)) {
-          this._summaryService.summarizeUncached([conversationWithWorkspace], (id, summary) => {
+          this._summaryService.summarizeUncached([conversation], (id, summary) => {
             const existing = this._stateManager.getConversation(id);
             if (existing) {
               this._stateManager.updateConversation({
@@ -214,21 +213,24 @@ export class ClaudeCodeWatcher implements IConversationProvider {
     const lowercase = process.platform === 'win32' || process.platform === 'darwin';
     const encodedExcluded = this.encodeWorkspacePath(this._excludedWorkspacePath, lowercase);
     const normalizedFilePath = this.normalizePath(filePath, lowercase);
-    return normalizedFilePath.includes(`/${encodedExcluded}/`);
+    return normalizedFilePath.includes(`/${encodedExcluded}`);
   }
 
   /** BUG2: Check whether a JSONL file belongs to one of the effective workspace's
    *  project directories. When no workspace is open, allow all files (fallback). */
   private isFromCurrentWorkspace(filePath: string): boolean {
-    const effectiveRoots = this.getEffectiveWorkspaceRoots();
-    if (!effectiveRoots || effectiveRoots.length === 0) return true; // fallback: no workspace → allow all
+    const effectiveFolders = this.getEffectiveWorkspaceFolders();
+    if (!effectiveFolders || effectiveFolders.length === 0) return true; // fallback: no workspace → allow all
 
-    for (const folder of effectiveRoots) {
+    for (const folder of effectiveFolders) {
       if (this._excludedWorkspacePath && folder === this._excludedWorkspacePath) continue;
       const lowercase = process.platform === 'win32' || process.platform === 'darwin';
       const encodedPath = this.encodeWorkspacePath(folder, lowercase);
       const normalizedFilePath = this.normalizePath(filePath, lowercase);
-      if (normalizedFilePath.includes(`/${encodedPath}/`)) return true;
+
+      const includesStr = this.shouldMonitorWorktrees() ? `/${encodedPath}` : `/${encodedPath}/`;
+
+      if (normalizedFilePath.includes(includesStr)) return true;
     }
     return false;
   }
@@ -239,11 +241,11 @@ export class ClaudeCodeWatcher implements IConversationProvider {
 
     // Determine which project directories to scan
     const projectDirs = this.getProjectDirsToScan(projectsPath);
-    console.log(`Claudine: Scanning ${projectDirs.length} project directories`);
-
+    
     for (const projectDir of projectDirs) {
       try {
         const entries = fs.readdirSync(projectDir, { withFileTypes: true });
+        console.log(`Claudine: Scanning project dir: ${projectDir} (${entries.length} entries)`);
 
         for (const entry of entries) {
           // Only process top-level .jsonl files (session conversations)
@@ -254,7 +256,10 @@ export class ClaudeCodeWatcher implements IConversationProvider {
           try {
             const conversation = await this._parser.parseFile(filePath);
             if (conversation) {
-              conversations.push(this.applyWorkspaceMetadata(conversation, filePath));
+              conversations.push(conversation);
+            }
+            else {
+              console.log(`Claudine: Unable to parse file: ${filePath}`);
             }
           } catch (error) {
             console.error(`Claudine: Error parsing ${filePath}`, error);
@@ -279,6 +284,9 @@ export class ClaudeCodeWatcher implements IConversationProvider {
   /**
    * Resolve the effective workspace folders based on the monitoredWorkspace setting.
    * Returns null when auto mode has no workspace open (scan-all fallback).
+   *
+   * When monitorWorktrees is enabled, also appends any worktree directories found under
+   * `<folder>/.claude/worktrees/` for each workspace folder.
    */
   private getEffectiveWorkspaceFolders(): string[] | null {
     const monitored = this._platform.getWorkspaceLocalConfig<{ mode: string; path?: string; paths?: string[] }>(
@@ -287,114 +295,65 @@ export class ClaudeCodeWatcher implements IConversationProvider {
 
     if (monitored.mode === 'single' && monitored.path) {
       return [monitored.path];
-    }
-    if (monitored.mode === 'multi' && monitored.paths && monitored.paths.length > 0) {
+    } else if (monitored.mode === 'multi' && monitored.paths && monitored.paths.length > 0) {
       return monitored.paths;
     }
+    
     // Auto mode: delegate to platform
     return this._platform.getWorkspaceFolders();
-  }
-
-  /**
-   * Expand the monitored workspace list with Claude Code worktree roots when enabled.
-   * Worktree sessions live under their own encoded roots in `~/.claude/projects`.
-   */
-  private getEffectiveWorkspaceRoots(): string[] | null {
-    const effectiveFolders = this.getEffectiveWorkspaceFolders();
-    if (!effectiveFolders || effectiveFolders.length === 0) return effectiveFolders;
-
-    const roots: string[] = [];
-    const seen = new Set<string>();
-
-    const addRoot = (workspacePath: string) => {
-      const normalized = this.normalizeWorkspacePath(workspacePath);
-      if (seen.has(normalized)) return;
-      seen.add(normalized);
-      roots.push(normalized);
-    };
-
-    for (const folder of effectiveFolders) {
-      addRoot(folder);
-      if (!this.shouldMonitorWorktrees()) continue;
-      for (const worktreePath of this.getClaudeWorktreePaths(folder)) {
-        addRoot(worktreePath);
-      }
-    }
-
-    return roots;
   }
 
   private shouldMonitorWorktrees(): boolean {
     return this._platform.getConfig<boolean>('monitorWorktrees', true);
   }
 
-  private normalizeWorkspacePath(workspacePath: string): string {
-    const normalized = path.normalize(workspacePath);
-    if (normalized === path.sep) return normalized;
-    return normalized.replace(/[\\/]+$/, '');
-  }
-
-  private getClaudeWorktreePaths(workspacePath: string): string[] {
-    const worktreesDir = path.join(workspacePath, '.claude', 'worktrees');
-    if (!fs.existsSync(worktreesDir)) return [];
-
-    try {
-      const entries = fs.readdirSync(worktreesDir, { withFileTypes: true });
-      return entries
-        .filter(entry => entry.isDirectory())
-        .map(entry => path.join(worktreesDir, entry.name));
-    } catch (error) {
-      console.warn(`Claudine: Could not read Claude worktrees in ${worktreesDir}`, error);
-      return [];
-    }
-  }
-
   private getProjectDirsToScan(projectsPath: string, ignoreCase?: boolean): string[] {
-    const dirs: string[] = [];
+    function _projectIncluded(projectName: string): boolean {
+      const exclusion = ClaudeCodeWatcher.isExcludedProjectDir(projectName);
+      if (exclusion.excluded) {
+        console.log(`Claudine: Auto-excluding project dir "${projectName}" — ${exclusion.reason}`);
+        return false;
+      }
+      return true;
+    }
+    
+    function _getMatchingProjects(encodedPath: string, projectNames: string[], monitorWorktrees: boolean): string[] {
+      return projectNames.filter(name => {
+        return (monitorWorktrees && name.startsWith(encodedPath)) ||
+               (!monitorWorktrees && name.trim() === encodedPath.trim());
+      });
+    }
+
     ignoreCase = ignoreCase ?? (process.platform === 'win32' || process.platform === 'darwin');
+    let dirs: string[] = [];
     try {
       if (!fs.existsSync(projectsPath)) {
         console.warn(`Claudine: Projects path does not exist: ${projectsPath}`);
         return dirs;
       }
 
-      const effectiveRoots = this.getEffectiveWorkspaceRoots();
+      const projectEntries = fs.readdirSync(projectsPath, { withFileTypes: true });
+      const projectNames = projectEntries
+        .filter(e => e.isDirectory())
+        .map(e => ignoreCase ? e.name.toLowerCase() : e.name)
+        .filter(_projectIncluded);
 
-      if (effectiveRoots && effectiveRoots.length > 0) {
-        // Only scan project directories that match the effective workspace roots
-        for (const folder of effectiveRoots) {
-          // Skip the extension's own workspace when running in EDH
-          if (this._excludedWorkspacePath && folder === this._excludedWorkspacePath) {
-            console.log(`Claudine: Skipping extension dev workspace: ${folder}`);
-            continue;
-          }
-
-          const encodedPath = this.encodeWorkspacePath(folder, ignoreCase);
-          const projectDir = path.join(projectsPath, encodedPath);
-
-          console.log(`Claudine: Workspace "${folder}" → encoded "${encodedPath}"`);
-
-          if (fs.existsSync(projectDir)) {
-            dirs.push(projectDir);
-            console.log(`Claudine: Matched project dir: ${projectDir}`);
-          } else {
-            console.warn(`Claudine: No project dir found for workspace: ${projectDir}`);
-          }
-        }
-      } else {
-        // No workspace open & auto mode — scan all projects as fallback
+      const effectiveFolders = this.getEffectiveWorkspaceFolders();
+      if (!effectiveFolders) {
         console.log('Claudine: No workspace folders, scanning all projects');
-        const entries = fs.readdirSync(projectsPath, { withFileTypes: true });
-        for (const entry of entries) {
-          if (!entry.isDirectory()) continue;
-          const exclusion = ClaudeCodeWatcher.isExcludedProjectDir(entry.name);
-          if (exclusion.excluded) {
-            console.log(`Claudine: Auto-excluding project dir "${entry.name}" — ${exclusion.reason}`);
-            continue;
-          }
-          dirs.push(path.join(projectsPath, entry.name));
-        }
+        return projectNames.map(name => path.join(projectsPath, name));
       }
+
+      const monitorWorktrees = this.shouldMonitorWorktrees();
+      dirs = effectiveFolders
+        .map(folder => this.encodeWorkspacePath(folder, ignoreCase))
+        .flatMap(encoded => _getMatchingProjects(encoded, projectNames, monitorWorktrees))
+        .map(name => path.join(projectsPath, name));
+      dirs = [...new Set(dirs)]; // dedup
+      for (const dir of dirs) {
+        console.log(`Claudine: matched project dir "${dir}"`);
+      }
+      
     } catch (error) {
       console.error('Claudine: Error listing project directories', error);
     }
@@ -424,44 +383,6 @@ export class ClaudeCodeWatcher implements IConversationProvider {
   private encodeWorkspacePath(workspacePath: string, lowercase: boolean = false): string {
     const normalizedWorkspacePath = this.normalizePath(workspacePath, lowercase);
     return normalizedWorkspacePath.replace(/[/.:_]/g, '-');
-  }
-
-  private resolveWorkspacePathForFile(filePath: string): string | undefined {
-    const effectiveRoots = this.getEffectiveWorkspaceRoots();
-    if (!effectiveRoots || effectiveRoots.length === 0) return undefined;
-
-    const lowercase = process.platform === 'win32' || process.platform === 'darwin';
-    const normalizedFilePath = this.normalizePath(filePath, lowercase);
-    for (const root of effectiveRoots) {
-      const encodedPath = this.encodeWorkspacePath(root, lowercase);
-      if (normalizedFilePath.includes(`/${encodedPath}/`)) {
-        return root;
-      }
-    }
-
-    return undefined;
-  }
-
-  private extractWorktreeName(workspacePath: string | undefined): string | undefined {
-    if (!workspacePath) return undefined;
-    const normalized = workspacePath.replace(/\\/g, '/');
-    const match = normalized.match(/\/\.claude\/worktrees\/([^/]+)(?:\/|$)/);
-    return match?.[1];
-  }
-
-  private applyWorkspaceMetadata(conversation: Conversation, filePath: string): Conversation {
-    const resolvedWorkspacePath = this.resolveWorkspacePathForFile(filePath) ?? conversation.workspacePath;
-    const worktreeName = this.extractWorktreeName(resolvedWorkspacePath);
-
-    if (resolvedWorkspacePath === conversation.workspacePath && worktreeName === conversation.worktreeName) {
-      return conversation;
-    }
-
-    return {
-      ...conversation,
-      workspacePath: resolvedWorkspacePath,
-      worktreeName,
-    };
   }
 
   // ── Project discovery & progressive scanning (standalone) ─────────
@@ -571,7 +492,7 @@ export class ClaudeCodeWatcher implements IConversationProvider {
           try {
             const conversation = await this._parser.parseFile(filePath);
             if (conversation) {
-              projectConvs.push(this.applyWorkspaceMetadata(conversation, filePath));
+              projectConvs.push(conversation);
             }
           } catch (error) {
             console.error(`Claudine: Error parsing ${filePath}`, error);

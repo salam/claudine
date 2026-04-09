@@ -629,7 +629,6 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       showTaskDescription: config.get('showTaskDescription', true),
       showTaskLatest: config.get('showTaskLatest', true),
       showTaskGitBranch: config.get('showTaskGitBranch', true),
-      monitorWorktrees: config.get('monitorWorktrees', true),
       monitoredWorkspace: (() => {
         const raw = this._provider.getWorkspaceLocalConfig?.<MonitoredWorkspace>('monitoredWorkspace', { mode: 'auto' })
           ?? { mode: 'auto' as const };
@@ -637,6 +636,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
           ? raw as MonitoredWorkspace
           : { mode: 'auto' as const };
       })(),
+      monitorWorktrees: config.get('monitorWorktrees', true),
       detectedWorkspacePaths: this._provider.getWorkspacePaths?.() ?? [],
       customTerminals: config.get<CustomTerminalConfig[]>('customTerminals', []),
     };

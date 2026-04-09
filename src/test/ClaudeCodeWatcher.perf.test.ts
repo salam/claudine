@@ -298,6 +298,9 @@ describe('ClaudeCodeWatcher — regression tests', () => {
         ) {
           return [{ name: 'conv-1.jsonl', isDirectory: () => false, isFile: () => true }];
         }
+        if (dirPath === path.join(claudePath, 'projects')) {
+          return [{ name: encodedDir, isDirectory: () => true, isFile: () => false }];
+        }
         return [];
       }) as unknown as typeof fs.readdirSync);
 
@@ -344,6 +347,9 @@ describe('ClaudeCodeWatcher — regression tests', () => {
         ) {
           return [{ name: 'conv-win.jsonl', isDirectory: () => false, isFile: () => true }];
         }
+        if (dirPath === path.join(claudePath, 'projects')) {
+          return [{ name: encodedDir, isDirectory: () => true, isFile: () => false }];
+        }
         return [];
       }) as unknown as typeof fs.readdirSync);
 
@@ -389,6 +395,9 @@ describe('ClaudeCodeWatcher — regression tests', () => {
         ) {
           return [{ name: 'conv-mix.jsonl', isDirectory: () => false, isFile: () => true }];
         }
+        if (dirPath === path.join(claudePath, 'projects')) {
+          return [{ name: encodedDir, isDirectory: () => true, isFile: () => false }];
+        }
         return [];
       }) as unknown as typeof fs.readdirSync);
 
@@ -428,6 +437,9 @@ describe('ClaudeCodeWatcher — regression tests', () => {
         if (typeof dirPath === 'string' && dirPath.includes(encodedDir)) {
           return [{ name: 'conv-linux.jsonl', isDirectory: () => false, isFile: () => true }];
         }
+        if (dirPath === path.join(claudePath, 'projects')) {
+          return [{ name: encodedDir, isDirectory: () => true, isFile: () => false }];
+        }
         return [];
       }) as unknown as typeof fs.readdirSync);
 
@@ -448,17 +460,19 @@ describe('ClaudeCodeWatcher — regression tests', () => {
       expect(convs.length).toBe(1);
     });
 
-    it('assigns worktree metadata to conversations from monitored Claude worktrees', async () => {
-      const workspace = '/Users/alice/projectA';
-      const worktreesDir = path.join(workspace, '.claude', 'worktrees');
-      const worktreePath = path.join(worktreesDir, 'feature-login');
+    it('scans worktree project directories matching workspace pattern', async () => {
+      const workspacePath = '/Users/alice/projectA';
+      const encodedDir = '-Users-alice-projectA--claude-worktrees-feature-login';
+      // Should ignore directories that don't match workspace pattern
+      const otherEncodedDir = '-Users-alice-projectB--claude-worktrees-feature-logout';
+      
       const ignoreCase = process.platform === 'win32' || process.platform === 'darwin';
-      const encodedDir = ignoreCase
-        ? '-users-alice-projecta--claude-worktrees-feature-login'
-        : '-Users-alice-projectA--claude-worktrees-feature-login';
+      const escapedSep = path.sep.replace(/\\/g, '\\\\');
+      const encodedDirMatchStr = new RegExp(`${encodedDir}${escapedSep}?$`, ignoreCase ? 'i' : '');
+      const otherEncodedDirMatchStr = new RegExp(`${otherEncodedDir}${escapedSep}?$`, ignoreCase ? 'i' : '');
 
       const platform = createMockPlatform();
-      platform.getWorkspaceFolders = () => [workspace];
+      platform.getWorkspaceFolders = () => [workspacePath];
       platform.getConfig = ((key: string, defaultValue: unknown) => {
         if (key === 'monitorWorktrees') return true as never;
         return defaultValue as never;
@@ -469,17 +483,20 @@ describe('ClaudeCodeWatcher — regression tests', () => {
 
       mockExistsSync.mockImplementation(((p: string) => {
         if (p === projectsPath) return true;
-        if (p === worktreesDir) return true;
-        if (typeof p === 'string' && p.includes(encodedDir)) return true;
+        if (encodedDirMatchStr.test(p)) return true;
+        if (otherEncodedDirMatchStr.test(p)) return true;
         return false;
       }) as typeof fs.existsSync);
 
       mockReaddirSync.mockImplementation(((dirPath: string) => {
-        if (dirPath === worktreesDir) {
-          return [{ name: 'feature-login', isDirectory: () => true, isFile: () => false }];
+        if (dirPath === projectsPath) {
+          return [{ name: encodedDir, isDirectory: () => true, isFile: () => false }];
         }
-        if (typeof dirPath === 'string' && dirPath.includes(encodedDir)) {
+        if (encodedDirMatchStr.test(dirPath)) {
           return [{ name: 'conv-worktree.jsonl', isDirectory: () => false, isFile: () => true }];
+        }
+        if (otherEncodedDirMatchStr.test(dirPath)) {
+          return [{ name: 'conv-other.jsonl', isDirectory: () => false, isFile: () => true }];
         }
         return [];
       }) as unknown as typeof fs.readdirSync);
@@ -499,8 +516,59 @@ describe('ClaudeCodeWatcher — regression tests', () => {
       expect(sm.setConversations).toHaveBeenCalledTimes(1);
       const convs = sm.setConversations.mock.calls[0][0] as Conversation[];
       expect(convs).toHaveLength(1);
-      expect(convs[0].workspacePath).toBe(worktreePath);
-      expect((convs[0] as any).worktreeName).toBe('feature-login');
+      expect(convs[0].id).toBe('conv-worktree');
+      
+      let expectedFilePath = path.join(projectsPath, encodedDir, 'conv-worktree.jsonl');
+      expectedFilePath = ignoreCase ? expectedFilePath.toLowerCase() : expectedFilePath;
+      expect(mockReadFile).toHaveBeenCalledExactlyOnceWith(
+        expect.toSatisfy((p: string) => {
+          p = ignoreCase ? p.toLowerCase() : p;
+          return p.includes(expectedFilePath);
+        }),
+        'utf-8'
+      );
+    });
+
+    it('does not scan worktree project directories when monitorWorktrees is disabled', async () => {
+      const workspacePath = '/Users/alice/projectA';
+      const encodedDir = '-Users-alice-projectA--claude-worktrees-feature-login';
+      
+      const ignoreCase = process.platform === 'win32' || process.platform === 'darwin';
+      const escapedSep = path.sep.replace(/\\/g, '\\\\');
+      const encodedDirMatchStr = new RegExp(`${encodedDir}${escapedSep}?$`, ignoreCase ? 'i' : '');
+
+      const platform = createMockPlatform();
+      platform.getWorkspaceFolders = () => [workspacePath];
+      platform.getConfig = ((key: string, defaultValue: unknown) => {
+        if (key === 'monitorWorktrees') return false as never;
+        return defaultValue as never;
+      }) as typeof platform.getConfig;
+
+      const sm = createMockStateManager();
+      const w = new ClaudeCodeWatcher(sm as never, platform);
+
+      mockExistsSync.mockImplementation(((p: string) => {
+        if (p === projectsPath) return true;
+        if (encodedDirMatchStr.test(p)) return true;
+        return false;
+      }) as typeof fs.existsSync);
+
+      mockReaddirSync.mockImplementation(((dirPath: string) => {
+        if (dirPath === projectsPath) {
+          return [{ name: encodedDir, isDirectory: () => true, isFile: () => false }];
+        }
+        if (encodedDirMatchStr.test(dirPath)) {
+          return [{ name: 'conv-worktree.jsonl', isDirectory: () => false, isFile: () => true }];
+        }
+        return [];
+      }) as unknown as typeof fs.readdirSync);
+      
+      await w.refresh();
+
+      expect(sm.setConversations).toHaveBeenCalledTimes(1);
+      const convs = sm.setConversations.mock.calls[0][0] as Conversation[];
+      expect(convs).toHaveLength(0);
+      expect(mockReadFile).toHaveBeenCalledTimes(0);
     });
   });
 
