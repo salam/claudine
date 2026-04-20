@@ -188,7 +188,6 @@ Return ONLY a JSON array in the same order: [{"title":"...","description":"...",
       const child = spawn(backend.path, args, {
         cwd: os.tmpdir(),
         env: CHILD_ENV,
-        shell: process.platform === 'win32',  // required to execute .cmd/.bat files on Windows
         signal: ac.signal,
       });
 
@@ -266,8 +265,7 @@ Return ONLY a JSON array in the same order: [{"title":"...","description":"...",
         const binPath = stdout.trim().split('\n')[0].trim();
         const child = spawn(binPath, ['--version'], {
           timeout: CLI_CHECK_TIMEOUT_MS,
-          env: CHILD_ENV,
-          shell: isWindows  // required to execute .cmd/.bat files on Windows
+          env: CHILD_ENV
         });
         child.on('error', () => resolve(undefined));
         child.on('close', (code) => resolve(code === 0 ? binPath : undefined));
