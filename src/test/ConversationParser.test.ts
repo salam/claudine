@@ -553,4 +553,112 @@ describe('ConversationParser', () => {
       expect(result!.lastMessage).toContain('Dark mode is now available');
     });
   });
+
+  describe('worktree detection', () => {
+    it('extracts worktree name from worktree-state entry', async () => {
+      const content = [
+        fixtures.userMessage('Do some work', 10),
+        JSON.stringify({
+          type: 'worktree-state',
+          uuid: crypto.randomUUID(),
+          timestamp: new Date().toISOString(),
+          sessionId: 'test-session',
+          parentUuid: null,
+          isSidechain: false,
+          worktreeSession: { worktreeName: 'my-feature-branch' },
+        }),
+        fixtures.assistantMessage('Done', 9),
+      ].join('\n');
+      const result = await parseContent(content);
+      expect(result).not.toBeNull();
+      expect(result!.worktreeName).toBe('my-feature-branch');
+    });
+
+    it('returns undefined worktree when no worktree-state entry', async () => {
+      const result = await parseContent(fixtures.completedConversation);
+      expect(result).not.toBeNull();
+      expect(result!.worktreeName).toBeUndefined();
+    });
+
+    it('returns undefined worktree after null worktreeSession', async () => {
+      const content = [
+        fixtures.userMessage('Do some work', 10),
+        JSON.stringify({
+          type: 'worktree-state',
+          uuid: crypto.randomUUID(),
+          timestamp: new Date().toISOString(),
+          sessionId: 'test-session',
+          parentUuid: null,
+          isSidechain: false,
+          worktreeSession: null,
+        }),
+        fixtures.assistantMessage('Done', 9),
+      ].join('\n');
+      const result = await parseContent(content);
+      expect(result).not.toBeNull();
+      expect(result!.worktreeName).toBeUndefined();
+    });
+
+    it('parses worktree based on latest worktree-state entry', async () => {
+      const content = [
+        fixtures.userMessage('Do some work', 10),
+        JSON.stringify({
+          type: 'worktree-state',
+          uuid: crypto.randomUUID(),
+          timestamp: new Date().toISOString(),
+          sessionId: 'test-session',
+          parentUuid: null,
+          isSidechain: false,
+          worktreeSession: { worktreeName: 'first-branch' },
+        }),
+        fixtures.assistantMessage('Done', 9),
+        fixtures.userMessage('Do some more work', 8),
+        JSON.stringify({
+          type: 'worktree-state',
+          uuid: crypto.randomUUID(),
+          timestamp: new Date().toISOString(),
+          sessionId: 'test-session',
+          parentUuid: null,
+          isSidechain: false,
+          worktreeSession: null
+        }),
+        fixtures.assistantMessage('Done', 7)
+      ].join('\n');
+      const result = await parseContent(content);
+      expect(result).not.toBeNull();
+      expect(result!.worktreeName).toBeUndefined();
+    });
+  });
+
+  describe('message content normalization', () => {
+    it('parses string content (collapsed text format)', async () => {
+      const content = JSON.stringify({
+        type: 'user',
+        uuid: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        sessionId: 'test-session',
+        parentUuid: null,
+        isSidechain: false,
+        message: { role: 'user', content: 'Plain string content' },
+      });
+      const result = await parseContent(content);
+      expect(result).not.toBeNull();
+      expect(result!.title).toBe('Plain string content');
+    });
+
+    it('parses single content block (non-array format)', async () => {
+      const content = JSON.stringify({
+        type: 'user',
+        uuid: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        sessionId: 'test-session',
+        parentUuid: null,
+        isSidechain: false,
+        message: { role: 'user', content: { type: 'text', text: 'Single block content' } },
+      });
+      const result = await parseContent(content);
+      expect(result).not.toBeNull();
+      expect(result!.title).toBe('Single block content');
+    });
+  });
 });

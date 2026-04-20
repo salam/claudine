@@ -10,14 +10,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Added
 
 - Custom terminal configuration: `claudine.customTerminals` config property can be used to specify a custom terminal emulator and arguments for use in Standalone mode.
+- Worktree support — conversations from Claude Code worktrees are now shown on the board alongside regular conversations
+  - worktree name is surfaced as a `worktreeName` field and WT badge on each conversation
+  - `claudine.monitorWorktrees` configuration property (default `true`) to toggle worktree scanning
+  - Worktree name is detected from `worktree-state` JSONL entries emitted by Claude Code
 
 ### Fixed
 
 - Summarization on Windows: `resolveExecutable` now uses `which` or `where` depending on platform, enabling Summarization on Windows
+- Workspace path reconstruction (`ConversationParser`) — replaced the greedy hyphen-split approach with a filesystem walk; paths containing dots (`user.name`), underscores (`my_project`), or Windows drive-letter colons (`C:`) are now resolved correctly on all platforms
+- Windows workspace encoding (`ClaudeCodeWatcher`) — `encodeWorkspacePath` normalizes backslashes on all platforms and applies case folding on case-insensitive platforms (Windows/macOS); fixes some conversations from Windows projects not appearing on the board
 - Workspace path reconstruction (`ConversationParser`) — replaced the greedy hyphen-split + `fsp.access` existence-check approach with a filesystem walk; paths containing spaces, dots (`user.name`), underscores (`my_project`), or Windows drive-letter colons (`C:`) are now resolved correctly on all platforms
 - Windows workspace encoding (`ClaudeCodeWatcher`) — `encodeWorkspacePath` normalizes backslashes before encoding and applies case folding on case-insensitive platforms (Windows/macOS), matching Claude Code's encoding exactly; fixes conversations from Windows projects not appearing on the board
 - Standalone terminal resumption on Windows — tries Windows Terminal (`wt`) before falling back to `cmd /c start`
 - Standalone conversation "open in terminal" dropdown immediately closing — `stopPropagation` on the button click prevents the window-level handler from dismissing the menu before it renders
+- Conversation content parsing: `content` field in Claude Code messages will sometimes be a single element or a string rather than an array of expected schema; `parseMessageContent` now handles either case
+- WT badge UI fix: the WT badge on Conversation cards would sometimes overflow the edge of the card
 
 ## [1.1.5]
 

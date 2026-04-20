@@ -318,6 +318,7 @@ export class StandaloneMessageHandler {
       showTaskGitBranch: this._platform.getConfig('showTaskGitBranch', true),
       customTerminals: this._platform.getConfig<CustomTerminalConfig[]>('customTerminals', []),
       monitoredWorkspace: this._platform.getConfig('monitoredWorkspace', { mode: 'auto' }),
+      monitorWorktrees: this._platform.getConfig('monitorWorktrees', true),
       detectedWorkspacePaths: [],
     };
     this._send({ type: 'updateSettings', settings });
