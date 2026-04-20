@@ -172,6 +172,7 @@ export interface LastActivity {
 
 export interface Conversation {
   id: string;
+  shortId?: string;
   title: string;
   description: string;
   category: ConversationCategory;

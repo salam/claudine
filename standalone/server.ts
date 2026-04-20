@@ -13,6 +13,7 @@ import { CodexWatcher } from '../src/providers/CodexWatcher';
 import { CompositeConversationProvider } from '../src/providers/CompositeConversationProvider';
 import { IConversationProvider } from '../src/providers/IConversationProvider';
 import { CommandProcessor } from '../src/services/CommandProcessor';
+import { InlineCommandRouter } from '../src/services/InlineCommandRouter';
 import { StandaloneMessageHandler } from './StandaloneMessageHandler';
 import { ExtensionToWebviewMessage } from '../src/types';
 import { ARCHIVE_CHECK_INTERVAL_MS, NONCE_BYTES } from '../src/constants';
@@ -81,6 +82,11 @@ export class ClaudineServer {
     await this._stateManager.ready;
 
     this._commandProcessor = new CommandProcessor(this._stateManager, this._platform);
+
+    // Wire inline /claudine command routing
+    const inlineRouter = new InlineCommandRouter(this._commandProcessor);
+    await inlineRouter.loadProcessedIds(this._storageService);
+    this._claudeCodeWatcher.setInlineRouter(inlineRouter);
 
     // Create message handler
     this._messageHandler = new StandaloneMessageHandler(

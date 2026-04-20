@@ -28,6 +28,8 @@ export interface LastActivity {
 
 export interface Conversation {
   id: string;
+  /** Human-friendly short ID, e.g. "T-1". Assigned by StateManager, stable across restarts. */
+  shortId?: string;
   title: string;
   description: string;
   category: ConversationCategory;
@@ -63,6 +65,8 @@ export interface Conversation {
   worktreeName?: string;
   /** Which conversation provider produced this conversation (e.g. 'claude-code'). */
   provider?: string;
+  /** Inline /claudine commands detected across all messages. */
+  pendingCommands?: InlineCommand[];
 }
 
 export interface KanbanColumn {
@@ -237,6 +241,8 @@ export interface ParsedMessage {
   rateLimitResetTime?: string;
   /** Brief hint from the last tool result in this message (max ~100 chars). */
   toolResultHint?: string;
+  /** Inline /claudine commands detected in this message. */
+  detectedCommands?: InlineCommand[];
 }
 
 export interface ClaudeCodeSession {
@@ -314,5 +320,22 @@ export interface AgentCommandResult {
   commandId: string;
   success: boolean;
   error?: string;
+  timestamp: string;
+}
+
+// ── Inline slash commands (/claudine done, /claudine archive T-3, etc.) ───
+
+export type InlineCommandAction = 'done' | 'archive' | 'cancel' | 'review' | 'todo' | 'category' | 'title';
+
+export interface InlineCommand {
+  /** Deterministic ID for dedup: entryUuid + ':cmd-' + index. */
+  id: string;
+  /** Parsed action type. */
+  type: InlineCommandAction;
+  /** Optional target task (short ID or title). Omit to target current conversation. */
+  target?: string;
+  /** Action-specific argument (category name, title text). */
+  argument?: string;
+  /** ISO timestamp of the JSONL entry containing the command. */
   timestamp: string;
 }

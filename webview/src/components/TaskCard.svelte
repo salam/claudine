@@ -274,7 +274,7 @@
     class:has-error={conversation.hasError}
     class:focused
     style="--category-color: {categoryDetails.color}"
-    title={cleanTitle(displayTitle)}
+    title={conversation.shortId ? `${conversation.shortId} \u2014 ${cleanTitle(displayTitle)}` : cleanTitle(displayTitle)}
     role="article"
     on:contextmenu={handleContextMenu}
   >
@@ -347,6 +347,9 @@
       <span class="project-label" title={projectLabel}>{projectLabel}</span>
     {/if}
     <div class="title-wrap compact-title-wrap">
+      {#if conversation.shortId}
+        <span class="short-id">{conversation.shortId}</span>
+      {/if}
       <button class="compact-title-btn" on:click={handleOpenConversation} title={titleTooltip}>{@html highlight(cleanTitle(displayTitle))}</button>
       {#if showTimer}
         <span class="compact-timer" class:paused={!isActive}>{timerDisplay}</span>
@@ -457,6 +460,9 @@
         {/if}
       {/if}
       <div class="title-wrap">
+        {#if conversation.shortId}
+          <span class="short-id">{conversation.shortId}</span>
+        {/if}
         <button class="title-btn" on:click={handleOpenConversation} title={titleTooltip}>
           {@html highlight(cleanTitle(displayTitle))}
         </button>
@@ -623,6 +629,17 @@
 <style>
   /* Search highlight injected via {@html} — must be :global to style dynamic content */
   :global(.search-hl) { background: #e2b714; color: #1e1e1e; border-radius: 2px; padding: 0 2px; }
+
+  /* ---- Short task ID badge ---- */
+  .short-id {
+    flex-shrink: 0;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 9px;
+    color: var(--vscode-descriptionForeground, #888);
+    opacity: 0.7;
+    margin-right: 4px;
+    white-space: nowrap;
+  }
 
   /* ---- Draft card ---- */
   .task-card.draft {

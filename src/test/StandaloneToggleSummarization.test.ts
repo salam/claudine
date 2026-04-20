@@ -55,7 +55,7 @@ function createMockPlatform(): IPlatformAdapter {
 
 // Lazy-import to avoid pulling in real FS/chokidar deps; mock modules first.
 vi.mock('../services/StorageService', () => ({
-  StorageService: class { loadBoardState = vi.fn().mockResolvedValue(null); saveBoardState = vi.fn(); loadDrafts = vi.fn().mockResolvedValue([]); saveDrafts = vi.fn(); },
+  StorageService: class { loadBoardState = vi.fn().mockResolvedValue(null); saveBoardState = vi.fn(); loadDrafts = vi.fn().mockResolvedValue([]); saveDrafts = vi.fn(); saveGlobalSetting = vi.fn(); getGlobalSetting = vi.fn((_k: string, d: unknown) => d); },
 }));
 
 describe('BUG8 – toggleSummarization in standalone mode', () => {

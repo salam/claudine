@@ -47,6 +47,8 @@ function createMockStorage() {
     saveBoardState: vi.fn().mockResolvedValue(undefined),
     loadDrafts: vi.fn().mockResolvedValue([]),
     saveDrafts: vi.fn().mockResolvedValue(undefined),
+    saveGlobalSetting: vi.fn().mockResolvedValue(undefined),
+    getGlobalSetting: vi.fn((_k: string, d: unknown) => d),
   };
 }
 
@@ -58,6 +60,8 @@ vi.mock('../services/StorageService', () => {
       saveBoardState = vi.fn().mockResolvedValue(undefined);
       loadDrafts = vi.fn().mockResolvedValue([]);
       saveDrafts = vi.fn().mockResolvedValue(undefined);
+      saveGlobalSetting = vi.fn().mockResolvedValue(undefined);
+      getGlobalSetting = vi.fn((_k: string, d: unknown) => d);
     },
   };
 });

@@ -11,7 +11,9 @@ import {
   ClaudeCodeJsonlEntry,
   ClaudeCodeContent,
   SidechainStep,
-  LastActivity
+  LastActivity,
+  InlineCommand,
+  InlineCommandAction
 } from '../types';
 import {
   MAX_TITLE_LENGTH,
@@ -380,6 +382,11 @@ export class ConversationParser {
 
     const textContent = textParts.join('\n');
 
+    // Detect inline /claudine commands in user messages
+    const detectedCommands = role === 'user'
+      ? ConversationParser.detectInlineCommands(textContent, entry.uuid, entry.timestamp)
+      : undefined;
+
     return {
       role,
       textContent,
@@ -392,8 +399,64 @@ export class ConversationParser {
       isRateLimited,
       rateLimitResetDisplay,
       rateLimitResetTime,
-      toolResultHint
+      toolResultHint,
+      detectedCommands: detectedCommands?.length ? detectedCommands : undefined,
     };
+  }
+
+  private static readonly INLINE_COMMAND_PATTERN =
+    /\/claudine\s+(done|archive|cancel|review|todo|category|title)(?:[ \t]+([^\n]+))?/gi;
+
+  private static readonly VALID_ACTIONS = new Set<InlineCommandAction>([
+    'done', 'archive', 'cancel', 'review', 'todo', 'category', 'title'
+  ]);
+
+  static detectInlineCommands(text: string, entryUuid: string, timestamp: string): InlineCommand[] {
+    const commands: InlineCommand[] = [];
+    let match: RegExpExecArray | null;
+    let index = 0;
+
+    // Reset lastIndex for global regex
+    ConversationParser.INLINE_COMMAND_PATTERN.lastIndex = 0;
+
+    while ((match = ConversationParser.INLINE_COMMAND_PATTERN.exec(text)) !== null) {
+      const action = match[1].toLowerCase() as InlineCommandAction;
+      if (!ConversationParser.VALID_ACTIONS.has(action)) continue;
+
+      const rawArg = match[2]?.trim();
+      let target: string | undefined;
+      let argument: string | undefined;
+
+      if (action === 'category' || action === 'title') {
+        // For category/title, the argument is the value
+        argument = rawArg;
+      } else {
+        // For status commands, optional arg is a target short ID (e.g. T-3)
+        if (rawArg && /^T-\d+$/i.test(rawArg)) {
+          target = rawArg;
+        }
+      }
+
+      commands.push({
+        id: `${entryUuid}:cmd-${index++}`,
+        type: action,
+        target,
+        argument,
+        timestamp,
+      });
+    }
+
+    return commands;
+  }
+
+  private collectPendingCommands(messages: ParsedMessage[]): InlineCommand[] | undefined {
+    const commands: InlineCommand[] = [];
+    for (const msg of messages) {
+      if (msg.detectedCommands) {
+        commands.push(...msg.detectedCommands);
+      }
+    }
+    return commands.length > 0 ? commands : undefined;
   }
 
   /** Keep only the fields we actually use from tool inputs, discarding large payloads. */
@@ -498,6 +561,7 @@ export class ConversationParser {
       lastActivity,
       lastStatusText,
       referencedImage: this.extractReferencedImage(messages),
+      pendingCommands: this.collectPendingCommands(messages),
       createdAt,
       updatedAt,
       filePath,

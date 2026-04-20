@@ -113,7 +113,7 @@ export class CommandProcessor {
     }
   }
 
-  private executeCommand(command: AgentCommand): AgentCommandResult {
+  public executeCommand(command: AgentCommand): AgentCommandResult {
     const base = { commandId: command.id, timestamp: new Date().toISOString() };
 
     try {
@@ -192,13 +192,17 @@ export class CommandProcessor {
     return { ...base, success: true };
   }
 
-  /** Resolve a task identifier to a Conversation. Supports exact ID or title matching. */
+  /** Resolve a task identifier to a Conversation. Supports exact ID, short ID, or title matching. */
   private resolveTask(taskIdentifier: string): Conversation | undefined {
     // 1. Exact ID match
     const byId = this._stateManager.getConversation(taskIdentifier);
     if (byId) { return byId; }
 
-    // 2. Title match (case-insensitive)
+    // 2. Short ID match (e.g. "T-1")
+    const byShortId = this._stateManager.getConversationByShortId(taskIdentifier);
+    if (byShortId) { return byShortId; }
+
+    // 3. Title match (case-insensitive)
     const conversations = this._stateManager.getConversations();
     const lower = taskIdentifier.toLowerCase();
 

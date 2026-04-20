@@ -28,6 +28,7 @@
 - [x] Inline "Respond" prompt input on cards needing input
 - [x] "Open" menu to open conversation in terminal or VS Code editor
 - [x] Highlight when the card's conversation is the focused editor tab
+- [x] Short task ID badge (e.g. `T-1`, `T-2`) — auto-assigned, stable across restarts, displayed on all card views
 - [x] Configurable display: toggle icon, description, latest message, git branch
 
 ## Auto-Status Detection
@@ -139,7 +140,9 @@
 ## Agent Integration
 
 - [x] Claude agents control the board via `.claudine/commands.jsonl`
-- [x] Commands: move, update, set-category (with task resolution by ID/title/substring)
+- [x] Commands: move, update, set-category (with task resolution by ID/title/short ID/substring)
+- [x] Inline slash commands: type `/claudine done`, `/claudine archive`, `/claudine category bug`, etc. in Claude Code conversations
+- [x] Cross-conversation targeting via short ID (e.g. `/claudine done T-3`)
 - [x] Results written to `.claudine/command-results.json`
 - [x] `setupAgentIntegration` command scaffolds `CLAUDINE.AGENTS.md`
 - [x] Status bar button: missing → setup prompt, unreferenced → warning, ok → hidden

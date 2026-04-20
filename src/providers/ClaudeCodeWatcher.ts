@@ -7,6 +7,7 @@ import { StateManager } from '../services/StateManager';
 import { SummaryService } from '../services/SummaryService';
 import { ImageGenerator } from '../services/ImageGenerator';
 import { Conversation, ProjectManifestEntry } from '../types';
+import { InlineCommandRouter } from '../services/InlineCommandRouter';
 import { IConversationProvider } from './IConversationProvider';
 import { MAX_IMAGE_FILE_SIZE_BYTES } from '../constants';
 
@@ -30,6 +31,11 @@ export class ClaudeCodeWatcher implements IConversationProvider {
   private _claudePath: string;
   private _excludedWorkspacePath: string | undefined;
   private _iconPending = new Set<string>();
+  private _inlineRouter?: InlineCommandRouter;
+
+  public setInlineRouter(router: InlineCommandRouter) {
+    this._inlineRouter = router;
+  }
 
   /** Clear the pending-icon set so regeneration can pick up all conversations. */
   public clearPendingIcons() {
@@ -173,6 +179,14 @@ export class ClaudeCodeWatcher implements IConversationProvider {
       if (conversation) {
         this._summaryService.applyCached(conversation);
         this._stateManager.updateConversation(conversation);
+
+        // Route any inline /claudine commands detected in the conversation
+        if (this._inlineRouter && conversation.pendingCommands?.length) {
+          this._inlineRouter.routeCommands(
+            conversation.id,
+            conversation.pendingCommands
+          );
+        }
 
         // Kick off async summarization if not cached
         if (!this._summaryService.hasCached(conversation.id)) {

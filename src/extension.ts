@@ -15,6 +15,7 @@ import { StorageService } from './services/StorageService';
 import { ImageGenerator } from './services/ImageGenerator';
 import { SummaryService } from './services/SummaryService';
 import { CommandProcessor } from './services/CommandProcessor';
+import { InlineCommandRouter } from './services/InlineCommandRouter';
 import { promptExport, promptImport } from './services/BoardExporter';
 import { ConversationStatus } from './types';
 
@@ -81,6 +82,12 @@ export async function activate(context: vscode.ExtensionContext) {
   // Watch for agent commands in .claudine/commands.jsonl
   commandProcessor = new CommandProcessor(stateManager, platform);
   commandProcessor.startWatching();
+
+  // Wire inline /claudine command routing (detects commands in conversation JSONL)
+  const inlineRouter = new InlineCommandRouter(commandProcessor);
+  await inlineRouter.loadProcessedIds(storageService);
+  claudeProvider.setInlineRouter(inlineRouter);
+  context.subscriptions.push({ dispose: () => inlineRouter.saveProcessedIds(storageService) });
 
   // Initialize the Kanban view provider with provider-aware editor commands
   const claudeEditorCommands = new ClaudeCodeEditorCommands();

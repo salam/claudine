@@ -5,6 +5,7 @@ import { SAVE_STATE_DEBOUNCE_MS, NOTIFY_COALESCE_MS } from '../constants';
 
 export class StateManager {
   private _conversations: Map<string, Conversation> = new Map();
+  private _nextShortId: number = 1;
   private _onConversationsChanged: PlatformEventEmitter<Conversation[]>;
   private _onNeedsInput: PlatformEventEmitter<Conversation>;
   private _onRateLimitDetected: PlatformEventEmitter<Conversation>;
@@ -39,6 +40,7 @@ export class StateManager {
 
   private async loadState() {
     try {
+      this._nextShortId = this._storageService.getGlobalSetting('shortIdCounter', 1);
       const savedState = await this._storageService.loadBoardState();
       if (savedState?.conversations) {
         for (const conv of savedState.conversations) {
@@ -90,6 +92,20 @@ export class StateManager {
     return this._conversations.get(id);
   }
 
+  public getConversationByShortId(shortId: string): Conversation | undefined {
+    const lower = shortId.toLowerCase();
+    for (const conv of this._conversations.values()) {
+      if (conv.shortId?.toLowerCase() === lower) return conv;
+    }
+    return undefined;
+  }
+
+  private assignShortId(conv: Conversation): void {
+    if (conv.shortId) return;
+    conv.shortId = 'T-' + this._nextShortId++;
+    this._storageService.saveGlobalSetting('shortIdCounter', this._nextShortId);
+  }
+
   /**
    * Replace conversations from a scan.
    *
@@ -118,6 +134,7 @@ export class StateManager {
       const prevStatus = existing?.status;
       const wasRateLimited = existing?.isRateLimited ?? false;
       this.mergeWithExisting(conv);
+      this.assignShortId(conv);
       this._conversations.set(conv.id, conv);
       if (conv.status === 'needs-input' && prevStatus && prevStatus !== 'needs-input') {
         this._onNeedsInput.fire(conv);
@@ -137,6 +154,7 @@ export class StateManager {
     const existing = this._conversations.get(conversation.id);
     const wasRateLimited = existing?.isRateLimited ?? false;
     this.mergeWithExisting(conversation);
+    this.assignShortId(conversation);
     this._conversations.set(conversation.id, conversation);
     if (conversation.isRateLimited && !wasRateLimited) {
       this._onRateLimitDetected.fire(conversation);
@@ -165,9 +183,12 @@ export class StateManager {
     const existing = this._conversations.get(conv.id);
     if (!existing) return;
 
-    // Preserve icon
+    // Preserve icon and short ID
     if (existing.icon && !conv.icon) {
       conv.icon = existing.icon;
+    }
+    if (existing.shortId && !conv.shortId) {
+      conv.shortId = existing.shortId;
     }
 
     const hasNewContent = conv.updatedAt.getTime() > existing.updatedAt.getTime();

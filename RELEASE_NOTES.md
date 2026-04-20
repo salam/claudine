@@ -1,5 +1,12 @@
 # Release Notes
 
+## Version 1.2.17 (Mar 27 2026, 09:15)
+
+* **Short task IDs** — every conversation card now shows a unique ID (e.g. `T-1`, `T-2`), stable across restarts, visible in all card views (full, compact, narrow tooltip)
+* **Inline slash commands** — type `/claudine done`, `/claudine archive`, `/claudine review`, `/claudine cancel`, `/claudine todo`, `/claudine category bug`, or `/claudine title Fix the thing` inside a Claude Code conversation to control the Kanban board directly
+* **Cross-conversation targeting** — use a short ID to target a different task: `/claudine done T-3`
+* **Short ID lookup in agent commands** — the existing `.claudine/commands.jsonl` agent integration now resolves tasks by short ID in addition to UUID and title
+
 ## Version 1.2.16 (Apr 1 2026, 12:00)
 
 * **Fix: Workspace now re-detected when a folder is opened** — Claudine automatically narrows conversations to the opened workspace instead of continuing to show all projects

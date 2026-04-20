@@ -2,7 +2,7 @@
   "name": "claudine",
   "displayName": "Claudine",
   "description": "%extension.description%",
-  "version": "1.2.16",
+  "version": "1.2.17",
   "publisher": "claudine",
   "license": "MIT",
   "icon": "resources/icons/claudine-activitybar.png",
