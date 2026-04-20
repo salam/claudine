@@ -268,6 +268,13 @@
 - **Root cause:** The Codex VS Code extension (`openai.chatgpt`) does not expose a command to open a specific conversation by ID — only `chatgpt.openSidebar` is available. This is a limitation of the Codex extension's public API, not of Claudine. Once Codex exposes such a command, `CodexEditorCommands.openConversation` can be updated.
 - [ ] Blocked on Codex extension API
 
+## BUG2c — Workspace not re-detected after opening a folder
+
+- **Reported:** 2026-04-01
+- **Symptom:** When VS Code starts with no workspace open, Claudine shows all conversations (correct). But when the user then opens a workspace folder, Claudine keeps showing all conversations instead of filtering to the workspace. Also, no indication is given to the user that they're seeing all projects.
+- **Root cause:** No `onDidChangeWorkspaceFolders` listener existed — `getEffectiveWorkspaceFolders()` was only evaluated on initial scan and manual refresh. The webview also had no "no workspace" banner to inform users of the unfiltered state.
+- [✔️] Fixed — added `onDidChangeWorkspaceFolders` listener in `extension.ts` that triggers `updateSettings()` + `provider.refresh()`. Added `workspaceDetected` boolean to `ClaudineSettings`. Webview shows gray banner when no workspace is detected, and a transient info banner when a workspace is detected.
+
 ## BUG8b — AI summarization produces no summaries and toggle-off has no effect
 
 - **Reported:** 2026-03-26

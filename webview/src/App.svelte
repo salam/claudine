@@ -35,6 +35,24 @@
   let aboutOpen = false;
   let showArchive = false;
 
+  // Workspace detection banner state
+  let workspaceJustDetected = false;
+  let workspaceDetectedTimer: ReturnType<typeof setTimeout> | undefined;
+  let prevWorkspaceDetected: boolean | undefined;
+
+  // Track workspaceDetected transitions: false → true shows transient banner
+  $: {
+    const current = $settings.workspaceDetected;
+    if (prevWorkspaceDetected === false && current === true) {
+      workspaceJustDetected = true;
+      clearTimeout(workspaceDetectedTimer);
+      workspaceDetectedTimer = setTimeout(() => {
+        workspaceJustDetected = false;
+      }, 5000);
+    }
+    prevWorkspaceDetected = current;
+  }
+
   const allCategories: ConversationCategory[] = ['bug', 'user-story', 'feature', 'improvement', 'task'];
 
   const stateFilterDetails: Record<StateFilterKey, { icon: string; label: string; color: string }> = {
@@ -95,6 +113,7 @@
   onDestroy(() => {
     unsubSearch();
     clearTimeout(debounceTimer);
+    clearTimeout(workspaceDetectedTimer);
   });
 
   function handleMessage(event: MessageEvent<ExtensionMessage>) {
@@ -342,6 +361,21 @@
           {:else}
             Automatically restart all paused tasks when limit is lifted
           {/if}
+        </button>
+      </div>
+    {/if}
+    {#if !$settings.workspaceDetected && !workspaceJustDetected}
+      <div class="no-workspace-banner">
+        <span class="nw-text">No workspace detected. Showing all conversations of all projects.</span>
+        <button class="nw-link" on:click={() => vscode.postMessage({ type: 'openSettings' })}>Select path in settings</button>
+      </div>
+    {/if}
+    {#if workspaceJustDetected}
+      <div class="workspace-detected-banner">
+        <span class="wd-text">Workspace detected — now filtering conversations.</span>
+        <button class="wd-link" on:click={() => vscode.postMessage({ type: 'openSettings' })}>Change in settings</button>
+        <button class="wd-dismiss" on:click={() => { workspaceJustDetected = false; }} title="Dismiss">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
         </button>
       </div>
     {/if}
@@ -712,6 +746,71 @@
     font-weight: 500;
     text-decoration: none;
   }
+
+  /* No-workspace banner */
+  .no-workspace-banner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    background: var(--vscode-editorWidget-background, rgba(128, 128, 128, 0.12));
+    border-bottom: 1px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.3));
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground, #9e9e9e);
+  }
+  .nw-text { flex-shrink: 0; }
+  .nw-link {
+    font-size: 10px;
+    font-style: italic;
+    color: var(--vscode-textLink-foreground, #3794ff);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+  }
+  .nw-link:hover { text-decoration-style: solid; }
+
+  /* Workspace-detected transient banner */
+  .workspace-detected-banner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    background: rgba(59, 130, 246, 0.12);
+    border-bottom: 1px solid rgba(59, 130, 246, 0.3);
+    font-size: 11px;
+    color: var(--vscode-foreground, #cccccc);
+  }
+  .wd-text { flex-shrink: 0; }
+  .wd-link {
+    font-size: 10px;
+    font-style: italic;
+    color: var(--vscode-textLink-foreground, #3794ff);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+  }
+  .wd-link:hover { text-decoration-style: solid; }
+  .wd-dismiss {
+    width: 14px;
+    height: 14px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    color: var(--vscode-descriptionForeground, #9e9e9e);
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .wd-dismiss:hover { color: var(--vscode-foreground, #cccccc); }
+  .wd-dismiss svg { width: 100%; height: 100%; }
 
   .about-overlay {
     position: fixed; inset: 0; z-index: 100;

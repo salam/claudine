@@ -595,6 +595,14 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Re-evaluate workspace when folders are opened/closed
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      kanbanProvider.updateSettings();
+      provider.refresh();
+    })
+  );
+
   // Clean up on deactivation
   context.subscriptions.push({
     dispose: () => {

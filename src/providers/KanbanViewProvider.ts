@@ -281,6 +281,10 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
         break;
       }
 
+      case 'openSettings':
+        vscode.commands.executeCommand('claudine.openSettings');
+        break;
+
       case 'toggleAutoRestart': {
         const cfg = vscode.workspace.getConfiguration('claudine');
         const current = cfg.get<boolean>('autoRestartAfterRateLimit', false);
@@ -638,6 +642,7 @@ export class KanbanViewProvider implements vscode.WebviewViewProvider {
       })(),
       monitorWorktrees: config.get('monitorWorktrees', true),
       detectedWorkspacePaths: this._provider.getWorkspacePaths?.() ?? [],
+      workspaceDetected: (this._provider.getWorkspacePaths?.() ?? []).length > 0,
       customTerminals: config.get<CustomTerminalConfig[]>('customTerminals', []),
     };
     this.sendMessage({ type: 'updateSettings', settings });

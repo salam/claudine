@@ -138,6 +138,7 @@ export type WebviewToExtensionMessage =
   | { type: 'setAllProjectsEnabled'; enabled: boolean }
   | { type: 'openExternal'; url: string }
   | { type: 'browseWorkspaceFolder' }
+  | { type: 'openSettings' }
   | { type: 'ready' };
 
 export type ToolbarAction = 'toggleSearch' | 'toggleFilter' | 'toggleCompactView' | 'toggleExpandAll' | 'toggleArchive' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'toggleSettingsPanel' | 'toggleAbout';
@@ -167,6 +168,7 @@ export interface ClaudineSettings {
   monitoredWorkspace: MonitoredWorkspace;
   monitorWorktrees: boolean;
   detectedWorkspacePaths: string[];
+  workspaceDetected: boolean;
   customTerminals: CustomTerminalConfig[];
 }
 

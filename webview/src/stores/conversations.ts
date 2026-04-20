@@ -44,6 +44,7 @@ export const settings = writable<ClaudineSettings>({
   monitorWorktrees: true,
   monitoredWorkspace: { mode: 'auto' as const },
   detectedWorkspacePaths: [] as string[],
+  workspaceDetected: true,
 });
 
 // Error messages store

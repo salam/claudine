@@ -238,6 +238,7 @@ export interface ClaudineSettings {
   monitorWorktrees: boolean;
   monitoredWorkspace: MonitoredWorkspace;
   detectedWorkspacePaths: string[];
+  workspaceDetected: boolean;
 }
 
 export type IndexingPhase = 'idle' | 'discovery' | 'scanning' | 'complete';

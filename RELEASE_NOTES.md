@@ -1,5 +1,11 @@
 # Release Notes
 
+## Version 1.2.16 (Apr 1 2026, 12:00)
+
+* **Fix: Workspace now re-detected when a folder is opened** — Claudine automatically narrows conversations to the opened workspace instead of continuing to show all projects
+* **"No workspace" banner** — when no workspace is detected, a gray info bar explains that all conversations are shown and links to the Claudine settings to select a workspace path
+* **Transient "Workspace detected" banner** — briefly shown when Claudine detects a newly opened workspace, with a link to change the setting
+
 ## Version 1.2.15 (Mar 26 2026, 09:19)
 
 * **Provider-aware "Open in" menu** — standalone mode now shows context-aware options: Codex conversations offer "Open in Codex (VSCode)" and "Open in Codex (Cursor)"; Claude Code conversations offer "Resume in Terminal". All conversations show "Open in VSCode" and "Open in Cursor" as general editor options

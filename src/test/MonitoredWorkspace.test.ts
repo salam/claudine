@@ -194,6 +194,39 @@ describe('MonitoredWorkspace — getProjectDirsToScan', () => {
   });
 });
 
+describe('MonitoredWorkspace — getWorkspacePaths for workspaceDetected', () => {
+  it('returns workspace folders when available (workspaceDetected = true)', () => {
+    const platform = createMockPlatform({
+      workspaceFolders: [projectAPath],
+    });
+    const watcher = new ClaudeCodeWatcher(createMockStateManager(), platform as any);
+    const paths = watcher.getWorkspacePaths();
+    expect(paths.length).toBeGreaterThan(0);
+  });
+
+  it('returns empty when no workspace folders (workspaceDetected = false)', () => {
+    const platform = createMockPlatform({
+      workspaceFolders: null,
+    });
+    const watcher = new ClaudeCodeWatcher(createMockStateManager(), platform as any);
+    const paths = watcher.getWorkspacePaths();
+    expect(paths).toEqual([]);
+  });
+
+  it('returns workspace folders after simulated folder open (re-detection)', () => {
+    const platform = createMockPlatform({
+      workspaceFolders: null,
+    });
+    const watcher = new ClaudeCodeWatcher(createMockStateManager(), platform as any);
+    // Initially no workspace
+    expect(watcher.getWorkspacePaths()).toEqual([]);
+
+    // Simulate workspace folder being opened
+    platform.getWorkspaceFolders.mockReturnValue([projectAPath]);
+    expect(watcher.getWorkspacePaths().length).toBeGreaterThan(0);
+  });
+});
+
 describe('MonitoredWorkspace — isFromCurrentWorkspace', () => {
   it('single mode accepts files from configured path', () => {
     const platform = createMockPlatform({
